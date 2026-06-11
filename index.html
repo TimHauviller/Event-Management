@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260611-014';
+      var V='20260611-015';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')!==V){
         u.searchParams.set('v',V);
@@ -4369,9 +4369,32 @@ async function generateAndSendEmail() {
   // ─── SPEICHERN & E-MAIL ───
   const safeName = evName.replace(/[^a-zA-Z0-9äöüÄÖÜß]/g,'_');
   const filename = 'Veranstaltungsbericht_'+safeName+(evDate?'_'+evDate.replace(/\./g,'-'):'')+'.pdf';
-  // PDF speichern
+
+  // E-Mail-Texte aufbauen (gleiche Werte wie im Export-Screen)
+  const _shareUser = JSON.parse(localStorage.getItem('task_user')||'{}');
+  const _shareName = _shareUser.name||'';
+  const _shareSubject = 'Veranstaltungsbericht: '+evName+(evDate?' – '+evDate:'');
+  const _shareBody = 'Hallo,\n\nanbei der Veranstaltungsbericht (Feedback + Getränkebestellung) für '+evName+(evDate?' vom '+evDate:'')+' als PDF.\n\nViele Grüße'+(_shareName?'\n'+_shareName:'');
+  const _shareTo = (emailRecipients||[]).join(',');
+
+  // Auf Mobilgeräten: Web Share API → PDF direkt als Anhang in Mail
+  const pdfBlob = doc.output('blob');
+  const pdfFile = new File([pdfBlob], filename, {type:'application/pdf'});
+  if(navigator.canShare && navigator.canShare({files:[pdfFile]})) {
+    try {
+      await navigator.share({files:[pdfFile], title:_shareSubject, text:_shareBody});
+      return; // Share-Sheet geöffnet → fertig
+    } catch(shareErr) {
+      if(shareErr.name!=='AbortError') console.warn('Share fehlgeschlagen:', shareErr);
+      // Falls abgebrochen oder Fehler → Fallback auf Download
+    }
+  }
+  // Desktop-Fallback: PDF herunterladen + E-Mail-Link aktualisieren
   doc.save(filename);
-  toast('📄 PDF gespeichert → schau im Downloads-Ordner ✓');
+  // Mailto-Link im Export-Screen aktualisieren
+  const _ml = document.getElementById('export-mail-link');
+  if(_ml && _shareTo) _ml.href='mailto:'+_shareTo+'?subject='+encodeURIComponent(_shareSubject)+'&body='+encodeURIComponent(_shareBody);
+  toast('📄 PDF gespeichert → jetzt "E-Mail öffnen" klicken und PDF anhängen ✓');
   } catch(err) {
     console.error('PDF Fehler:', err);
     toast('Fehler beim PDF erstellen: ' + (err.message||String(err)));
