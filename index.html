@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260611-015';
+      var V='20260611-016';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')!==V){
         u.searchParams.set('v',V);
@@ -548,11 +548,15 @@
     </div>
   </div>
   <div id="export-content" style="padding:14px;max-width:800px;margin:0 auto;padding-bottom:100px"></div>
-  <div style="position:sticky;bottom:0;background:#fff;border-top:1px solid #eee;padding:12px 14px;display:flex;gap:8px;flex-direction:column">
-    <div style="display:flex;gap:8px">
-      <button onclick="generateAndSendEmail()" style="flex:1;background:#1565c0;color:#fff;border:none;padding:14px;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer">📄 PDF erstellen</button>
+  <div style="position:sticky;bottom:0;background:#fff;border-top:1px solid #eee;padding:12px 14px">
+    <button onclick="generateAndSendEmail()" style="width:100%;background:#1565c0;color:#fff;border:none;padding:15px;border-radius:12px;font-size:16px;font-weight:800;cursor:pointer;margin-bottom:10px">
+      📤 PDF erstellen &amp; versenden
+    </button>
+    <div style="background:#e8f0fe;border-radius:10px;padding:10px 12px;font-size:12px;color:#333;line-height:1.6">
+      <strong>So geht's:</strong> Button drücken → im Teilen-Menü <strong>„Mail"</strong> wählen → PDF ist bereits angehängt, Text vorausgefüllt → Empfänger eintragen &amp; absenden:<br>
+      <span id="export-recipients-hint" style="color:#1565c0;font-weight:700;word-break:break-all;display:block;margin-top:3px"></span>
     </div>
-    <a id="export-mail-link" href="#" onclick="if(this.href.endsWith('#')){event.preventDefault();toast('Bitte zuerst E-Mail Empfänger im Admin-Bereich eintragen');}" style="display:block;background:#2e7d32;color:#fff;padding:13px;border-radius:12px;font-size:15px;font-weight:800;text-align:center;text-decoration:none">✉️ E-Mail öffnen</a>
+    <a id="export-mail-link" href="#" style="display:none"></a>
   </div>
 </div>
 
@@ -3662,6 +3666,8 @@ function openExport() {
   const to=(emailRecipients||[]).join(',');
   const mailLink=document.getElementById('export-mail-link');
   if(mailLink) mailLink.href=to?'mailto:'+to+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body):'#';
+  const hint=document.getElementById('export-recipients-hint');
+  if(hint) hint.textContent=to||(adminModeActive?'(Empfänger im Admin-Bereich eintragen)':'(Kein Empfänger eingetragen)');
   renderExport();
   showScreen('export-screen');
 }
