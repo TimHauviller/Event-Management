@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260611-016';
+      var V='20260611-017';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')!==V){
         u.searchParams.set('v',V);
@@ -552,9 +552,16 @@
     <button onclick="generateAndSendEmail()" style="width:100%;background:#1565c0;color:#fff;border:none;padding:15px;border-radius:12px;font-size:16px;font-weight:800;cursor:pointer;margin-bottom:10px">
       📤 PDF erstellen &amp; versenden
     </button>
-    <div style="background:#e8f0fe;border-radius:10px;padding:10px 12px;font-size:12px;color:#333;line-height:1.6">
-      <strong>So geht's:</strong> Button drücken → im Teilen-Menü <strong>„Mail"</strong> wählen → PDF ist bereits angehängt, Text vorausgefüllt → Empfänger eintragen &amp; absenden:<br>
-      <span id="export-recipients-hint" style="color:#1565c0;font-weight:700;word-break:break-all;display:block;margin-top:3px"></span>
+    <div style="background:#e8f0fe;border-radius:10px;padding:10px 12px;font-size:12px;color:#333;line-height:1.7">
+      <strong>So geht's:</strong> Button drücken → im Teilen-Menü <strong>„Mail"</strong> wählen → PDF ist bereits angehängt → folgende Felder ausfüllen:<br>
+      <span style="display:block;margin-top:6px">
+        <span style="color:#555">📬 <strong>An:</strong></span>
+        <span id="export-recipients-hint" style="color:#1565c0;font-weight:700;word-break:break-all;margin-left:4px"></span>
+      </span>
+      <span style="display:block;margin-top:2px">
+        <span style="color:#555">📝 <strong>Betreff:</strong></span>
+        <span id="export-subject-hint" style="color:#1565c0;font-weight:700;margin-left:4px"></span>
+      </span>
     </div>
     <a id="export-mail-link" href="#" style="display:none"></a>
   </div>
@@ -3668,6 +3675,8 @@ function openExport() {
   if(mailLink) mailLink.href=to?'mailto:'+to+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body):'#';
   const hint=document.getElementById('export-recipients-hint');
   if(hint) hint.textContent=to||(adminModeActive?'(Empfänger im Admin-Bereich eintragen)':'(Kein Empfänger eingetragen)');
+  const subjectHint=document.getElementById('export-subject-hint');
+  if(subjectHint) subjectHint.textContent=subject;
   renderExport();
   showScreen('export-screen');
 }
