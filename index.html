@@ -3724,6 +3724,7 @@ function subscribeTaskSystem() {
     taskUsers = s.val()||{};
     if(document.getElementById('admin-users-screen').style.display==='block') renderAdminUsers();
     if(document.getElementById('task-login-screen').style.display==='block') renderTaskLogin();
+    checkShowAdminSetup();
   });
   db.ref('/tasks').on('value', s => {
     allTasks = s.val()||{};
@@ -3802,6 +3803,43 @@ function pinKey(k) {
   if(pinBuffer.length===4){const hs=document.getElementById("home-screen");setTimeout((hs&&hs.style.display!=="none")?verifyHomePIN:verifyPin,150);}
 }
 
+
+function checkShowAdminSetup() {
+  const btn = document.getElementById('first-admin-btn');
+  if(!btn) return;
+  const hasAdmin = Object.values(taskUsers).some(u => u.isAdmin);
+  btn.style.display = hasAdmin ? 'none' : '';
+}
+
+function openFirstAdminSetup() {
+  document.getElementById('fa-name').value = '';
+  document.getElementById('fa-pin').value = '';
+  openModal('m-first-admin');
+  setTimeout(() => document.getElementById('fa-name').focus(), 100);
+}
+
+function saveFirstAdmin() {
+  const name = document.getElementById('fa-name').value.trim();
+  const pin  = document.getElementById('fa-pin').value.trim();
+  const loc  = document.getElementById('fa-loc').value;
+  if(!name) { toast('Bitte Namen eingeben'); return; }
+  if(!/^\d{4}$/.test(pin)) { toast('PIN muss genau 4 Ziffern sein'); return; }
+  if(Object.values(taskUsers).some(u => String(u.pin) === pin)) { toast('Dieser PIN ist bereits vergeben'); return; }
+  const uid = 'u_' + Date.now();
+  const newUser = { name, pin, loc, isAdmin: true };
+  if(db) {
+    db.ref('/taskUsers/' + uid).set(newUser).then(() => {
+      toast('Admin-Account erstellt ✓');
+      closeModal('m-first-admin');
+    });
+  } else {
+    taskUsers[uid] = newUser;
+    saveLocal();
+    toast('Admin-Account erstellt ✓');
+    closeModal('m-first-admin');
+  }
+}
+
 function verifyHomePIN(){
   const match=Object.entries(taskUsers).find(([,u])=>String(u.pin)===String(pinBuffer));
   if(match){
@@ -3824,6 +3862,7 @@ function showHomePIN(){
   const pe=document.getElementById('pin-error');if(pe)pe.textContent='';
   const pv=document.getElementById('home-pin-view'),mv=document.getElementById('home-menu-view');
   if(pv)pv.style.display='';if(mv)mv.style.display='none';
+  checkShowAdminSetup();
 }
 function showHomeMenu(){
   const pv=document.getElementById('home-pin-view'),mv=document.getElementById('home-menu-view');
@@ -4246,6 +4285,9 @@ function deleteUser(uid){
       <button class="pin-btn" onclick="pinKey('7')">7</button><button class="pin-btn" onclick="pinKey('8')">8</button><button class="pin-btn" onclick="pinKey('9')">9</button>
       <button class="pin-btn" style="visibility:hidden"></button><button class="pin-btn" onclick="pinKey('0')">0</button><button class="pin-btn" onclick="pinKey('⌫')">⌫</button>
     </div>
+    <div style="text-align:center;margin-top:18px">
+      <button id="first-admin-btn" onclick="openFirstAdminSetup()" style="display:none;background:none;border:none;color:#aaa;font-size:12px;cursor:pointer;text-decoration:underline">Admin einrichten</button>
+    </div>
   </div>
   <div id="home-menu-view" style="display:none;width:100%;max-width:400px">
     <div style="text-align:center;font-size:13px;color:#888;margin-bottom:20px" id="home-user-greeting">Hallo</div>
@@ -4263,6 +4305,23 @@ function deleteUser(uid){
       <div class="home-card-arr">›</div>
     </button>
     <button onclick="logoutTaskUser()" style="width:100%;background:none;border:1.5px solid #ddd;border-radius:12px;padding:11px;font-size:13px;color:#888;cursor:pointer;margin-top:8px">Abmelden</button>
+  </div>
+</div>
+<!-- FIRST ADMIN SETUP MODAL -->
+<div class="overlay" id="m-first-admin">
+  <div class="modal">
+    <h2>⚙️ Admin einrichten</h2>
+    <p style="font-size:13px;color:#666;margin-bottom:16px">Erstelle deinen Admin-Account. Dieser Button verschwindet, sobald ein Admin angelegt ist.</p>
+    <input type="text" id="fa-name" placeholder="Dein Name" style="margin-bottom:10px">
+    <input type="tel" id="fa-pin" placeholder="4-stelliger PIN" maxlength="4" inputmode="numeric" style="margin-bottom:10px">
+    <select id="fa-loc" style="margin-bottom:10px">
+      <option value="AS">amSee Leipzig</option>
+      <option value="EG">EVENTGIESSEREI</option>
+      <option value="LS">LAKESIDE</option>
+      <option value="OF">OFFICE</option>
+    </select>
+    <button class="mbtn" onclick="saveFirstAdmin()">Admin-Account erstellen</button>
+    <button class="mbtn grey" onclick="closeModal('m-first-admin')">Abbrechen</button>
   </div>
 </div>
 <!-- TASK LOGIN SCREEN -->
