@@ -3,7 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>Event Checklisten</title>
+  <script>
+    (function(){
+      var V='20260611-014';
+      var u=new URL(window.location.href);
+      if(u.searchParams.get('v')!==V){
+        u.searchParams.set('v',V);
+        window.location.replace(u.toString());
+      }
+    })();
+  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
   <style>
@@ -107,7 +121,7 @@
     .prog-wrap{background:rgba(255,255,255,.12);height:4px}
     .prog{height:4px;transition:width .4s;background:var(--accent,#3a8fd4);border-radius:0 2px 2px 0}
     .prog-label{padding:5px 16px;display:flex;justify-content:space-between}
-    .prog-text{font-size:11px;color:rgba(255,255,255,.6)}
+    .prog-text{font-size:13px;font-weight:700;color:rgba(255,255,255,.85)}
     .main{padding:14px;max-width:800px;margin:0 auto}
     .admin-bar{display:none;background:#fff8e1;border:1.5px solid #ffd54f;border-radius:var(--r);padding:12px 14px;margin-bottom:14px;gap:8px;flex-wrap:wrap;align-items:center}
     .admin-bar.show{display:flex}
@@ -143,6 +157,9 @@
     .subcat-btn{background:none;border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:10px;cursor:pointer;color:var(--muted)}
     .subcat-btn:hover{background:#f0f0f0}
     .subcat-btn.del:hover{background:#ffebee;color:#ea4335;border-color:#ea4335}
+    .assignee-badge{display:inline-flex;align-items:center;gap:3px;background:#e8f5e9;color:#2e7d32;border-radius:10px;padding:1px 7px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid #c8e6c9;margin-top:3px}
+    .assign-btn{background:none;border:1px dashed #ccc;border-radius:10px;padding:1px 7px;font-size:11px;color:#bbb;cursor:pointer}
+    .assign-btn:hover{border-color:#fb8c00;color:#fb8c00}
     .subcat-photo-thumb{width:100%;max-height:160px;object-fit:cover;display:block;border-radius:0 0 8px 8px;cursor:pointer}
     .subcat-cam-btn{background:none;border:1px solid var(--border);border-radius:4px;padding:2px 7px;font-size:11px;cursor:pointer;color:var(--muted)}
     .subcat-cam-btn.has-photo{border-color:#fb8c00;color:#fb8c00}
@@ -290,6 +307,8 @@
     .shake{animation:shake .3s ease}
     /* Vorlage mode */
     body.vorlage-mode .checklist-action-bar{display:none!important}
+    body.vorlage-mode #action-bar-toggle{display:none!important}
+    #action-bar-wrap.bar-hidden{display:none!important}
     body.vorlage-mode .prog-wrap,body.vorlage-mode .prog-label{display:none!important}
     body.vorlage-mode .admin-event-only{display:none!important}
     body.vorlage-mode .task.perm-task .task-de::before{display:none!important}
@@ -439,14 +458,16 @@
         <div class="hdr-title" id="hdr-loc-name"></div>
         <div class="hdr-event" id="hdr-event-name"></div>
       </div>
-      <button class="admin-btn" id="admin-btn" onclick="toggleAdmin()">Admin</button>
     </div>
     <div class="prog-wrap"><div class="prog" id="prog-bar" style="width:0%"></div></div>
     <div class="prog-label">
       <span class="prog-text" id="prog-text">0 / 0 erledigt</span>
       <span class="badge" id="offline-b">Offline</span>
     </div>
-    <div class="checklist-action-bar">
+    <div id="action-bar-toggle" onclick="toggleActionBar()" style="display:flex;align-items:center;justify-content:center;padding:3px 0;cursor:pointer;opacity:.6;gap:5px;font-size:10px;color:rgba(255,255,255,.7);letter-spacing:.5px">
+      <span id="action-bar-arrow">▼</span><span id="action-bar-label">MENÜ</span>
+    </div>
+    <div class="checklist-action-bar" id="action-bar-wrap">
       <a class="action-bar-btn" id="hdr-sheet-btn" href="#" target="_blank" rel="noopener" style="text-decoration:none">Factsheet</a>
       <button class="action-bar-btn" onclick="openAZ()">Location A-Z</button>
       <button class="action-bar-btn" onclick="openOrder()">Getränkebestellung</button>
@@ -460,6 +481,7 @@
         <div class="admin-bar-section-lbl" id="admin-bar-lbl">Vorlage</div>
         <button class="btn-r grey" onclick="changePwd()">Passwort</button>
         <button class="btn-r grey" onclick="openAdminTasks()" style="background:#1c1c2e;color:#fff">Aufgaben</button>
+        <button class="btn-r grey" onclick="openEmailSettings()" style="background:#1565c0;color:#fff">✉️ E-Mail Empfänger</button>
       </div>
       <hr class="admin-bar-sep admin-event-only">
       <div class="admin-bar-section admin-event-only">
@@ -507,9 +529,10 @@
     </div>
   </div>
   <div id="feedback-content" style="padding:14px;max-width:800px;margin:0 auto;padding-bottom:90px"></div>
-  <div style="position:sticky;bottom:0;background:#fff;border-top:1px solid #eee;padding:12px 14px;display:flex;gap:8px">
-    <button onclick="saveFeedbackNow()" style="flex:2;background:var(--accent,#3a8fd4);color:#fff;border:none;padding:14px;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer">Speichern ✓</button>
-    <button onclick="openExport()" style="flex:1;background:#25d366;color:#fff;border:none;padding:14px;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer">Teilen</button>
+  <div style="position:sticky;bottom:0;background:#fff;border-top:1px solid #eee;padding:10px 14px;display:flex;align-items:center;gap:8px">
+    <button onclick="saveFeedbackNow()" style="background:#f0f0f0;color:#444;border:none;padding:10px 14px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">Speichern ✓</button>
+    <button onclick="openExport()" style="flex:1;background:#1565c0;color:#fff;border:none;padding:14px;border-radius:12px;font-size:16px;font-weight:800;cursor:pointer">✉️ Per E-Mail senden</button>
+    <button onclick="resetFeedback()" style="background:#fff;color:#ea4335;border:1.5px solid #ea4335;padding:7px 12px;border-radius:10px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">↺ Reset</button>
   </div>
 </div>
 
@@ -525,9 +548,11 @@
     </div>
   </div>
   <div id="export-content" style="padding:14px;max-width:800px;margin:0 auto;padding-bottom:100px"></div>
-  <div style="position:sticky;bottom:0;background:#fff;border-top:1px solid #eee;padding:12px 14px;display:flex;gap:8px">
-    <button onclick="printExport()" style="flex:1;background:#555;color:#fff;border:none;padding:14px;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer">Drucken / PDF</button>
-    <button onclick="shareWhatsapp()" style="flex:1;background:#25d366;color:#fff;border:none;padding:14px;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer">WhatsApp</button>
+  <div style="position:sticky;bottom:0;background:#fff;border-top:1px solid #eee;padding:12px 14px;display:flex;gap:8px;flex-direction:column">
+    <div style="display:flex;gap:8px">
+      <button onclick="generateAndSendEmail()" style="flex:1;background:#1565c0;color:#fff;border:none;padding:14px;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer">📄 PDF erstellen</button>
+    </div>
+    <a id="export-mail-link" href="#" onclick="if(this.href.endsWith('#')){event.preventDefault();toast('Bitte zuerst E-Mail Empfänger im Admin-Bereich eintragen');}" style="display:block;background:#2e7d32;color:#fff;padding:13px;border-radius:12px;font-size:15px;font-weight:800;text-align:center;text-decoration:none">✉️ E-Mail öffnen</a>
   </div>
 </div>
 
@@ -540,26 +565,16 @@
         <div class="order-hdr-title">Bestellung nach Event</div>
         <div class="order-hdr-sub" id="order-hdr-sub"></div>
       </div>
-      <button class="btn-r grey" style="font-size:12px;padding:7px 12px" onclick="window.print()">Drucken</button>
     </div>
   </div>
   <div class="order-main">
-    <div class="order-meta">
-      <div class="order-meta-row">
-        <div class="order-meta-field">
-          <label class="order-meta-lbl">📅 Datum</label>
-          <input class="order-meta-input" id="order-datum" type="date" oninput="saveOrderMeta()">
-        </div>
-        <div class="order-meta-field">
-          <label class="order-meta-lbl">👤 Name</label>
-          <input class="order-meta-input" id="order-name" type="text" placeholder="Schichtleitung" oninput="saveOrderMeta()">
-        </div>
-      </div>
-    </div>
     <div id="order-content"></div>
-    <div class="order-save-bar">
-      <button class="btn-r grey" style="flex:1;background:#4caf50" onclick="saveOrderNow()">Speichern</button>
-      <button class="order-pdf-btn" style="flex:2;margin:0" onclick="saveOrderNow();setTimeout(()=>window.print(),400)">Als PDF speichern</button>
+    <div class="order-save-bar" style="flex-direction:column;gap:6px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <button onclick="saveOrderNow()" style="background:#f0f0f0;color:#444;border:none;padding:7px 14px;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">Speichern ✓</button>
+        <span style="font-size:11px;color:#999;flex:1;text-align:center">✉️ Wird mit Feedback per E-Mail gesendet.</span>
+        <button onclick="resetOrder()" style="background:#fff;color:#ea4335;border:1.5px solid #ea4335;padding:7px 12px;border-radius:10px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">↺ Reset</button>
+      </div>
     </div>
   </div>
 </div>
@@ -676,6 +691,24 @@
     <input type="password" id="pwd-new2" placeholder="Wiederholen">
     <button class="mbtn" onclick="savePwd()">Speichern</button>
     <button class="mbtn grey" onclick="closeModal('m-pwd')">Abbrechen</button>
+  </div>
+</div>
+<div class="overlay" id="m-pdf-ready">
+  <div class="modal">
+    <div style="text-align:center;font-size:40px;margin-bottom:8px">📄</div>
+    <h2 style="text-align:center;margin:0 0 6px">PDF bereit!</h2>
+    <p style="font-size:13px;color:#666;text-align:center;margin:0 0 18px">Das PDF wurde heruntergeladen.<br>Jetzt E-Mail öffnen und PDF anhängen.</p>
+    <a id="m-pdf-mailto-link" href="#" style="display:block;background:#1565c0;color:#fff;border:none;padding:15px;border-radius:12px;font-size:16px;font-weight:800;cursor:pointer;text-align:center;text-decoration:none;margin-bottom:8px">✉️ E-Mail öffnen</a>
+    <button class="mbtn grey" onclick="closeModal('m-pdf-ready')" style="margin-top:4px">Schließen</button>
+  </div>
+</div>
+<div class="overlay" id="m-email-settings">
+  <div class="modal">
+    <h2>✉️ E-Mail Empfänger</h2>
+    <p style="font-size:13px;color:#666;margin:0 0 10px">Eine E-Mail-Adresse pro Zeile. Beim Export wird an alle gleichzeitig geschickt.</p>
+    <textarea id="email-recipients-input" rows="5" placeholder="z.B.&#10;timmy@example.com&#10;florian@example.com" style="width:100%;box-sizing:border-box;border:1.5px solid #ddd;border-radius:8px;padding:9px 11px;font-size:14px;font-family:inherit;outline:none;resize:vertical"></textarea>
+    <button class="mbtn" onclick="saveEmailSettings()">Speichern</button>
+    <button class="mbtn grey" onclick="closeModal('m-email-settings')">Abbrechen</button>
   </div>
 </div>
 <div class="overlay" id="m-rename">
@@ -1649,6 +1682,7 @@ let loc = null, eventId = null;
 let isAdmin = false, loginOrigin = 'picker';
 let db = null, fbEnabled = false;
 let adminPassword = 'admin2024';
+let emailRecipients = []; // configurable list of email addresses
 
 let allEvents = {AS:{},EG:{},LS:{}};
 let evChecked = {}, evHidden = {}, evExtraTasks = {}, evTaskOrder = {};
@@ -1657,6 +1691,9 @@ let photoRequired = {};  // {taskId: true} — tasks that need a photo before ch
 let undoStack = [];  // [{type, data}] — last actions for undo
 let evTaskPhotos = {};    // per-event staff photos: {taskId: base64}
 let evTaskNotes = {};     // per-event task notes: {taskId: string}
+let evTaskAssignments = {}; // per-event task assignments: {taskId: uid}
+let evCatAssignments = {};    // per-event category assignments: {catId: uid}
+let evSubcatAssignments = {}; // per-event subcat assignments: {scKey: uid}
 let evSubcatPhotos = {};  // per-event subcat photos: {key: dataURL}
 let locNames = {AS:'amSee Leipzig',EG:'EVENTGIESSEREI',LS:'LAKESIDE',OF:'OFFICE'};
 let catNames = {}, customCats = {AS:{},EG:{},LS:{}}, locPhotos = {};
@@ -1693,6 +1730,7 @@ let azPrevScreen = 'events';   // where to go back from A-Z
 let vorlageMode = false;
 let feedbackData = {};
 let vorlageTaskOrder = {AS:{},EG:{},LS:{}};
+let vorlageHidden = {};  // tasks hidden in vorlage per loc: {loc:{taskId:true}}
 let openCats = new Set(); // track which categories are expanded
 
 // ── FIREBASE ───────────────────────────────────────────────────────
@@ -1713,6 +1751,7 @@ function subscribeGlobal() {
   db.ref('/photoRequired').on('value', s => { photoRequired = s.val()||{}; renderIfApp(); });
   db.ref('/edits').on('value', s => { edits = s.val()||{}; renderIfApp(); });
   db.ref('/settings/pwd').on('value', s => { if (s.val()) adminPassword = s.val(); });
+  db.ref('/settings/emailRecipients').on('value', s => { emailRecipients = s.val() || []; });
   db.ref('/locNames').on('value', s => { Object.assign(locNames, s.val()||{}); updatePickerLabels(); });
   db.ref('/locPhotos').on('value', s => { locPhotos = s.val()||{}; updateLocPhotos(); });
   db.ref('/catNames').on('value', s => { catNames = s.val()||{}; renderIfApp(); });
@@ -1724,6 +1763,7 @@ function subscribeGlobal() {
     });
     db.ref('/catOrder/'+l).on('value', s => { catOrder[l]=s.val()||[]; if(loc===l)renderIfApp(); });
     db.ref('/vorlageOrder/'+l).on('value', s => { vorlageTaskOrder[l]=s.val()||{}; if(vorlageMode&&loc===l)renderIfApp(); });
+    db.ref('/vorlageHidden/'+l).on('value', s => { vorlageHidden[l]=s.val()||{}; if(vorlageMode&&loc===l)renderIfApp(); });
     db.ref('/permTasks/'+l).on('value', s => { permTasks[l]=s.val()||{}; if(loc===l)renderIfApp(); });
     db.ref('/subNames/'+l).on('value', s => { subNames[l]=s.val()||{}; if(loc===l)renderIfApp(); });
     db.ref('/wikiCats/'+l).on('value', s => { wikiCats[l]=s.val()||{}; if(loc===l&&isAZVisible())renderAZ(); });
@@ -1763,9 +1803,20 @@ function subscribeEvent(l, eid) {
   sub(base+'/taskPhotos', s => { evTaskPhotos=s.val()||{}; renderIfApp(); });
   sub(base+'/taskNotes',  s => { evTaskNotes=s.val()||{};  renderIfApp(); });
   sub(base+'/subcatPhotos', s => { evSubcatPhotos=s.val()||{}; renderIfApp(); });
+  sub(base+'/taskAssignments',   s => { evTaskAssignments=s.val()||{};   renderIfApp(); renderMyTasksIfOpen(); });
+  sub(base+'/catAssignments',    s => { evCatAssignments=s.val()||{};    renderIfApp(); });
+  sub(base+'/subcatAssignments', s => { evSubcatAssignments=s.val()||{}; renderIfApp(); });
   sub('/orders/'+l+'/'+eid, s => { orderData=s.val()||{}; });
   sub('/eventFeedback/'+l+'/'+eid, s => { feedbackData=s.val()||{}; });
-  sub('/orderCustom/'+l+'/'+eid, s => { customOrderItems=s.val()||{}; if(document.getElementById('order-screen').style.display==='block') renderOrder(); });
+  sub('/orderCustom/'+l+'/'+eid, s => {
+    customOrderItems=s.val()||{};
+    if(document.getElementById('order-screen').style.display==='block') {
+      // Don't re-render while user is actively typing in a custom field
+      const a = document.activeElement;
+      const typing = a && (a.classList.contains('custom-name-input') || (a.dataset && a.dataset.id));
+      if(!typing) renderOrder();
+    }
+  });
   sub('/orderMeta/'+l+'/'+eid, s => { orderMeta=s.val()||{}; });
 }
 
@@ -1797,7 +1848,7 @@ function goToEvents() {
   vorlageMode = false;
   document.body.classList.remove('vorlage-mode');
   eventId = null;
-  evChecked={}; evHidden={}; evExtraTasks={}; evTaskOrder={}; evTaskNotes={}; evSubcatPhotos={};
+  evChecked={}; evHidden={}; evExtraTasks={}; evTaskOrder={}; evTaskNotes={}; evSubcatPhotos={}; evTaskAssignments={}; evCatAssignments={}; evSubcatAssignments={};
   document.getElementById('ev-loc-name').textContent = locNames[loc]||loc;
   renderEventsList();
   showScreen('events-screen');
@@ -1809,7 +1860,7 @@ function pickEvent(eid) {
   openCats.clear();
   eventId = eid;
   const ev = (allEvents[loc]||{})[eid]||{};
-  evChecked={}; evHidden={}; evExtraTasks={}; evTaskOrder={}; evTaskNotes={}; evSubcatPhotos={};
+  evChecked={}; evHidden={}; evExtraTasks={}; evTaskOrder={}; evTaskNotes={}; evSubcatPhotos={}; evTaskAssignments={}; evCatAssignments={}; evSubcatAssignments={};
   document.getElementById('hdr-loc-name').textContent = locNames[loc]||loc;
   document.getElementById('hdr-event-name').textContent = ev.name||'';
   const lbl=document.getElementById('admin-bar-lbl');
@@ -1820,13 +1871,14 @@ function pickEvent(eid) {
   if (db) { render(); subscribeEvent(loc, eid); }
   else { loadLocalEvent(loc, eid); render(); }
   showScreen('app');
+  initActionBarState();
 }
 
 function pickVorlage() {
   vorlageMode = true;
   document.body.classList.add('vorlage-mode');
   eventId = null;
-  evChecked={}; evHidden={}; evExtraTasks={}; evTaskOrder={}; evTaskNotes={}; evSubcatPhotos={};
+  evChecked={}; evHidden={}; evExtraTasks={}; evTaskOrder={}; evTaskNotes={}; evSubcatPhotos={}; evTaskAssignments={}; evCatAssignments={}; evSubcatAssignments={};
   document.getElementById('hdr-loc-name').textContent = locNames[loc]||loc;
   document.getElementById('hdr-event-name').textContent = 'Vorlage – gilt für alle Events';
   const shBtn=document.getElementById('hdr-sheet-btn');
@@ -1951,6 +2003,10 @@ function render() {
             <button class="adm-btn" ${upDis} onclick="event.stopPropagation();moveCat('${cat.id}',-1)" title="Kategorie hoch">▲</button>
             <button class="adm-btn" ${dnDis} onclick="event.stopPropagation();moveCat('${cat.id}',1)" title="Kategorie runter">▼</button>
           </span>
+          ${!vorlageMode?(isAdmin?(evCatAssignments[cat.id]
+            ?`<button class="assignee-badge" onclick="event.stopPropagation();openAssignCat('${escAttr(cat.id)}','${escAttr(nm)}')" title="Zuweisung ändern">👤 ${escHtml((taskUsers[evCatAssignments[cat.id]]||{}).name||'?')}</button>`
+            :`<button class="assign-btn" onclick="event.stopPropagation();openAssignCat('${escAttr(cat.id)}','${escAttr(nm)}')" title="Kategorie zuweisen">+👤</button>`)
+            :(evCatAssignments[cat.id]?`<span class="assignee-badge" style="cursor:default;pointer-events:none">👤 ${escHtml((taskUsers[evCatAssignments[cat.id]]||{}).name||'?')}</span>`:'')):'' }
           <span class="cat-count">${d}/${tot}</span>
           <span class="cat-arrow">▼</span>
         </div>
@@ -1967,10 +2023,15 @@ function render() {
         const dnDis = sgIdx>=namedGroups.length-1 ? 'disabled' : '';
         const _scKey = _subcatPhotoKey(cat.id, g.origSub||g.sub);
         const _scHasPhoto = !!evSubcatPhotos[_scKey];
+        const _scAssignee = evSubcatAssignments[_scKey];
         html+=`<div class="subcat-row">
           <span class="subcat-lbl">${escHtml(g.sub)}</span>
           <span style="display:flex;align-items:center;gap:4px">
-            <button class="subcat-cam-btn ${_scHasPhoto?'has-photo':''}" onclick="openSubcatPhoto('${escAttr(cat.id)}','${escAttr(g.origSub||g.sub)}','${escAttr(g.sub)}')" title="${_scHasPhoto?'Foto ansehen/ändern':'Foto hinzufügen'}">${_scHasPhoto?'📷✓':'📷'}</button>
+            ${isAdmin?(_scAssignee
+              ?`<button class="assignee-badge" onclick="openAssignSubcat('${escAttr(cat.id)}','${escAttr(g.origSub||g.sub)}','${escAttr(g.sub)}')" title="Zuweisung ändern">👤 ${escHtml((taskUsers[_scAssignee]||{}).name||'?')}</button>`
+              :`<button class="assign-btn" onclick="openAssignSubcat('${escAttr(cat.id)}','${escAttr(g.origSub||g.sub)}','${escAttr(g.sub)}')" title="Gruppe zuweisen">+👤</button>`)
+              :(_scAssignee?`<span class="assignee-badge" style="cursor:default;pointer-events:none">👤 ${escHtml((taskUsers[_scAssignee]||{}).name||'?')}</span>`:'')}
+            ${isAdmin?`<button class="subcat-cam-btn ${_scHasPhoto?'has-photo':''}" onclick="openSubcatPhoto('${escAttr(cat.id)}','${escAttr(g.origSub||g.sub)}','${escAttr(g.sub)}')" title="${_scHasPhoto?'Foto ansehen/ändern':'Foto hinzufügen'}">${_scHasPhoto?'📷✓':'📷'}</button>`:''}
             <span class="subcat-move-btns">
               <button class="subcat-btn" ${upDis} onclick="moveSubcat('${escAttr(cat.id)}','${escAttr(g.origSub||g.sub)}',-1)" title="Gruppe hoch">▲</button>
               <button class="subcat-btn" ${dnDis} onclick="moveSubcat('${escAttr(cat.id)}','${escAttr(g.origSub||g.sub)}',1)" title="Gruppe runter">▼</button>
@@ -2010,13 +2071,15 @@ function getOrderedTasks(cat) {
     base.push({id:tk.id,de:tk.de,en:tk.en||'',sub:tk.sub||'',isPerm:true});
   });
   if(vorlageMode){
-    // Vorlage: base + perm only, no event extras, no hidden filter
+    // Vorlage: base + perm only, filter vorlageHidden
+    const hidden=(vorlageHidden[loc])||{};
+    const visible=base.filter(tk=>!(hidden[tk.id]&&!tk.isPerm));
     const order=(vorlageTaskOrder[loc]||{})[cat.id];
     if(order&&order.length>0){
       const idx={}; order.forEach((id,i)=>idx[id]=i);
-      base.sort((a,b)=>(idx[a.id]!==undefined?idx[a.id]:9999)-(idx[b.id]!==undefined?idx[b.id]:9999));
+      visible.sort((a,b)=>(idx[a.id]!==undefined?idx[a.id]:9999)-(idx[b.id]!==undefined?idx[b.id]:9999));
     }
-    return base;
+    return visible;
   }
   // Add event-specific extra tasks
   Object.values(evExtraTasks).filter(tk=>tk.catId===cat.id).forEach(tk=>{
@@ -2056,7 +2119,7 @@ function getAllCats() {
   );
 }
 
-function renderTask(tk, catId, siblings) {
+function renderTask(tk, catId, siblings, origSub) {
   const checked=!!evChecked[tk.id];
   const de=edits[tk.id]?edits[tk.id].de:tk.de;
   const en=edits[tk.id]?edits[tk.id].en:tk.en;
@@ -2064,21 +2127,19 @@ function renderTask(tk, catId, siblings) {
   const upDis=idx<=0?'disabled':'';
   const dnDis=idx>=siblings.length-1?'disabled':'';
   if(vorlageMode){
-    const delBtn=tk.isPerm?`<button class="adm-btn del" onclick="deletePermTask('${tk.id}')" title="Aus Vorlage entfernen">✕</button>`:'';
-    return `<div class="task${tk.isPerm?' perm-task':''}" id="task-${tk.id}" style="${!tk.isPerm?'opacity:.55':''}">
+    return `<div class="task perm-task" id="task-${tk.id}">
       <div class="chk" style="opacity:.22;cursor:default;pointer-events:none"></div>
       <div class="task-txt">
         <div class="task-de">${escHtml(de)}</div>
         ${en?`<div class="task-en">${escHtml(en)}</div>`:''}
-        ${!tk.isPerm?'<div style="font-size:10px;color:#bbb;margin-top:1px">Basis-Aufgabe</div>':''}
       </div>
       <div class="task-btns">
         <div class="adm-btns">
           <button class="adm-btn" ${upDis} onclick="moveTask('${catId}','${tk.id}',-1)">▲</button>
           <button class="adm-btn" ${dnDis} onclick="moveTask('${catId}','${tk.id}',1)">▼</button>
           <button class="adm-btn" onclick="openEditTask('${tk.id}','${catId}')">✏️</button>
-          ${tk.isPerm?`<button class="adm-btn" onclick="openMoveToCat('${tk.id}','${catId}')" title="In andere Kategorie verschieben">↗</button>`:''}
-          ${delBtn}
+          <button class="adm-btn" onclick="openMoveToCat('${tk.id}','${catId}')" title="In andere Kategorie verschieben">↗</button>
+          <button class="adm-btn del" onclick="hideVorlageTask('${tk.id}')" title="Aus Vorlage entfernen">✕</button>
           <button class="adm-btn${photoRequired[tk.id]?' photo-req-on':''}" onclick="togglePhotoRequired('${tk.id}')" title="${photoRequired[tk.id]?'Foto-Pflicht aus':'Foto-Pflicht ein'}" style="font-size:13px">&#128247;</button>
         </div>
         <button class="${photos[tk.id]?'ico-btn active':'ico-btn'}" onclick="openRefPhoto('${tk.id}','${escAttr(de)}')" title="${photos[tk.id]?'Referenzfoto ansehen':'Referenzfoto hochladen'}">Foto</button>
@@ -2093,13 +2154,14 @@ function renderTask(tk, catId, siblings) {
       <div class="task-de">${escHtml(de)}</div>
       ${en?`<div class="task-en">${escHtml(en)}</div>`:''}
       ${evTaskNotes[tk.id]?`<div class="task-note">${escHtml(evTaskNotes[tk.id])}</div>`:''}
+      ${(()=>{const ea=getEffectiveAssignee(tk.id,catId,origSub);const uname=ea?(taskUsers[ea.uid]||{}).name||'?':null;if(isAdmin){return ea?`<span class="assignee-badge" onclick="event.stopPropagation();openAssignTask('${tk.id}','${escAttr(de)}')" title="Zuweisung">👤 ${escHtml(uname)}${ea.level!=='task'?' (geerbt)':''}</span>`:`<button class="assign-btn" onclick="event.stopPropagation();openAssignTask('${tk.id}','${escAttr(de)}')" title="Mitarbeiter zuweisen">+👤</button>`;}return ea?`<span class="assignee-badge" style="cursor:default;pointer-events:none">👤 ${escHtml(uname)}${ea.level!=='task'?' (geerbt)':''}</span>`:'';})()}
     </div>
     <div class="task-btns">
       <div class="adm-btns">
         <button class="adm-btn" ${upDis} onclick="moveTask('${catId}','${tk.id}',-1)">▲</button>
         <button class="adm-btn" ${dnDis} onclick="moveTask('${catId}','${tk.id}',1)">▼</button>
         <button class="adm-btn" onclick="openEditTask('${tk.id}','${catId}')">✏️</button>
-        ${(tk.isPerm||tk.isEvent)?`<button class="adm-btn" onclick="openMoveToCat('${tk.id}','${catId}')" title="In andere Kategorie verschieben">↗</button>`:''}
+        <button class="adm-btn" onclick="openMoveToCat('${tk.id}','${catId}')" title="In andere Kategorie verschieben">↗</button>
         <button class="adm-btn del" onclick="hideTask('${tk.id}')">🗑</button>
         ${evDel}
         <button class="adm-btn${photoRequired[tk.id]?' photo-req-on':''}" onclick="togglePhotoRequired('${tk.id}')" title="${photoRequired[tk.id]?'Foto-Pflicht aus':'Foto-Pflicht ein'}" style="font-size:13px">&#128247;</button>
@@ -2112,6 +2174,65 @@ function renderTask(tk, catId, siblings) {
 }
 
 // ── TASK NOTES ────────────────────────────────────────────────────
+function getEffectiveAssignee(tkId, catId, origSub) {
+  if(evTaskAssignments[tkId]) return {uid: evTaskAssignments[tkId], level:'task'};
+  if(origSub) {
+    const scKey = _subcatPhotoKey(catId, origSub);
+    if(evSubcatAssignments[scKey]) return {uid: evSubcatAssignments[scKey], level:'subcat'};
+  }
+  if(evCatAssignments[catId]) return {uid: evCatAssignments[catId], level:'cat'};
+  return null;
+}
+
+let _assignTaskId = null;
+let _assignMode = 'task';
+let _assignKey = null;
+
+function _openAssignModal(title, currentUid, mode, key) {
+  _assignMode = mode; _assignKey = key;
+  document.getElementById('m-assign-title').textContent = '\u{1F464} ' + title;
+  const clearBtn = document.getElementById('m-assign-clear');
+  if(clearBtn) clearBtn.style.display = currentUid ? '' : 'none';
+  const users = Object.entries(taskUsers).sort((a,b)=>a[1].name.localeCompare(b[1].name));
+  document.getElementById('m-assign-list').innerHTML = users.map(([uid,u]) => {
+    const active = uid === currentUid;
+    return `<div onclick="saveAssignment('${escAttr(uid)}')" style="padding:12px 16px;border-radius:10px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:10px;background:${active?'#e8f5e9':'#f8f8f8'};border:1.5px solid ${active?'#2e7d32':'#eee'}">
+      <div style="width:34px;height:34px;border-radius:50%;background:${active?'#2e7d32':'#1c1c2e'};color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800">${escHtml(u.name.split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase())}</div>
+      <div style="font-size:14px;font-weight:700${active?';color:#2e7d32':''}">${escHtml(u.name)}${active?' \u2713':''}</div>
+    </div>`;
+  }).join('');
+  openModal('m-assign-task');
+}
+function openAssignTask(id, name) {
+  _assignTaskId = id;
+  _openAssignModal(name, evTaskAssignments[id]||null, 'task', id);
+}
+function openAssignCat(catId, catName) {
+  _openAssignModal(catName, evCatAssignments[catId]||null, 'cat', catId);
+}
+function openAssignSubcat(catId, origSub, displayName) {
+  const key = _subcatPhotoKey(catId, origSub);
+  _openAssignModal(displayName, evSubcatAssignments[key]||null, 'subcat', key);
+}
+function saveAssignment(uid) {
+  const val = uid || null;
+  if(_assignMode === 'cat') {
+    if(val){ evCatAssignments[_assignKey]=val; if(db) db.ref('/eventData/'+loc+'/'+eventId+'/catAssignments/'+_assignKey).set(val); }
+    else { delete evCatAssignments[_assignKey]; if(db) db.ref('/eventData/'+loc+'/'+eventId+'/catAssignments/'+_assignKey).remove(); }
+  } else if(_assignMode === 'subcat') {
+    if(val){ evSubcatAssignments[_assignKey]=val; if(db) db.ref('/eventData/'+loc+'/'+eventId+'/subcatAssignments/'+_assignKey).set(val); }
+    else { delete evSubcatAssignments[_assignKey]; if(db) db.ref('/eventData/'+loc+'/'+eventId+'/subcatAssignments/'+_assignKey).remove(); }
+  } else {
+    if(val){ evTaskAssignments[_assignKey]=val; if(db) db.ref('/eventData/'+loc+'/'+eventId+'/taskAssignments/'+_assignKey).set(val); }
+    else { delete evTaskAssignments[_assignKey]; if(db) db.ref('/eventData/'+loc+'/'+eventId+'/taskAssignments/'+_assignKey).remove(); }
+  }
+  closeModal('m-assign-task'); render();
+}
+function saveTaskAssignment(uid) { saveAssignment(uid); }
+function renderMyTasksIfOpen() {
+  if(document.getElementById('my-tasks-screen') && document.getElementById('my-tasks-screen').style.display==='block') renderMyTasks();
+}
+
 let _noteTaskId = null;
 function openTaskNote(id) {
   _noteTaskId = id;
@@ -2209,6 +2330,27 @@ function setAdmin(on) { isAdmin=on; updateAdminButtons(); if(!on) toast('Admin-M
 function toggleAdminFromPicker(){loginOrigin='picker';isAdmin?setAdmin(false):openLogin();}
 function toggleAdminFromEvents(){loginOrigin='events';isAdmin?setAdmin(false):openLogin();}
 function toggleAdmin(){loginOrigin='app';isAdmin?setAdmin(false):openLogin();}
+
+function toggleActionBar(){
+  const wrap=document.getElementById('action-bar-wrap');
+  const arrow=document.getElementById('action-bar-arrow');
+  const lbl=document.getElementById('action-bar-label');
+  if(!wrap)return;
+  const hidden=wrap.classList.toggle('bar-hidden');
+  if(arrow) arrow.textContent=hidden?'▶':'▼';
+  if(lbl) lbl.textContent=hidden?'MENÜ':'MENÜ';
+  try{localStorage.setItem('actionBarHidden',hidden?'1':'0');}catch(e){}
+}
+function initActionBarState(){
+  try{
+    if(localStorage.getItem('actionBarHidden')==='1'){
+      const wrap=document.getElementById('action-bar-wrap');
+      const arrow=document.getElementById('action-bar-arrow');
+      if(wrap){wrap.classList.add('bar-hidden');}
+      if(arrow){arrow.textContent='▶';}
+    }
+  }catch(e){}
+}
 
 function openLogin(){openModal('m-login');setTimeout(()=>document.getElementById('pw-input').focus(),100);}
 
@@ -2455,21 +2597,58 @@ function openMoveToCat(taskId, catId) {
   const opts=allCats.filter(c=>c.id!==catId)
     .map(c=>'<option value="'+c.id+'">'+escHtml(catNames[c.id]||c.name)+'</option>').join('');
   document.getElementById('move-cat-select').innerHTML=opts;
+  updateMoveSubcats();
   openModal('m-move-cat');
+}
+function updateMoveSubcats() {
+  const catId = document.getElementById('move-cat-select').value;
+  const cat = getAllCats().find(c=>c.id===catId);
+  const subs = cat ? [...new Set(getOrderedTasks(cat).map(t=>t.sub).filter(Boolean))] : [];
+  const dl = document.getElementById('move-sub-datalist');
+  if(dl) dl.innerHTML = subs.map(s=>'<option value="'+escHtml(s)+'">').join('');
+  const inp = document.getElementById('move-sub-input');
+  if(inp) inp.value = '';
 }
 function doMoveTaskToCat() {
   const newCatId=document.getElementById('move-cat-select').value;
+  const newSub=(document.getElementById('move-sub-input').value||'').trim();
   if(!newCatId||!_moveTaskId) return;
   if(permTasks[loc]&&permTasks[loc][_moveTaskId]){
     permTasks[loc][_moveTaskId].catId=newCatId;
-    if(db) db.ref('/permTasks/'+loc+'/'+_moveTaskId+'/catId').set(newCatId); else saveLocal();
+    permTasks[loc][_moveTaskId].sub=newSub;
+    if(db){ db.ref('/permTasks/'+loc+'/'+_moveTaskId+'/catId').set(newCatId); db.ref('/permTasks/'+loc+'/'+_moveTaskId+'/sub').set(newSub||null); } else saveLocal();
   } else if(evExtraTasks[_moveTaskId]){
     evExtraTasks[_moveTaskId].catId=newCatId;
-    if(db) db.ref('/eventData/'+loc+'/'+eventId+'/extraTasks/'+_moveTaskId+'/catId').set(newCatId); else saveLocal();
+    evExtraTasks[_moveTaskId].sub=newSub;
+    if(db){ db.ref('/eventData/'+loc+'/'+eventId+'/extraTasks/'+_moveTaskId+'/catId').set(newCatId); db.ref('/eventData/'+loc+'/'+eventId+'/extraTasks/'+_moveTaskId+'/sub').set(newSub||null); } else saveLocal();
+  } else if(vorlageMode) {
+    // Vorlage base task: promote to permTask in new cat+sub, hide original
+    const origTask = getAllCats().flatMap(c=>getOrderedTasks(c)).find(t=>t.id===_moveTaskId);
+    const de = (edits[_moveTaskId]&&edits[_moveTaskId].de)||(origTask&&origTask.de)||'';
+    const en = (edits[_moveTaskId]&&edits[_moveTaskId].en)||(origTask&&origTask.en)||'';
+    if(!permTasks[loc]) permTasks[loc]={};
+    permTasks[loc][_moveTaskId]={id:_moveTaskId,de,en,catId:newCatId,sub:newSub};
+    if(!vorlageHidden[loc]) vorlageHidden[loc]={};
+    vorlageHidden[loc][_moveTaskId]=true;
+    if(db){
+      db.ref('/permTasks/'+loc+'/'+_moveTaskId).set(permTasks[loc][_moveTaskId]);
+      db.ref('/vorlageHidden/'+loc+'/'+_moveTaskId).set(true);
+    } else saveLocal();
+  } else {
+    // Event base task: hide original, create evExtraTask copy in target cat+sub
+    const origTask = getAllCats().flatMap(c=>getOrderedTasks(c)).find(t=>t.id===_moveTaskId);
+    const de = (edits[_moveTaskId]&&edits[_moveTaskId].de)||(origTask&&origTask.de)||'';
+    const en = (edits[_moveTaskId]&&edits[_moveTaskId].en)||(origTask&&origTask.en)||'';
+    const newId = 'mv_'+_moveTaskId;
+    evHidden[_moveTaskId]=true;
+    evExtraTasks[newId]={de,en,catId:newCatId,sub:newSub,isEvent:true};
+    if(db){
+      db.ref('/eventData/'+loc+'/'+eventId+'/hidden/'+_moveTaskId).set(true);
+      db.ref('/eventData/'+loc+'/'+eventId+'/extraTasks/'+newId).set(evExtraTasks[newId]);
+    } else saveLocal();
   }
   closeModal('m-move-cat');
   render();
-  // Keep target cat open
   const el=document.getElementById('cat-'+newCatId);
   if(el){el.classList.add('open');openCats.add(newCatId);}
   toast('Aufgabe verschoben ✓');
@@ -2925,7 +3104,7 @@ document.addEventListener('DOMContentLoaded', function boot(){
   };
   initFirebase(HARDCODED_CFG);
   showScreen('home-screen');
-  try{const s=localStorage.getItem('task_user');if(s){currentTaskUser=JSON.parse(s);if(currentTaskUser.isAdmin)isAdmin=true;showHomeMenu();}else{showHomePIN();}}catch(e){showHomePIN();}
+  try{const s=localStorage.getItem('task_user');if(s){currentTaskUser=JSON.parse(s);showHomeMenu();}else{showHomePIN();}}catch(e){showHomePIN();}
 });
 
 // ── CATEGORY REORDER ───────────────────────────────────────────────
@@ -3007,6 +3186,14 @@ function getSubKey(origSub) {
 }
 
 // ── DELETE PERMANENT TASK ─────────────────────────────────────────
+function hideVorlageTask(id) {
+  if(!confirm('Aufgabe aus der Vorlage entfernen?')) return;
+  if(!vorlageHidden[loc]) vorlageHidden[loc]={};
+  vorlageHidden[loc][id]=true;
+  if(db) db.ref('/vorlageHidden/'+loc+'/'+id).set(true); else saveLocal();
+  render(); toast('Aufgabe entfernt');
+}
+
 function deletePermTask(id){
   if(!confirm('Dauerhafte Aufgabe löschen?')) return;
   delete permTasks[loc][id];
@@ -3019,8 +3206,6 @@ function openOrder() {
   if(!loc||!eventId){toast('Bitte zuerst ein Event wählen');return;}
   const ev=(allEvents[loc]||{})[eventId]||{};
   document.getElementById('order-hdr-sub').textContent=(locNames[loc]||loc)+' · '+(ev.name||'');
-  document.getElementById('order-datum').value=orderMeta.datum||ev.date||'';
-  document.getElementById('order-name').value=orderMeta.name||'';
   renderOrder();
   showScreen('order-screen');
 }
@@ -3060,6 +3245,18 @@ function updateBestellung(key) {
   const best=Math.max(0,soll-ist);
   bestEl.textContent=best>0?best:'–';
   if(rowEl){rowEl.classList.toggle('need',best>0);rowEl.classList.toggle('ok',best===0&&soll>0);}
+}
+
+function resetOrder() {
+  if(!confirm('Getränkebestellung wirklich zurücksetzen?')) return;
+  orderData = {};
+  customOrderItems = {};
+  if(db) {
+    db.ref('/orders/'+loc+'/'+eventId).set(null);
+    db.ref('/orderCustom/'+loc+'/'+eventId).set(null);
+  }
+  renderOrder();
+  toast('Bestellung zurückgesetzt');
 }
 
 function saveOrderNow() {
@@ -3149,11 +3346,18 @@ function removeCustomOrderItem(id) {
   renderOrder();
 }
 
+let _customItemTimers = {};
 function updateCustomItem(id, field, val) {
   if(!customOrderItems[id]) customOrderItems[id]={name:'',soll:'',ist:''};
   customOrderItems[id][field] = val;
-  if(db) db.ref('/orderCustom/'+loc+'/'+eventId+'/'+id+'/'+field).set(val);
-  else saveLocal();
+  // Debounce Firebase write to avoid re-render on every keystroke
+  const tkey = id+'_'+field;
+  clearTimeout(_customItemTimers[tkey]);
+  _customItemTimers[tkey] = setTimeout(() => {
+    if(db) db.ref('/orderCustom/'+loc+'/'+eventId+'/'+id+'/'+field).set(val);
+    else saveLocal();
+  }, 600);
+
   setTimeout(updateOrderProgress, 50);
   // update bestellung display
   const crow = document.getElementById('crow-'+id);
@@ -3276,6 +3480,14 @@ function openFeedback() {
   if(!loc||!eventId){toast('Bitte zuerst ein Event wählen');return;}
   const ev=(allEvents[loc]||{})[eventId]||{};
   document.getElementById('feedback-hdr-sub').textContent=(locNames[loc]||loc)+' · '+(ev.name||'');
+  // Auto-set submittedBy from logged-in user
+  try{
+    const u=JSON.parse(localStorage.getItem('task_user')||'{}');
+    if(u.name&&!feedbackData.submittedBy){
+      feedbackData.submittedBy=u.name;
+      if(db) db.ref('/eventFeedback/'+loc+'/'+eventId+'/submittedBy').set(u.name);
+    }
+  }catch(e){}
   renderFeedback();
   showScreen('feedback-screen');
 }
@@ -3300,6 +3512,14 @@ function setFeedbackText(field, val) {
 function saveFeedbackNow() {
   if(db) db.ref('/eventFeedback/'+loc+'/'+eventId).set(feedbackData); else saveLocal();
   toast('Feedback gespeichert ✓');
+}
+
+function resetFeedback() {
+  if(!confirm('Feedback wirklich komplett zurücksetzen?')) return;
+  feedbackData = {};
+  if(db) db.ref('/eventFeedback/'+loc+'/'+eventId).set(null);
+  toast('Feedback zurückgesetzt');
+  renderFeedback();
 }
 
 function renderFeedback() {
@@ -3364,6 +3584,11 @@ function renderFeedback() {
 
   let html = '';
 
+  // \u2500\u2500 Wer macht das Feedback \u2500\u2500
+  if(d.submittedBy){
+    html += `<div style="background:#e8f4fd;border-radius:10px;padding:10px 15px;margin-bottom:12px;font-size:13px;color:#1a5f8a;font-weight:600">\ud83d\udcdd Feedback von: ${escHtml(d.submittedBy)}</div>`;
+  }
+
   // \u2500\u2500 G\u00c4STE \u2500\u2500
   html += sec('G\u00e4ste');
   html += card('G\u00e4stezufriedenheit', ratingRow('guestSat'));
@@ -3426,7 +3651,17 @@ function fbDeletePhoto(field) {
 function openExport() {
   if(!loc||!eventId){toast('Bitte zuerst ein Event w\u00e4hlen');return;}
   const ev=(allEvents[loc]||{})[eventId]||{};
-  document.getElementById('export-hdr-sub').textContent=(locNames[loc]||loc)+' \u00b7 '+(ev.name||'');
+  const evName=ev.name||eventId;
+  const evDate=ev.date?new Date(ev.date).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}):'';
+  document.getElementById('export-hdr-sub').textContent=(locNames[loc]||loc)+' \u00b7 '+evName;
+  // Pre-build mailto link so clicking it is always a direct user gesture
+  const subject='Veranstaltungsbericht: '+evName+(evDate?' \u2013 '+evDate:'');
+  const _mailUser = JSON.parse(localStorage.getItem('task_user')||'{}');
+  const _mailName = _mailUser.name||'';
+  const body='Hallo,\n\nanbei der Veranstaltungsbericht (Feedback + Getr\u00e4nkebestellung) f\u00fcr '+evName+(evDate?' vom '+evDate:'')+' als PDF.\n\nViele Gr\u00fc\u00dfe'+ (_mailName?'\n'+_mailName:'');
+  const to=(emailRecipients||[]).join(',');
+  const mailLink=document.getElementById('export-mail-link');
+  if(mailLink) mailLink.href=to?'mailto:'+to+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body):'#';
   renderExport();
   showScreen('export-screen');
 }
@@ -3624,10 +3859,19 @@ function printChecklist() {
       g.tasks.forEach(tk=>{
         const de=edits[tk.id]?edits[tk.id].de:tk.de;
         const checked=!!evChecked[tk.id];
+        const note=evTaskNotes[tk.id]||'';
         body+='<div style="display:flex;align-items:flex-start;gap:10px;padding:7px 14px;border-top:1px solid #f5f5f5">'
           +'<div style="width:15px;height:15px;border:2px solid '+(checked?'#34a853':'#ccc')+';border-radius:3px;flex-shrink:0;margin-top:1px;background:'+(checked?'#34a853':'#fff')+'"></div>'
-          +'<span style="font-size:12px;'+(checked?'text-decoration:line-through;color:#aaa;':'')+'">'+escHtml(de)+'</span></div>';
+          +'<div><span style="font-size:12px;'+(checked?'text-decoration:line-through;color:#aaa;':'')+'">'+escHtml(de)+'</span>'
+          +(note?'<div style="font-size:10px;color:#e65100;margin-top:2px">💬 '+escHtml(note)+'</div>':'')
+          +'</div></div>';
       });
+      // Subcat photo (small, after tasks)
+      if(g.sub){
+        const scKey=_subcatPhotoKey(cat.id, g.origSub||g.sub);
+        const scPhoto=evSubcatPhotos[scKey];
+        if(scPhoto) body+='<div style="padding:6px 14px 10px"><img src="'+scPhoto+'" style="max-width:100%;max-height:110px;object-fit:cover;border-radius:6px;display:block"></div>';
+      }
     });
     body+='</div>';
   });
@@ -3692,6 +3936,446 @@ function shareWhatsapp() {
   const txt = buildWhatsappText();
   if(navigator.share){ navigator.share({title:'Zusammenfassung',text:txt}).catch(()=>{}); }
   else{ window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank'); }
+}
+
+function openEmailSettings() {
+  const ta = document.getElementById('email-recipients-input');
+  if(ta) ta.value = (emailRecipients||[]).join('\n');
+  openModal('m-email-settings');
+}
+
+function saveEmailSettings() {
+  const raw = (document.getElementById('email-recipients-input').value||'').trim();
+  const list = raw.split('\n').map(s=>s.trim()).filter(s=>s.length>0);
+  emailRecipients = list;
+  if(db) db.ref('/settings/emailRecipients').set(list.length ? list : null);
+  closeModal('m-email-settings');
+  toast('E-Mail Empfänger gespeichert ✓');
+}
+
+function buildEmailText() {
+  const d = feedbackData;
+  const ev = (allEvents[loc]||{})[eventId]||{};
+  const evName = ev.name||eventId;
+  const evDate = ev.date ? new Date(ev.date).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}) : '';
+  const locLabel = locNames[loc]||loc;
+
+  let txt = '=== VERANSTALTUNGSBERICHT ===\n';
+  txt += evName + (evDate ? ' | ' + evDate : '') + ' | ' + locLabel + '\n';
+  if(d.submittedBy) txt += 'Feedback von: ' + d.submittedBy + '\n';
+  txt += '\n';
+
+  // Feedback
+  txt += '--- FEEDBACK NACH EVENT ---\n';
+  if(d.guestSat)       txt += 'Gästezufriedenheit: ' + d.guestSat + '/10\n';
+  if(d.guestsLeft)     txt += 'Abreise Gäste: ' + d.guestsLeft + '\n';
+  if(d.foodComment)    txt += 'Kommentar Essen: ' + d.foodComment + '\n';
+  if(d.serviceComment) txt += 'Kommentar Service: ' + d.serviceComment + '\n';
+  if(d.team)           txt += 'Mitarbeit Team: ' + d.team + '/10\n';
+  if(d.team_note)      txt += 'Team-Anmerkungen: ' + d.team_note + '\n';
+  if(d.teamDone)       txt += 'Feierabend Team: ' + d.teamDone + '\n';
+  if(d.problems)       txt += 'Probleme: ' + (d.problems==='ja' ? 'Ja' + (d.problems_text ? ': ' + d.problems_text : '') : 'Nein') + '\n';
+  if(d.selfSat)        txt += 'Eigene Zufriedenheit: ' + d.selfSat + '/10\n';
+  if(d.lostFound)      txt += 'Fundsachen: ' + (d.lostFound==='ja' ? 'Ja' + (d.lostFound_text ? ': ' + d.lostFound_text : '') : 'Nein') + '\n';
+  if(d.notes)          txt += 'Sonstige Anmerkungen: ' + d.notes + '\n';
+  txt += '\n';
+
+  // Aufgaben-Kommentare
+  const noted = getTasksWithNotes();
+  if(noted.length) {
+    txt += '--- AUFGABEN MIT KOMMENTAR ---\n';
+    noted.forEach(n => { txt += '• ' + n.taskName + ' (' + n.catName + '): ' + n.note + '\n'; });
+    txt += '\n';
+  }
+
+  // Getränkebestellung
+  txt += '--- GETRÄNKEBESTELLUNG ---\n';
+  const orderSections = ORDER_ITEMS[loc]||[];
+  let hasOrder = false;
+  orderSections.forEach(section => {
+    const rows = section.items.filter(item => { const ist=parseFloat((orderData[item.key]||{}).ist); return !isNaN(ist); });
+    if(!rows.length) return;
+    txt += '\n' + section.group||section.label||'' + '\n';
+    rows.forEach(item => {
+      const ist = parseFloat((orderData[item.key]||{}).ist)||0;
+      const soll = parseFloat((orderData[item.key]||{}).soll)||0;
+      const best = Math.max(0, soll - ist);
+      txt += '  ' + item.name + ': Ist=' + ist + ', Soll=' + soll + (best>0 ? ', Bestellung: ' + best : '') + '\n';
+      hasOrder = true;
+    });
+  });
+  const customEntries = Object.entries(customOrderItems||{}).filter(([,item])=>item.name);
+  if(customEntries.length) {
+    txt += '\nEigene Positionen\n';
+    customEntries.forEach(([,item]) => {
+      txt += '  ' + (item.name||'') + ': Ist=' + (item.ist||0) + ', Soll=' + (item.soll||0) + '\n';
+      hasOrder = true;
+    });
+  }
+  if(!hasOrder) txt += 'Keine Einträge\n';
+
+  txt += '\n---\nExportiert aus Event Checklisten';
+  return txt;
+}
+
+function sendEmail() { generateAndSendEmail(); }
+
+// Gibt {w, h} in px zurück, preserves aspect ratio
+function getImgNaturalDims(src) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload  = () => resolve({w: img.naturalWidth,  h: img.naturalHeight});
+    img.onerror = () => resolve({w: 1, h: 1});
+    img.src = src;
+  });
+}
+
+async function generateAndSendEmail() {
+  if(!window.jspdf) { toast('PDF-Bibliothek lädt noch, kurz warten...'); return; }
+
+  toast('PDF wird erstellt...');
+  try {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+  const ev = (allEvents[loc]||{})[eventId]||{};
+  const evName = ev.name||eventId;
+  const evDate = ev.date ? new Date(ev.date).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}) : '';
+  const locLabel = locNames[loc]||loc;
+  const margin = 14, pageW = 210, pageH = 297;
+  const cW = pageW - margin*2;
+  let y = margin;
+
+  function newPageIfNeeded(needed) {
+    if(y + (needed||10) > pageH - margin) { doc.addPage(); y = margin; }
+  }
+
+  function drawHeader(title, sub) {
+    doc.setFillColor(28,28,46);
+    doc.roundedRect(margin, y, cW, 20, 2, 2, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(13); doc.setFont('helvetica','bold');
+    doc.text(title, margin+5, y+8);
+    doc.setFontSize(8); doc.setFont('helvetica','normal');
+    doc.text(sub, margin+5, y+15);
+    doc.setTextColor(0,0,0);
+    y += 24;
+  }
+
+  function secLabel(lbl) {
+    newPageIfNeeded(10);
+    doc.setFontSize(7.5); doc.setFont('helvetica','bold');
+    doc.setTextColor(160,160,160);
+    doc.text(lbl.toUpperCase(), margin, y);
+    doc.setTextColor(0,0,0);
+    y += 5;
+  }
+
+  function dataRow(label, value) {
+    if(!value && value !== 0) return;
+    newPageIfNeeded(8);
+    doc.setFontSize(8.5); doc.setFont('helvetica','normal');
+    doc.setTextColor(120,120,120);
+    doc.text(label, margin, y);
+    doc.setTextColor(30,30,30); doc.setFont('helvetica','bold');
+    const lines = doc.splitTextToSize(String(value), cW - 62);
+    doc.text(lines, margin+62, y);
+    doc.setTextColor(0,0,0); doc.setFont('helvetica','normal');
+    y += lines.length * 5 + 2;
+  }
+
+  function ratingRow(label, val) {
+    if(!val) return;
+    newPageIfNeeded(9);
+    doc.setFontSize(8.5); doc.setFont('helvetica','normal');
+    doc.setTextColor(120,120,120);
+    doc.text(label, margin, y);
+    const col = val>=8?[46,125,50]:val>=5?[230,81,0]:[198,40,40];
+    doc.setFillColor(...col);
+    doc.roundedRect(margin+62, y-4.5, 18, 6.5, 1.5, 1.5, 'F');
+    doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(8);
+    doc.text(val+'/10', margin+71, y, {align:'center'});
+    doc.setTextColor(0,0,0); doc.setFont('helvetica','normal');
+    y += 7;
+  }
+
+  // ─── SEITE 1: DECKBLATT + FEEDBACK ───
+  const d = feedbackData;
+  const _pdfUser = JSON.parse(localStorage.getItem('task_user')||'{}');
+  const submittedBy = _pdfUser.name || d.submittedBy || '';
+
+  // Deckblatt-Info
+  doc.setFontSize(20); doc.setFont('helvetica','bold'); doc.setTextColor(28,28,46);
+  const titleLines = doc.splitTextToSize(evName, cW);
+  doc.text(titleLines, margin, y); y += titleLines.length * 10 + 2;
+  doc.setFontSize(11); doc.setFont('helvetica','normal'); doc.setTextColor(100,100,100);
+  if(evDate) { doc.text(evDate, margin, y); y += 6; }
+  doc.text(locLabel, margin, y); y += 6;
+  if(submittedBy) { doc.text('Erstellt von: '+submittedBy, margin, y); y += 6; }
+  // ─── AUFGABEN-FORTSCHRITT ───
+  {
+    let _done = 0, _total = 0;
+    getAllCats().forEach(cat => {
+      const tasks = getOrderedTasks(cat);
+      _done  += tasks.filter(tk => evChecked[tk.id]).length;
+      _total += tasks.length;
+    });
+    const _pct = _total > 0 ? Math.round(_done / _total * 100) : 0;
+    const _label = _pct === 100 ? '✓ Alle Aufgaben erledigt' : _pct+'% der Aufgaben erledigt';
+    const _sub   = _done+' von '+_total+' Aufgaben';
+    const bgColor = _pct === 100 ? [46,125,50] : _pct >= 80 ? [93,138,65] : [198,40,40];
+    doc.setFillColor(...bgColor);
+    doc.roundedRect(margin, y, cW, 14, 2, 2, 'F');
+    doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
+    doc.text(_label, margin+5, y+6);
+    doc.setFontSize(8.5); doc.setFont('helvetica','normal');
+    doc.text(_sub, margin+5, y+11);
+    doc.setTextColor(0,0,0);
+    y += 18;
+  }
+
+  doc.setDrawColor(220,220,220); doc.line(margin, y+2, margin+cW, y+2); y += 10;
+  doc.setTextColor(0,0,0);
+
+  drawHeader('Feedback nach Event', locLabel+(evDate?' · '+evDate:'')+(submittedBy?' · '+submittedBy:''));
+
+  secLabel('Gäste');
+  ratingRow('Gästezufriedenheit', d.guestSat);
+  dataRow('Abreise Gäste', d.guestsLeft);
+
+  secLabel('Essen & Service');
+  dataRow('Kommentar Essen', d.foodComment);
+  dataRow('Kommentar Service', d.serviceComment);
+
+  secLabel('Team');
+  ratingRow('Mitarbeit Team', d.team);
+  dataRow('Team-Anmerkungen', d.team_note);
+  dataRow('Feierabend Team', d.teamDone);
+  if(d.problems) dataRow('Probleme', d.problems==='ja'?('Ja'+(d.problems_text?': '+d.problems_text:'')):'Nein');
+
+  secLabel('Sonstiges');
+  ratingRow('Eigene Zufriedenheit', d.selfSat);
+  if(d.lostFound) {
+    dataRow('Fundsachen', d.lostFound==='ja'?('Ja'+(d.lostFound_text?': '+d.lostFound_text:'')):'Nein');
+    if(d['photo_lostFound']) {
+      const {w:iw,h:ih} = await getImgNaturalDims(d['photo_lostFound']);
+      let imgW=cW, imgH=imgW*(ih/iw); if(imgH>52){imgH=52;imgW=imgH*(iw/ih);}
+      newPageIfNeeded(imgH+6);
+      try { const fmt=d['photo_lostFound'].includes('image/png')?'PNG':'JPEG'; doc.addImage(d['photo_lostFound'],fmt,margin,y,imgW,imgH); y+=imgH+5; }
+      catch(e) { doc.setFontSize(8);doc.setTextColor(180,0,0);doc.text('(Foto konnte nicht eingebettet werden)',margin,y);doc.setTextColor(0,0,0);y+=6; }
+    }
+  }
+  dataRow('Sonstige Anmerkungen', d.notes);
+  if(d['photo_notes']) {
+    const {w:iw,h:ih} = await getImgNaturalDims(d['photo_notes']);
+    let imgW=cW, imgH=imgW*(ih/iw); if(imgH>52){imgH=52;imgW=imgH*(iw/ih);}
+    newPageIfNeeded(imgH+6);
+    try { const fmt=d['photo_notes'].includes('image/png')?'PNG':'JPEG'; doc.addImage(d['photo_notes'],fmt,margin,y,imgW,imgH); y+=imgH+5; }
+    catch(e) { doc.setFontSize(8);doc.setTextColor(180,0,0);doc.text('(Foto konnte nicht eingebettet werden)',margin,y);doc.setTextColor(0,0,0);y+=6; }
+  }
+
+  // ─── AUFGABEN: nicht erledigt (mit Begründung falls vorhanden) + erledigt mit Kommentar ───
+  {
+    // Alle Aufgaben durchgehen und klassifizieren
+    const unfinished = []; // nicht erledigt — Kommentar = Begründung
+    const doneWithNote = []; // erledigt + hat Kommentar
+
+    getAllCats().forEach(cat => {
+      getOrderedTasks(cat).forEach(tk => {
+        const name = (edits[tk.id]?.de || tk.de || tk.name || '');
+        if(!name) return;
+        const note = evTaskNotes[tk.id] || '';
+        const checked = !!evChecked[tk.id];
+        if(!checked) {
+          unfinished.push({catName: cat.name||'', taskName: name, note});
+        } else if(note) {
+          doneWithNote.push({catName: cat.name||'', taskName: name, note});
+        }
+      });
+    });
+
+    // Nicht erledigte Aufgaben
+    if(unfinished.length) {
+      secLabel('Nicht erledigte Aufgaben');
+      let lastCat = null;
+      unfinished.forEach(u => {
+        if(u.catName !== lastCat) {
+          newPageIfNeeded(10);
+          doc.setFontSize(8.5); doc.setFont('helvetica','bold'); doc.setTextColor(30,30,30);
+          doc.text(u.catName, margin, y); y += 5;
+          lastCat = u.catName;
+        }
+        newPageIfNeeded(u.note ? 16 : 7);
+        // Aufgabenname
+        doc.setFontSize(8.5); doc.setFont('helvetica','normal'); doc.setTextColor(60,60,60);
+        const taskLines = doc.splitTextToSize('• '+u.taskName, cW-4);
+        doc.text(taskLines, margin+3, y);
+        y += taskLines.length * 5;
+        // Begründung (Kommentar) direkt darunter
+        if(u.note) {
+          doc.setFontSize(8); doc.setFont('helvetica','italic'); doc.setTextColor(140,90,0);
+          const noteLines = doc.splitTextToSize('→ '+u.note, cW-8);
+          doc.text(noteLines, margin+6, y);
+          doc.setFont('helvetica','normal'); doc.setTextColor(0,0,0);
+          y += noteLines.length * 5;
+        }
+        y += 2;
+      });
+      y += 3;
+    }
+
+    // Erledigte Aufgaben mit Kommentar (separat)
+    if(doneWithNote.length) {
+      secLabel('Aufgaben mit Kommentar');
+      doneWithNote.forEach(n => {
+        newPageIfNeeded(16);
+        doc.setFontSize(8.5); doc.setFont('helvetica','bold'); doc.setTextColor(30,30,30);
+        const titleLines = doc.splitTextToSize((n.catName ? n.catName+' › ' : '')+n.taskName, cW);
+        doc.text(titleLines, margin, y);
+        y += titleLines.length * 5;
+        doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(60,60,60);
+        const noteLines = doc.splitTextToSize(n.note, cW);
+        doc.text(noteLines, margin, y);
+        doc.setTextColor(0,0,0);
+        y += noteLines.length * 5 + 5;
+      });
+    }
+  }
+
+  // ─── FOTOS (auf Seite 1) ───
+  {
+    const photos = [];
+
+    // 1) Mitarbeiterfotos (pro Aufgabe) — mit Aufgabenname
+    if(Object.keys(evTaskPhotos||{}).length) {
+      getAllCats().forEach(cat => {
+        getOrderedTasks(cat).forEach(tk => {
+          const src = evTaskPhotos[tk.id];
+          if(src) {
+            const taskName = (edits[tk.id]?.de || tk.de || tk.name || tk.id);
+            photos.push({label:(cat.name?cat.name+' › ':'')+taskName, src, type:'task'});
+          }
+        });
+      });
+    }
+
+    // 2) Feedback-Fotos werden direkt bei den Einträgen angezeigt — hier nicht nochmal
+
+    // 3) Unterkategorie-Fotos
+    Object.entries(evSubcatPhotos||{}).forEach(([key,url]) => {
+      let lbl = key;
+      getAllCats().forEach(cat => {
+        groupBySub(getOrderedTasks(cat), cat.id).forEach(g => {
+          if(g.sub && _subcatPhotoKey(cat.id, g.origSub||g.sub)===key) lbl=(cat.name?cat.name+' › ':'')+g.sub;
+        });
+      });
+      photos.push({label:lbl, src:url, type:'subcat'});
+    });
+
+    if(photos.length) {
+      // Abschnittsüberschriften je nach Typ
+      let lastType = null;
+      for(const p of photos) {
+        if(p.type !== lastType) {
+          const secNames = {task:'Mitarbeiterfotos', feedback:'Feedback-Fotos', subcat:'Bereichsfotos'};
+          secLabel(secNames[p.type]||'Fotos');
+          lastType = p.type;
+        }
+        const {w:iw,h:ih} = await getImgNaturalDims(p.src);
+        let imgW=cW, imgH=imgW*(ih/iw); if(imgH>52){imgH=52;imgW=imgH*(iw/ih);}
+        newPageIfNeeded(imgH+16);
+        doc.setFontSize(8.5); doc.setFont('helvetica','bold'); doc.setTextColor(50,50,50);
+        doc.text(p.label, margin, y); y += 5;
+        try {
+          const fmt = p.src.includes('image/png')?'PNG':'JPEG';
+          doc.addImage(p.src, fmt, margin, y, imgW, imgH);
+          y += imgH+6;
+        } catch(e) {
+          doc.setFontSize(8); doc.setTextColor(180,0,0);
+          doc.text('(Foto konnte nicht eingebettet werden)', margin, y);
+          doc.setTextColor(0,0,0); y += 6;
+        }
+      }
+    }
+  }
+
+  // ─── SEITE 2: GETRÄNKEBESTELLUNG ───
+  doc.addPage(); y = margin;
+  drawHeader('Getränkebestellung', locLabel+(evDate?' · '+evDate:''));
+
+  const orderSections = ORDER_ITEMS[loc]||[];
+  let hasOrder = false;
+  orderSections.forEach(section => {
+    const rows = section.items.filter(item => item.soll !== undefined && item.soll !== null && item.soll !== '');
+    if(!rows.length) return;
+    hasOrder = true;
+    newPageIfNeeded(14);
+    doc.setFillColor(240,240,240);
+    doc.rect(margin, y, cW, 7, 'F');
+    doc.setFontSize(8); doc.setFont('helvetica','bold');
+    doc.text(section.group||section.label||'', margin+2, y+5);
+    y += 9;
+    doc.setFontSize(7.5); doc.setTextColor(140,140,140);
+    doc.text('Artikel', margin+2, y);
+    doc.text('Soll', margin+cW-40, y, {align:'right'});
+    doc.text('Ist', margin+cW-24, y, {align:'right'});
+    doc.text('Bestellung', margin+cW, y, {align:'right'});
+    doc.setTextColor(0,0,0);
+    y += 4;
+    doc.setDrawColor(220,220,220); doc.line(margin, y, margin+cW, y); y += 3;
+    rows.forEach(item => {
+      newPageIfNeeded(7);
+      const soll = parseFloat(item.soll)||0;
+      const istRaw = parseFloat((orderData[item.key]||{}).ist);
+      const istEntered = !isNaN(istRaw);
+      const ist = istEntered ? istRaw : null;
+      const best = istEntered ? Math.max(0, soll - ist) : soll;
+      const nameLines = doc.splitTextToSize(item.name, cW-55);
+      doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(30,30,30);
+      doc.text(nameLines, margin+2, y);
+      doc.setTextColor(80,80,80);
+      doc.text(String(soll||'–'), margin+cW-40, y, {align:'right'});
+      doc.text(ist !== null ? String(ist) : '–', margin+cW-24, y, {align:'right'});
+      if(best>0){ doc.setTextColor(198,40,40); doc.setFont('helvetica','bold'); doc.text(String(best), margin+cW, y, {align:'right'}); }
+      else { doc.setTextColor(46,125,50); doc.text('–', margin+cW, y, {align:'right'}); }
+      doc.setTextColor(0,0,0); doc.setFont('helvetica','normal');
+      y += nameLines.length*5+2;
+      doc.setDrawColor(245,245,245); doc.line(margin, y, margin+cW, y);
+    });
+    y += 4;
+  });
+
+  const customEntries = Object.entries(customOrderItems||{}).filter(([,i])=>i.name);
+  if(customEntries.length) {
+    newPageIfNeeded(14); hasOrder = true;
+    doc.setFillColor(240,240,240); doc.rect(margin, y, cW, 7, 'F');
+    doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.text('Eigene Positionen', margin+2, y+5); y += 10;
+    customEntries.forEach(([,item]) => {
+      newPageIfNeeded(7);
+      const ist = parseFloat(item.ist)||0, soll = parseFloat(item.soll)||0;
+      const best = (item.ist!==undefined&&item.ist!=='') ? Math.max(0,soll-ist) : null;
+      doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(30,30,30);
+      doc.text(item.name||'', margin+2, y);
+      doc.setTextColor(80,80,80);
+      doc.text(String(soll||'–'), margin+cW-40, y, {align:'right'});
+      doc.text(String(ist), margin+cW-24, y, {align:'right'});
+      if(best!==null&&best>0){ doc.setTextColor(198,40,40); doc.setFont('helvetica','bold'); doc.text(String(best), margin+cW, y, {align:'right'}); }
+      else { doc.setTextColor(46,125,50); doc.text('–', margin+cW, y, {align:'right'}); }
+      doc.setTextColor(0,0,0); doc.setFont('helvetica','normal'); y += 7;
+    });
+  }
+  if(!hasOrder) { doc.setFontSize(9); doc.setTextColor(160,160,160); doc.text('Keine Einträge', margin, y); y += 8; }
+
+  // ─── SPEICHERN & E-MAIL ───
+  const safeName = evName.replace(/[^a-zA-Z0-9äöüÄÖÜß]/g,'_');
+  const filename = 'Veranstaltungsbericht_'+safeName+(evDate?'_'+evDate.replace(/\./g,'-'):'')+'.pdf';
+  // PDF speichern
+  doc.save(filename);
+  toast('📄 PDF gespeichert → schau im Downloads-Ordner ✓');
+  } catch(err) {
+    console.error('PDF Fehler:', err);
+    toast('Fehler beim PDF erstellen: ' + (err.message||String(err)));
+  }
 }
 
 // ── TASK SYSTEM ──────────────────────────────────────────────────────────────
@@ -3847,7 +4531,6 @@ function verifyHomePIN(){
     const ud={uid,name:u.name,loc:u.loc,isAdmin:!!u.isAdmin};
     localStorage.setItem('task_user',JSON.stringify(ud));
     currentTaskUser=ud;
-    if(u.isAdmin){isAdmin=true;updateAdminButtons();}
     showHomeMenu();
   } else {
     pinBuffer='';
@@ -3918,8 +4601,37 @@ function renderMyTasks(){
   else if(myTaskTab==='rejected') tasks=tasks.filter(t=>t.status==='rejected');
   tasks.sort((a,b)=>{const p={urgent:0,high:1,medium:2,low:3};return (p[a.priority]||2)-(p[b.priority]||2)||(a.dueDate||'').localeCompare(b.dueDate||'');});
   const el=document.getElementById('my-tasks-content');
-  if(!tasks.length){el.innerHTML='<div style="text-align:center;padding:50px 20px;color:var(--muted);font-size:14px">Keine Aufgaben in dieser Kategorie</div>';return;}
-  el.innerHTML=tasks.map(t=>renderTaskCard(t,'my')).join('');
+
+  // ── Checklisten-Aufgaben (zugewiesene Event-Tasks) ──
+  let clHtml = '';
+  if(eventId) {
+    const myCheckTasks = [];
+    getAllCats().forEach(cat => {
+      groupBySub(getOrderedTasks(cat), cat.id).forEach(g => {
+        g.tasks.forEach(tk => {
+          const ea = getEffectiveAssignee(tk.id, cat.id, g.origSub||g.sub||null);
+          if(ea && ea.uid === uid) {
+            const de = (edits[tk.id]&&edits[tk.id].de) || tk.de || tk.name || '';
+            const checked = !!evChecked[tk.id];
+            myCheckTasks.push({id:tk.id, name:de, cat:cat.name||'', checked});
+          }
+        });
+      });
+    });
+    if(myCheckTasks.length) {
+      const evName = ((allEvents[loc]||{})[eventId]||{}).name || eventId;
+      clHtml = '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:8px">📋 ' + escHtml(evName) + ' — Meine Checklisten-Aufgaben</div>'
+        + myCheckTasks.map(t => '<div style="background:#fff;border-radius:10px;padding:12px 14px;margin-bottom:6px;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(0,0,0,.07)">'
+          + '<div style="width:20px;height:20px;border-radius:50%;border:2px solid '+(t.checked?'#2e7d32':'#ccc')+';background:'+(t.checked?'#2e7d32':'#fff')+';flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px">'+(t.checked?'✓':'')+'</div>'
+          + '<div style="flex:1"><div style="font-size:14px;font-weight:600;'+(t.checked?'text-decoration:line-through;color:#aaa':'')+'">'+escHtml(t.name)+'</div>'
+          + '<div style="font-size:11px;color:#aaa;margin-top:1px">'+escHtml(t.cat)+'</div></div>'
+          + '</div>').join('')
+        + '<div style="margin-bottom:20px"></div>';
+    }
+  }
+
+  if(!tasks.length && !clHtml){el.innerHTML='<div style="text-align:center;padding:50px 20px;color:var(--muted);font-size:14px">Keine Aufgaben in dieser Kategorie</div>';return;}
+  el.innerHTML = clHtml + tasks.map(t=>renderTaskCard(t,'my')).join('');
 }
 
 function renderTaskCard(t,from){
@@ -4212,21 +4924,31 @@ function openAdminUsers(){ showScreen('admin-users-screen'); renderAdminUsers();
 
 function renderAdminUsers(){
   const users=Object.entries(taskUsers).sort((a,b)=>a[1].name.localeCompare(b[1].name));
-  let html=users.map(([uid,u])=>{
-    const ini=u.name.split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase();
-    return '<div class="usr-card">'
-      +'<div class="login-avatar" style="width:36px;height:36px;font-size:14px">'+escHtml(ini)+'</div>'
-      +'<div style="flex:1"><div style="font-size:14px;font-weight:700">'+escHtml(u.name)+'</div>'
-      +'<div style="flex:1"><div style="font-size:14px;font-weight:700">'+escHtml(u.name)+(u.isAdmin?' <span style="font-size:10px;background:#1c1c2e;color:#fff;border-radius:4px;padding:1px 5px">Admin</span>':'')+'</div>'
-      +'<div style="font-size:12px;color:var(--muted)">PIN: '+escHtml(String(u.pin||''))+'</div></div>'
-  }).join('');
+  let html='';
+  if(users.length){
+    html=users.map(([uid,u])=>{
+      const ini=u.name.split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase();
+      return '<div class="usr-card">'
+        +'<div class="login-avatar" style="width:36px;height:36px;font-size:14px">'+escHtml(ini)+'</div>'
+        +'<div style="flex:1">'
+          +'<div style="font-size:14px;font-weight:700">'+escHtml(u.name)+(u.isAdmin?' <span style="font-size:10px;background:#1c1c2e;color:#fff;border-radius:4px;padding:1px 5px">Admin</span>':'')+'</div>'
+          +'<div style="font-size:12px;color:var(--muted)">PIN: '+escHtml(String(u.pin||''))+(u.loc?' · '+escHtml(u.loc):'')+'</div>'
+        +'</div>'
+        +'<div style="display:flex;gap:6px">'
+          +`<button onclick="openEditUser('${escAttr(uid)}')" style="font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid #ddd;background:#f5f5f5;cursor:pointer">✏️</button>`
+          +`<button onclick="toggleUserAdmin('${escAttr(uid)}',${!u.isAdmin})" style="font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid #ddd;background:#f5f5f5;cursor:pointer">`+(u.isAdmin?'Admin ✕':'Admin ✓')+'</button>'
+          +`<button onclick="deleteUser('${escAttr(uid)}')" style="font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid #ffcdd2;background:#fff5f5;color:#c62828;cursor:pointer">🗑</button>`
+        +'</div>'
+        +'</div>';
+    }).join('');
+  } else {
+    html='<div style="text-align:center;padding:24px;color:var(--muted);font-size:14px">Noch keine Mitarbeiter</div>';
+  }
   html+='<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#999;margin:22px 0 10px">Mitarbeiter hinzufügen</div>'
-  if(!users.length) html='<div style="text-align:center;padding:24px;color:var(--muted);font-size:14px">Noch keine Mitarbeiter</div>';
     +'<label class="tform-lbl">Name</label>'
     +'<input class="tform-input" id="nu-name" placeholder="Max Mustermann">'
     +'<label class="tform-lbl">PIN (4-stellig)</label>'
     +'<input class="tform-input" id="nu-pin" type="tel" placeholder="1234" maxlength="4">'
-    
     +'<label style="display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:13px;color:#444;cursor:pointer"><input type="checkbox" id="nu-admin" style="width:16px;height:16px"> Admin-Rechte</label>'
     +'<button onclick="createUser()" style="width:100%;background:var(--accent);color:#fff;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer">Mitarbeiter anlegen ✓</button>';
   document.getElementById('admin-users-content').innerHTML=html;
@@ -4247,6 +4969,31 @@ function createUser(){
   document.getElementById('nu-pin').value='';
   if(document.getElementById('nu-admin'))document.getElementById('nu-admin').checked=false;
 }
+let _editUid = null;
+function openEditUser(uid) {
+  _editUid = uid;
+  const u = taskUsers[uid]; if(!u) return;
+  document.getElementById('eu-name').value = u.name||'';
+  document.getElementById('eu-pin').value = u.pin||'';
+  document.getElementById('eu-admin').checked = !!u.isAdmin;
+  openModal('m-edit-user');
+  setTimeout(()=>document.getElementById('eu-name').focus(),100);
+}
+function saveEditUser() {
+  const name = document.getElementById('eu-name').value.trim();
+  const pin  = document.getElementById('eu-pin').value.trim();
+  const isAdm = document.getElementById('eu-admin').checked;
+  if(!name){ toast('Bitte Namen eingeben'); return; }
+  if(!/^\d{4}$/.test(pin)){ toast('PIN muss genau 4 Ziffern sein'); return; }
+  const existing = Object.entries(taskUsers).find(([uid,u])=>String(u.pin)===pin && uid!==_editUid);
+  if(existing){ toast('Dieser PIN ist bereits vergeben'); return; }
+  const updates = { name, pin, isAdmin: isAdm||null };
+  if(db) db.ref('/taskUsers/'+_editUid).update(updates);
+  else { Object.assign(taskUsers[_editUid], updates); saveLocal(); }
+  closeModal('m-edit-user');
+  toast('Gespeichert ✓');
+}
+
 function toggleUserAdmin(uid,makeAdmin){
   if(db) db.ref('/taskUsers/'+uid+'/isAdmin').set(makeAdmin||null);
   if(currentTaskUser&&currentTaskUser.uid===uid){currentTaskUser.isAdmin=makeAdmin;localStorage.setItem('task_user',JSON.stringify(currentTaskUser));}
@@ -4300,7 +5047,7 @@ function deleteUser(uid){
       <span id="home-notif-badge" class="notif-dot" style="display:none">0</span>
       <div class="home-card-arr">›</div>
     </button>
-    <button class="home-card" id="home-admin-card" style="display:none" onclick="openAdminTasks()">
+    <button class="home-card" id="home-admin-card" style="display:none" onclick="setAdmin(true);openAdminTasks()">
       <div class="home-card-body"><div class="home-card-title">Admin</div><div class="home-card-sub">Aufgaben &amp; Mitarbeiter verwalten</div></div>
       <div class="home-card-arr">›</div>
     </button>
@@ -4308,6 +5055,28 @@ function deleteUser(uid){
   </div>
 </div>
 <!-- FIRST ADMIN SETUP MODAL -->
+<div class="overlay" id="m-assign-task">
+  <div class="modal">
+    <h2 id="m-assign-title">👤 Zuweisen</h2>
+    <div id="m-assign-list" style="max-height:320px;overflow-y:auto;margin-bottom:8px"></div>
+    <button class="mbtn red" id="m-assign-clear" onclick="saveTaskAssignment(null)">Zuweisung entfernen</button>
+    <button class="mbtn grey" onclick="closeModal('m-assign-task')">Abbrechen</button>
+  </div>
+</div>
+<div class="overlay" id="m-edit-user">
+  <div class="modal">
+    <h2>✏️ Mitarbeiter bearbeiten</h2>
+    <label class="tform-lbl">Name</label>
+    <input type="text" class="tform-input" id="eu-name" placeholder="Name">
+    <label class="tform-lbl">PIN (4-stellig)</label>
+    <input type="tel" class="tform-input" id="eu-pin" placeholder="1234" maxlength="4" inputmode="numeric">
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:13px;color:#444;cursor:pointer">
+      <input type="checkbox" id="eu-admin" style="width:16px;height:16px"> Admin-Rechte
+    </label>
+    <button class="mbtn" onclick="saveEditUser()">Speichern ✓</button>
+    <button class="mbtn grey" onclick="closeModal('m-edit-user')">Abbrechen</button>
+  </div>
+</div>
 <div class="overlay" id="m-first-admin">
   <div class="modal">
     <h2>⚙️ Admin einrichten</h2>
@@ -4422,9 +5191,13 @@ function deleteUser(uid){
 <!-- Move task to category modal -->
 <div class="overlay" id="m-move-cat">
   <div class="modal">
-    <h2>Kategorie wechseln</h2>
-    <select id="move-cat-select" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;margin-bottom:16px"></select>
-    <button class="mbtn" onclick="doMoveTaskToCat()">Verschieben</button>
+    <h2>↗ Aufgabe verschieben</h2>
+    <label class="tform-lbl">Ziel-Kategorie</label>
+    <select id="move-cat-select" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;margin-bottom:12px" onchange="updateMoveSubcats()"></select>
+    <label class="tform-lbl">Unterkategorie <span style="color:#aaa;font-weight:400">(optional)</span></label>
+    <input type="text" id="move-sub-input" list="move-sub-datalist" placeholder="z.B. Bar Equipment Kiste" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;margin-bottom:16px;box-sizing:border-box">
+    <datalist id="move-sub-datalist"></datalist>
+    <button class="mbtn" onclick="doMoveTaskToCat()">Verschieben ✓</button>
     <button class="mbtn grey" onclick="closeModal('m-move-cat')">Abbrechen</button>
   </div>
 </div>
