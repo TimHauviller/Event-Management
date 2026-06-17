@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260617-022';
+      var V='20260617-023';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')!==V){
         u.searchParams.set('v',V);
@@ -367,7 +367,7 @@
 <!-- SETUP -->
 <div id="setup">
   <div class="setup-inner">
-    <h1>⚙️ Ersteinrichtung</h1>
+    <h1>Ersteinrichtung</h1>
     <p>Verbinde die App mit deiner Firebase-Datenbank für Echtzeit-Sync zwischen allen Geräten.</p>
     <div class="setup-section">
       <strong>Kurzanleitung:</strong><br>
@@ -441,8 +441,8 @@
   </div>
   <div class="ev-main">
     <div class="ev-admin-bar" id="ev-admin-bar">
-      <span class="ev-admin-bar-title">⚙️ Admin-Modus</span>
-      <button class="btn-r grey" onclick="openRename('loc',loc,locNames[loc]||loc)">✏️ Location</button>
+      <span class="ev-admin-bar-title">Admin-Modus</span>
+      <button class="btn-r grey" onclick="openRename('loc',loc,locNames[loc]||loc)">Location</button>
       <button class="btn-r grey" onclick="changePwd()">Passwort</button>
     </div>
     <div id="ev-list-container"></div>
@@ -475,7 +475,7 @@
       <button class="action-bar-btn" onclick="openOrder()">Getränkebestellung</button>
       <button class="action-bar-btn" onclick="openFeedback()">Feedback</button>
       <button class="action-bar-btn" onclick="printChecklist()">Drucken</button>
-      <button class="action-bar-btn" id="event-leader-btn" style="display:none;background:#4a148c;color:#fff" onclick="openEventLeaderPin()">🔓 Aufgaben +</button>
+      <button class="action-bar-btn" id="event-leader-btn" style="display:none;background:#4a148c;color:#fff" onclick="openEventLeaderPin()">Aufgaben +</button>
     </div>
   </div>
   <div class="main">
@@ -534,7 +534,7 @@
   <div id="feedback-content" style="padding:14px;max-width:800px;margin:0 auto;padding-bottom:90px"></div>
   <div style="position:sticky;bottom:0;background:#fff;border-top:1px solid #eee;padding:10px 14px;display:flex;align-items:center;gap:8px">
     <button onclick="saveFeedbackNow()" style="background:#f0f0f0;color:#444;border:none;padding:10px 14px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">Speichern ✓</button>
-    <button onclick="openExport()" style="flex:1;background:#1565c0;color:#fff;border:none;padding:14px;border-radius:12px;font-size:16px;font-weight:800;cursor:pointer">✉️ Per E-Mail senden</button>
+    <button onclick="openExport()" style="flex:1;background:#1565c0;color:#fff;border:none;padding:14px;border-radius:12px;font-size:16px;font-weight:800;cursor:pointer">Per E-Mail senden</button>
     <button onclick="resetFeedback()" style="background:#fff;color:#ea4335;border:1.5px solid #ea4335;padding:7px 12px;border-radius:10px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">↺ Reset</button>
   </div>
 </div>
@@ -553,16 +553,16 @@
   <div id="export-content" style="padding:14px;max-width:800px;margin:0 auto;padding-bottom:100px"></div>
   <div style="position:sticky;bottom:0;background:#fff;border-top:1px solid #eee;padding:12px 14px">
     <button onclick="generateAndSendEmail()" style="width:100%;background:#1565c0;color:#fff;border:none;padding:15px;border-radius:12px;font-size:16px;font-weight:800;cursor:pointer;margin-bottom:10px">
-      📤 PDF erstellen &amp; versenden
+      PDF erstellen &amp; versenden
     </button>
     <div style="background:#e8f0fe;border-radius:10px;padding:10px 12px;font-size:12px;color:#333;line-height:1.7">
       <strong>So geht's:</strong> Button drücken → im Teilen-Menü <strong>„Mail"</strong> wählen → PDF ist bereits angehängt → folgende Felder ausfüllen:<br>
       <span style="display:block;margin-top:6px">
-        <span style="color:#555">📬 <strong>An:</strong></span>
+        <span style="color:#555"><strong>An:</strong></span>
         <span id="export-recipients-hint" style="color:#1565c0;font-weight:700;word-break:break-all;margin-left:4px"></span>
       </span>
       <span style="display:block;margin-top:2px">
-        <span style="color:#555">📝 <strong>Betreff:</strong></span>
+        <span style="color:#555"><strong>Betreff:</strong></span>
         <span id="export-subject-hint" style="color:#1565c0;font-weight:700;margin-left:4px"></span>
       </span>
     </div>
@@ -586,7 +586,7 @@
     <div class="order-save-bar" style="flex-direction:column;gap:6px">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
         <button onclick="saveOrderNow()" style="background:#f0f0f0;color:#444;border:none;padding:7px 14px;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">Speichern ✓</button>
-        <span style="font-size:11px;color:#999;flex:1;text-align:center">✉️ Wird mit Feedback per E-Mail gesendet.</span>
+        <span style="font-size:11px;color:#999;flex:1;text-align:center">Wird mit Feedback per E-Mail gesendet.</span>
         <button onclick="resetOrder()" style="background:#fff;color:#ea4335;border:1.5px solid #ea4335;padding:7px 12px;border-radius:10px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">↺ Reset</button>
       </div>
     </div>
@@ -605,7 +605,7 @@
       <button class="admin-btn" id="az-admin-btn" onclick="toggleAdminFromAZ()">Admin</button>
     </div>
     <div class="az-search-wrap">
-      <input class="az-search" id="az-search-input" type="text" placeholder="🔍 Suchen..." oninput="searchAZ(this.value)">
+      <input class="az-search" id="az-search-input" type="text" placeholder="Suchen..." oninput="searchAZ(this.value)">
     </div>
   </div>
   <div class="az-main">
@@ -644,7 +644,7 @@
     <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Link zum Event-Google-Sheet einfügen</p>
     <input type="url" id="edit-sheet-url" placeholder="https://docs.google.com/..." onkeydown="if(event.key==='Enter')saveSheetUrl()">
     <button class="mbtn" onclick="saveSheetUrl()">Speichern</button>
-    <button class="mbtn red" id="edit-sheet-del" onclick="saveSheetUrl('')" style="display:none">🗑 Link entfernen</button>
+    <button class="mbtn red" id="edit-sheet-del" onclick="saveSheetUrl('')" style="display:none">Link entfernen</button>
     <button class="mbtn grey" onclick="closeModal('m-edit-sheet')">Abbrechen</button>
   </div>
 </div>
@@ -691,7 +691,7 @@
 </div>
 <div class="overlay" id="m-edit">
   <div class="modal">
-    <h2>✏️ Aufgabe bearbeiten</h2>
+    <h2>Aufgabe bearbeiten</h2>
     <input type="text" id="edit-de" placeholder="Aufgabe (Deutsch)">
     <input type="text" id="edit-en" placeholder="Task (English)">
     <button class="mbtn" onclick="saveEdit()">Speichern</button>
@@ -709,7 +709,7 @@
 </div>
 <div class="overlay" id="m-pdf-ready">
   <div class="modal">
-    <div style="text-align:center;font-size:40px;margin-bottom:8px">📄</div>
+    
     <h2 style="text-align:center;margin:0 0 6px">PDF bereit!</h2>
     <p style="font-size:13px;color:#666;text-align:center;margin:0 0 18px">Das PDF wurde heruntergeladen.<br>Jetzt E-Mail öffnen und PDF anhängen.</p>
     <a id="m-pdf-mailto-link" href="#" style="display:block;background:#1565c0;color:#fff;border:none;padding:15px;border-radius:12px;font-size:16px;font-weight:800;cursor:pointer;text-align:center;text-decoration:none;margin-bottom:8px">✉️ E-Mail öffnen</a>
@@ -735,28 +735,28 @@
 </div>
 <div class="overlay" id="m-subcat-edit">
   <div class="modal">
-    <h2>✏️ Unterkategorie umbenennen</h2>
+    <h2>Unterkategorie umbenennen</h2>
     <input type="text" id="subcat-name-input" placeholder="Neuer Name" onkeydown="if(event.key==='Enter')saveSubcatRename()">
     <button class="mbtn" onclick="saveSubcatRename()">Speichern</button>
-    <button class="mbtn red" onclick="deleteSubcat()">🗑 Unterkategorie löschen</button>
+    <button class="mbtn red" onclick="deleteSubcat()">Unterkategorie löschen</button>
     <button class="mbtn grey" onclick="closeModal('m-subcat-edit')">Abbrechen</button>
   </div>
 </div>
 <div class="overlay" id="m-subcat-photo">
   <div class="modal">
-    <h2 id="m-subcat-photo-title">📷 Foto</h2>
+    <h2 id="m-subcat-photo-title">Foto</h2>
     <img id="m-subcat-photo-img" src="" alt="" style="display:none;width:100%;border-radius:8px;margin-bottom:8px;max-height:260px;object-fit:cover">
     <div style="margin-bottom:8px;display:flex;flex-direction:column;gap:6px">
       <label class="mbtn" style="cursor:pointer;text-align:center">
-        📷 Kamera
+        Kamera
         <input type="file" id="subcat-cam-input" accept="image/*" capture="environment" style="display:none" onchange="uploadSubcatPhoto(this)">
       </label>
       <label class="mbtn" style="cursor:pointer;text-align:center">
-        🖼 Aus Galerie
+        Aus Galerie
         <input type="file" id="subcat-gal-input" accept="image/*" style="display:none" onchange="uploadSubcatPhoto(this)">
       </label>
     </div>
-    <button class="mbtn red" id="m-subcat-photo-del" onclick="deleteSubcatPhoto()" style="display:none">🗑 Foto löschen</button>
+    <button class="mbtn red" id="m-subcat-photo-del" onclick="deleteSubcatPhoto()" style="display:none">Foto löschen</button>
     <button class="mbtn grey" onclick="closeModal('m-subcat-photo')">Schließen</button>
   </div>
 </div>
@@ -773,8 +773,8 @@
     <h2 id="m-loc-photo-title">Location-Foto</h2>
     <img id="m-loc-photo-img" src="" style="display:none;width:100%;border-radius:8px;margin-bottom:12px">
     <input type="file" accept="image/*" id="loc-photo-file" style="margin-bottom:12px;font-size:13px">
-    <button class="mbtn orange" onclick="uploadLocPhoto()">📤 Hochladen</button>
-    <button class="mbtn red" id="m-loc-photo-del" onclick="deleteLocPhoto()" style="display:none">🗑 Foto löschen</button>
+    <button class="mbtn orange" onclick="uploadLocPhoto()">Hochladen</button>
+    <button class="mbtn red" id="m-loc-photo-del" onclick="deleteLocPhoto()" style="display:none">Foto löschen</button>
     <button class="mbtn grey" onclick="closeModal('m-loc-photo')">Abbrechen</button>
   </div>
 </div>
@@ -800,10 +800,10 @@
     <h2 id="az-edit-title">➕ Eintrag hinzufügen</h2>
     <input type="text" id="az-entry-title-input" placeholder="Titel (z. B. Kaffeemaschine reinigen)">
     <textarea id="az-entry-content-input" placeholder="Beschreibung, Anleitung, Hinweise..." style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:10px 13px;font-size:13px;margin-bottom:10px;font-family:inherit;outline:none;min-height:100px;resize:vertical"></textarea>
-    <label style="font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:6px">📹 Video (optional)</label>
+    <label style="font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:6px">Video (optional)</label>
     <div id="az-video-preview" style="display:none;margin-bottom:10px">
       <div class="entry-video-wrap"><video id="az-edit-video-preview" controls playsinline style="max-height:180px"></video></div>
-      <button class="mbtn red" style="margin-top:0" onclick="removeAZVideo()">🗑 Video entfernen</button>
+      <button class="mbtn red" style="margin-top:0" onclick="removeAZVideo()">Video entfernen</button>
     </div>
     <input type="file" accept="video/*" id="az-video-file" style="font-size:13px;margin-bottom:12px" onchange="previewAZVideo(this)">
     <button class="mbtn" onclick="saveWikiEntry()">Speichern</button>
@@ -822,14 +822,14 @@
 <!-- Task video -->
 <div class="overlay" id="m-task-video">
   <div class="modal">
-    <h2 id="m-task-video-title" style="font-size:14px">📹 Video</h2>
+    <h2 id="m-task-video-title" style="font-size:14px">Video</h2>
     <div class="task-video-wrap" id="task-video-wrap" style="display:none">
       <video id="task-video-player" controls playsinline></video>
     </div>
     <div id="task-video-nophoto" style="display:none"><p style="font-size:13px;color:var(--muted);margin-bottom:12px">Kein Video vorhanden.</p></div>
     <div id="task-video-upload" style="display:none">
       <input type="file" accept="video/*" id="task-video-file" style="margin-bottom:12px;font-size:13px">
-      <button class="mbtn orange" onclick="uploadTaskVideo()">📤 Video hochladen</button>
+      <button class="mbtn orange" onclick="uploadTaskVideo()">Video hochladen</button>
       <button class="mbtn red" id="task-video-del" onclick="deleteTaskVideo()" style="display:none">Video löschen</button>
     </div>
     <button class="mbtn grey" onclick="closeModal('m-task-video')">Schließen</button>
@@ -1802,7 +1802,7 @@ function subscribeGlobal() {
   });
   db.ref('/videos').on('value', s => { videos=s.val()||{}; renderIfApp(); });
   // Logistik subscriptions
-  db.ref('/inventoryItems').on('value', s => { inventoryItems=s.val()||{}; if(isLogistikVisible())renderInventarTab(); });
+  db.ref('/inventoryItems').on('value', s => { inventoryItems=s.val()||{}; seedInventoryIfEmpty(); if(isLogistikVisible())renderInventarTab(); });
   db.ref('/logistikFahrten').on('value', s => {
     logistikFahrten=s.val()||{};
     if(isLogistikVisible())renderFahrten();
@@ -1862,9 +1862,10 @@ function subscribeEvent(l, eid) {
 
 // ── NAVIGATION ─────────────────────────────────────────────────────
 function showScreen(name) {
-  ['setup','loc-picker','events-screen','app','order-screen','az-screen','vorlage-screen','feedback-screen','export-screen','home-screen','task-login-screen','my-tasks-screen','task-detail-screen','admin-tasks-screen','task-create-screen','admin-users-screen','logistik-screen','logistik-fahrt-screen'].forEach(id => {
+  ['setup','loc-picker','events-screen','app','order-screen','az-screen','vorlage-screen','feedback-screen','export-screen','home-screen','task-login-screen','my-tasks-screen','task-detail-screen','admin-tasks-screen','task-create-screen','admin-users-screen','logistik-screen','logistik-fahrt-screen','logistik-new-fahrt-screen'].forEach(id => {
     const el = document.getElementById(id); if(!el) return;
     el.style.display = (id===name) ? (['loc-picker','home-screen'].includes(id)?'flex':'block') : 'none';
+    if(el) el.style.overflowY=(id===name&&!['loc-picker','home-screen'].includes(id))?'auto':''; // scroll fix
   });
 }
 
@@ -2007,7 +2008,7 @@ function renderEventsList() {
   if (sorted.length === 0) {
     if (!isAdmin) {
       container.innerHTML = `<div class="events-empty">
-        <div class="events-empty-icon">📅</div>
+        
         <div class="events-empty-title">Keine Veranstaltungen</div>
         <div style="font-size:13px;color:var(--muted)">Im Admin-Modus ein neues Event anlegen</div>
       </div>`;
@@ -2040,8 +2041,8 @@ function renderEventsList() {
       </div>
       <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
         <div class="event-arrow">›</div>
-        <button class="event-edit-btn admin-only-el" onclick="event.stopPropagation();openEditEvent('${eid}')">✏️</button>
-        <button class="event-del-btn" onclick="event.stopPropagation();deleteEvent('${eid}')">🗑</button>
+        <button class="event-edit-btn admin-only-el" onclick="event.stopPropagation();openEditEvent('${eid}')">✎</button>
+        <button class="event-del-btn" onclick="event.stopPropagation();deleteEvent('${eid}')">×</button>
       </div>
     </div>`;
   });
@@ -2072,7 +2073,7 @@ function renderEventsList() {
         <div class="event-info">
           <div class="event-name">${escHtml(ev.name||'Unbenannt')}</div>
           <div class="event-meta-row">
-            <span class="event-meta-tag" style="background:#f5f0e8;color:#a07040">📦 Archiv</span>
+            <span class="event-meta-tag" style="background:#f5f0e8;color:#a07040">Archiv</span>
             <span class="event-meta-tag" style="color:#bbb">löscht in ${daysLeft}d</span>
           </div>
         </div>
@@ -2093,7 +2094,7 @@ function pickArchivedEvent(eid) {
   isArchivedEvent = true;
   subscribeEvent(loc, eid);
   showScreen('app');
-  toast('📦 Archiv-Event — nur Lesezugriff & Export möglich');
+  toast('Archiv-Event — nur Lesezugriff & Export möglich');
 }
 let isArchivedEvent = false;
 
@@ -2117,10 +2118,10 @@ function render() {
     const d=tasks.filter(tk=>evChecked[tk.id]).length, tot=tasks.length;
     done+=d; total+=tot;
     const nm = catNames[cat.id]||cat.name;
-    const renBtn=`<button class="adm-btn" onclick="event.stopPropagation();openRename('cat','${cat.id}','${escAttr(nm)}')">✏️</button>`;
+    const renBtn=`<button class="adm-btn" onclick="event.stopPropagation();openRename('cat','${cat.id}','${escAttr(nm)}')">✎</button>`;
     const delBtn=cat.isCustom
-      ?`<button class="adm-btn del" onclick="event.stopPropagation();deleteCustomCat('${cat.id}')">🗑</button>`
-      :`<button class="adm-btn del" onclick="event.stopPropagation();hideBuiltinCat('${cat.id}')">🗑</button>`;
+      ?`<button class="adm-btn del" onclick="event.stopPropagation();deleteCustomCat('${cat.id}')">×</button>`
+      :`<button class="adm-btn del" onclick="event.stopPropagation();hideBuiltinCat('${cat.id}')">×</button>`;
     const upDis=catIdx<=0?'disabled':'';
     const dnDis=catIdx>=allCats.length-1?'disabled':'';
     html+=`<div class="cat" id="cat-${cat.id}">
@@ -2133,9 +2134,9 @@ function render() {
             <button class="adm-btn" ${dnDis} onclick="event.stopPropagation();moveCat('${cat.id}',1)" title="Kategorie runter">▼</button>
           </span>
           ${!vorlageMode?(isAdmin?(evCatAssignments[cat.id]
-            ?`<button class="assignee-badge" onclick="event.stopPropagation();openAssignCat('${escAttr(cat.id)}','${escAttr(nm)}')" title="Zuweisung ändern">👤 ${escHtml((taskUsers[evCatAssignments[cat.id]]||{}).name||'?')}</button>`
-            :`<button class="assign-btn" onclick="event.stopPropagation();openAssignCat('${escAttr(cat.id)}','${escAttr(nm)}')" title="Kategorie zuweisen">+👤</button>`)
-            :(evCatAssignments[cat.id]?`<span class="assignee-badge" style="cursor:default;pointer-events:none">👤 ${escHtml((taskUsers[evCatAssignments[cat.id]]||{}).name||'?')}</span>`:'')):'' }
+            ?`<button class="assignee-badge" onclick="event.stopPropagation();openAssignCat('${escAttr(cat.id)}','${escAttr(nm)}')" title="Zuweisung ändern">${escHtml((taskUsers[evCatAssignments[cat.id]]||{}).name||'?')}</button>`
+            :`<button class="assign-btn" onclick="event.stopPropagation();openAssignCat('${escAttr(cat.id)}','${escAttr(nm)}')" title="Kategorie zuweisen">+</button>`)
+            :(evCatAssignments[cat.id]?`<span class="assignee-badge" style="cursor:default;pointer-events:none">${escHtml((taskUsers[evCatAssignments[cat.id]]||{}).name||'?')}</span>`:'')):'' }
           <span class="cat-count">${d}/${tot}</span>
           <span class="cat-arrow">▼</span>
         </div>
@@ -2157,17 +2158,17 @@ function render() {
           <span class="subcat-lbl">${escHtml(g.sub)}</span>
           <span style="display:flex;align-items:center;gap:4px">
             ${isAdmin?(_scAssignee
-              ?`<button class="assignee-badge" onclick="openAssignSubcat('${escAttr(cat.id)}','${escAttr(g.origSub||g.sub)}','${escAttr(g.sub)}')" title="Zuweisung ändern">👤 ${escHtml((taskUsers[_scAssignee]||{}).name||'?')}</button>`
-              :`<button class="assign-btn" onclick="openAssignSubcat('${escAttr(cat.id)}','${escAttr(g.origSub||g.sub)}','${escAttr(g.sub)}')" title="Gruppe zuweisen">+👤</button>`)
-              :(_scAssignee?`<span class="assignee-badge" style="cursor:default;pointer-events:none">👤 ${escHtml((taskUsers[_scAssignee]||{}).name||'?')}</span>`:'')}
-            ${isAdmin?`<button class="subcat-cam-btn ${_scHasPhoto?'has-photo':''}" onclick="openSubcatPhoto('${escAttr(cat.id)}','${escAttr(g.origSub||g.sub)}','${escAttr(g.sub)}')" title="${_scHasPhoto?'Foto ansehen/ändern':'Foto hinzufügen'}">${_scHasPhoto?'📷✓':'📷'}</button>`:''}
+              ?`<button class="assignee-badge" onclick="openAssignSubcat('${escAttr(cat.id)}','${escAttr(g.origSub||g.sub)}','${escAttr(g.sub)}')" title="Zuweisung ändern">${escHtml((taskUsers[_scAssignee]||{}).name||'?')}</button>`
+              :`<button class="assign-btn" onclick="openAssignSubcat('${escAttr(cat.id)}','${escAttr(g.origSub||g.sub)}','${escAttr(g.sub)}')" title="Gruppe zuweisen">+</button>`)
+              :(_scAssignee?`<span class="assignee-badge" style="cursor:default;pointer-events:none">${escHtml((taskUsers[_scAssignee]||{}).name||'?')}</span>`:'')}
+            ${isAdmin?`<button class="subcat-cam-btn ${_scHasPhoto?'has-photo':''}" onclick="openSubcatPhoto('${escAttr(cat.id)}','${escAttr(g.origSub||g.sub)}','${escAttr(g.sub)}')" title="${_scHasPhoto?'Foto ansehen/ändern':'Foto hinzufügen'}">${_scHasPhoto?'Foto ✓':'Foto'}</button>`:''}
             <span class="subcat-move-btns">
               <button class="subcat-btn" ${upDis} onclick="moveSubcat('${escAttr(cat.id)}','${escAttr(g.origSub||g.sub)}',-1)" title="Gruppe hoch">▲</button>
               <button class="subcat-btn" ${dnDis} onclick="moveSubcat('${escAttr(cat.id)}','${escAttr(g.origSub||g.sub)}',1)" title="Gruppe runter">▼</button>
             </span>
             <span class="subcat-edit-btns">
-              <button class="subcat-btn" onclick="openEditSubcat('${cat.id}','${escAttr(subKey)}','${escAttr(g.origSub||g.sub)}')">✏️</button>
-              <button class="subcat-btn del" onclick="confirmDeleteSubcat('${cat.id}','${escAttr(subKey)}','${escAttr(g.origSub||g.sub)}')">🗑</button>
+              <button class="subcat-btn" onclick="openEditSubcat('${cat.id}','${escAttr(subKey)}','${escAttr(g.origSub||g.sub)}')">✎</button>
+              <button class="subcat-btn del" onclick="confirmDeleteSubcat('${cat.id}','${escAttr(subKey)}','${escAttr(g.origSub||g.sub)}')">×</button>
             </span>
           </span>
         </div>
@@ -2266,7 +2267,7 @@ function renderTask(tk, catId, siblings, origSub) {
         <div class="adm-btns">
           <button class="adm-btn" ${upDis} onclick="moveTask('${catId}','${tk.id}',-1)">▲</button>
           <button class="adm-btn" ${dnDis} onclick="moveTask('${catId}','${tk.id}',1)">▼</button>
-          <button class="adm-btn" onclick="openEditTask('${tk.id}','${catId}')">✏️</button>
+          <button class="adm-btn" onclick="openEditTask('${tk.id}','${catId}')">✎</button>
           <button class="adm-btn" onclick="openMoveToCat('${tk.id}','${catId}')" title="In andere Kategorie verschieben">↗</button>
           <button class="adm-btn del" onclick="hideVorlageTask('${tk.id}')" title="Aus Vorlage entfernen">✕</button>
           <button class="adm-btn${photoRequired[tk.id]?' photo-req-on':''}" onclick="togglePhotoRequired('${tk.id}')" title="${photoRequired[tk.id]?'Foto-Pflicht aus':'Foto-Pflicht ein'}" style="font-size:13px">&#128247;</button>
@@ -2283,15 +2284,15 @@ function renderTask(tk, catId, siblings, origSub) {
       <div class="task-de">${escHtml(de)}</div>
       ${en?`<div class="task-en">${escHtml(en)}</div>`:''}
       ${evTaskNotes[tk.id]?`<div class="task-note">${escHtml(evTaskNotes[tk.id])}</div>`:''}
-      ${(()=>{const ea=getEffectiveAssignee(tk.id,catId,origSub);const uname=ea?(taskUsers[ea.uid]||{}).name||'?':null;if(isAdmin){return ea?`<span class="assignee-badge" onclick="event.stopPropagation();openAssignTask('${tk.id}','${escAttr(de)}')" title="Zuweisung">👤 ${escHtml(uname)}${ea.level!=='task'?' (geerbt)':''}</span>`:`<button class="assign-btn" onclick="event.stopPropagation();openAssignTask('${tk.id}','${escAttr(de)}')" title="Mitarbeiter zuweisen">+👤</button>`;}return ea?`<span class="assignee-badge" style="cursor:default;pointer-events:none">👤 ${escHtml(uname)}${ea.level!=='task'?' (geerbt)':''}</span>`:'';})()}
+      ${(()=>{const ea=getEffectiveAssignee(tk.id,catId,origSub);const uname=ea?(taskUsers[ea.uid]||{}).name||'?':null;if(isAdmin){return ea?`<span class="assignee-badge" onclick="event.stopPropagation();openAssignTask('${tk.id}','${escAttr(de)}')" title="Zuweisung">${escHtml(uname)}${ea.level!=='task'?' (geerbt)':''}</span>`:`<button class="assign-btn" onclick="event.stopPropagation();openAssignTask('${tk.id}','${escAttr(de)}')" title="Mitarbeiter zuweisen">+</button>`;}return ea?`<span class="assignee-badge" style="cursor:default;pointer-events:none">${escHtml(uname)}${ea.level!=='task'?' (geerbt)':''}</span>`:'';})()}
     </div>
     <div class="task-btns">
       <div class="adm-btns">
         <button class="adm-btn" ${upDis} onclick="moveTask('${catId}','${tk.id}',-1)">▲</button>
         <button class="adm-btn" ${dnDis} onclick="moveTask('${catId}','${tk.id}',1)">▼</button>
-        <button class="adm-btn" onclick="openEditTask('${tk.id}','${catId}')">✏️</button>
+        <button class="adm-btn" onclick="openEditTask('${tk.id}','${catId}')">✎</button>
         <button class="adm-btn" onclick="openMoveToCat('${tk.id}','${catId}')" title="In andere Kategorie verschieben">↗</button>
-        <button class="adm-btn del" onclick="hideTask('${tk.id}')">🗑</button>
+        <button class="adm-btn del" onclick="hideTask('${tk.id}')">×</button>
         ${evDel}
         <button class="adm-btn${photoRequired[tk.id]?' photo-req-on':''}" onclick="togglePhotoRequired('${tk.id}')" title="${photoRequired[tk.id]?'Foto-Pflicht aus':'Foto-Pflicht ein'}" style="font-size:13px">&#128247;</button>
       </div>
@@ -2452,9 +2453,18 @@ function updateAdminButtons() {
   if(bar) bar.classList.toggle('show',on);
   const evbar=document.getElementById('ev-admin-bar');
   if(evbar) evbar.classList.toggle('show',on);
+  // Persistent corner button
+  const cb=document.getElementById('admin-corner-btn');
+  if(cb){
+    const show=!!(currentTaskUser&&currentTaskUser.isAdmin);
+    cb.style.display=show?'flex':'none';
+    cb.textContent=on?'Admin: AN':'Admin: AUS';
+    cb.style.background=on?'#2e7d32':'rgba(28,28,46,0.75)';
+  }
 }
 
 function setAdmin(on) { isAdmin=on; updateAdminButtons(); if(!on) toast('Admin-Modus deaktiviert'); }
+function toggleAdminCorner() { setAdmin(!isAdmin); }
 
 function toggleAdminFromPicker(){loginOrigin='picker';isAdmin?setAdmin(false):openLogin();}
 function toggleAdminFromEvents(){loginOrigin='events';isAdmin?setAdmin(false):openLogin();}
@@ -2659,7 +2669,7 @@ function deleteEvTask(id){
 function openRename(type,id,current){
   renamingType=type; renamingId=id;
   document.getElementById('rename-input').value=current;
-  document.getElementById('rename-title').textContent=type==='loc'?'✏️ Location umbenennen':'✏️ Kategorie umbenennen';
+  document.getElementById('rename-title').textContent=type==='loc'?'Location umbenennen':'Kategorie umbenennen';
   openModal('m-rename');
   setTimeout(()=>document.getElementById('rename-input').focus(),100);
 }
@@ -2957,7 +2967,7 @@ function _subcatPhotoKey(catId, origSub) {
 let _scPhotoKey = null;
 function openSubcatPhoto(catId, origSub, displayName) {
   _scPhotoKey = _subcatPhotoKey(catId, origSub);
-  document.getElementById('m-subcat-photo-title').textContent = '📷 ' + displayName;
+  document.getElementById('m-subcat-photo-title').textContent = displayName;
   document.getElementById('subcat-cam-input').value = '';
   document.getElementById('subcat-gal-input').value = '';
   const img = document.getElementById('m-subcat-photo-img');
@@ -3079,7 +3089,7 @@ function deleteStaffPhoto(){
 
 function openLocPhoto(l){
   locPhotoTarget=l;
-  document.getElementById('m-loc-photo-title').textContent='📷 Foto für '+(locNames[l]||l);
+  document.getElementById('m-loc-photo-title').textContent='Foto: '+(locNames[l]||l);
   document.getElementById('loc-photo-file').value='';
   const img=document.getElementById('m-loc-photo-img'),del=document.getElementById('m-loc-photo-del');
   if(locPhotos[l]){img.src=locPhotos[l];img.style.display='block';del.style.display='block';}
@@ -3568,7 +3578,7 @@ function renderVorlage() {
           <div class="task-btns">
             <div class="adm-btns">
               ${isPerm?`<button class="adm-btn del" onclick="deletePermTask('${tk.id}')" title="Aus Vorlage entfernen">✕</button>`:''}
-              <button class="adm-btn" onclick="openEditTask('${tk.id}','${cat.id}')" title="Umbenennen">✏️</button>
+              <button class="adm-btn" onclick="openEditTask('${tk.id}','${cat.id}')" title="Umbenennen">✎</button>
             </div>
           </div>
         </div>`;
@@ -3996,7 +4006,7 @@ function printChecklist() {
         body+='<div style="display:flex;align-items:flex-start;gap:10px;padding:7px 14px;border-top:1px solid #f5f5f5">'
           +'<div style="width:15px;height:15px;border:2px solid '+(checked?'#34a853':'#ccc')+';border-radius:3px;flex-shrink:0;margin-top:1px;background:'+(checked?'#34a853':'#fff')+'"></div>'
           +'<div><span style="font-size:12px;'+(checked?'text-decoration:line-through;color:#aaa;':'')+'">'+escHtml(de)+'</span>'
-          +(note?'<div style="font-size:10px;color:#e65100;margin-top:2px">💬 '+escHtml(note)+'</div>':'')
+          +(note?'<div style="font-size:10px;color:#e65100;margin-top:2px">'+escHtml(note)+'</div>':'')
           +'</div></div>';
       });
       // Subcat photo (small, after tasks)
@@ -4040,7 +4050,7 @@ function buildWhatsappText() {
   const ev = (allEvents[loc]||{})[eventId]||{};
   const evName = ev.name||eventId||'Event';
   const d = feedbackData||{};
-  let txt = '📋 *Zusammenfassung: '+evName+'*\n\n';
+  let txt = '*Zusammenfassung: '+evName+'*\n\n';
   const od = orderData||{};
   const cats = Object.keys(od.cats||{});
   if(cats.length){
@@ -4054,7 +4064,7 @@ function buildWhatsappText() {
     txt += '\n';
   }
   if(d.gaestezahl) txt += '👥 Gäste: '+d.gaestezahl+'\n';
-  if(d.ankunft) txt += '🕐 Ankunft: '+d.ankunft+'\n';
+  if(d.ankunft) txt += 'Ankunft: '+d.ankunft+'\n';
   const noted = getTasksWithNotes();
   if(noted.length) {
     txt += '\u26a0\ufe0f *Aufgaben mit Kommentar*\n';
@@ -4713,7 +4723,7 @@ function showHomeMenu(){
   const roleEL = currentTaskUser ? (currentTaskUser.roleEL!==undefined ? !!currentTaskUser.roleEL : currentTaskUser.role!=='logistik') : true;
   const roleLG = currentTaskUser ? (currentTaskUser.roleLG!==undefined ? !!currentTaskUser.roleLG : currentTaskUser.role==='logistik') : false;
   const gr=document.getElementById('home-user-greeting');
-  if(gr)gr.textContent='Hallo, '+name+' 👋';
+  if(gr)gr.textContent='Hallo, '+name+'';
   const areaEl=document.getElementById('home-user-area');
   const areaLabels=[];
   if(roleEL)areaLabels.push('Eventleitung');
@@ -4727,6 +4737,7 @@ function showHomeMenu(){
   const ac=document.getElementById('home-admin-card');
   if(ac)ac.style.display=(currentTaskUser&&currentTaskUser.isAdmin)?'':'none';
   updateHomeNotifBadge();
+  updateAdminButtons(); // sync corner button visibility
 }
 function verifyPin() {
   // Find user by PIN
@@ -4795,7 +4806,7 @@ function renderMyTasks(){
     });
     if(myCheckTasks.length) {
       const evName = ((allEvents[loc]||{})[eventId]||{}).name || eventId;
-      clHtml = '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:8px">📋 ' + escHtml(evName) + ' — Meine Checklisten-Aufgaben</div>'
+      clHtml = '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:8px">' + escHtml(evName) + ' — Meine Checklisten-Aufgaben</div>'
         + myCheckTasks.map(t => '<div style="background:#fff;border-radius:10px;padding:12px 14px;margin-bottom:6px;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(0,0,0,.07)">'
           + '<div style="width:20px;height:20px;border-radius:50%;border:2px solid '+(t.checked?'#2e7d32':'#ccc')+';background:'+(t.checked?'#2e7d32':'#fff')+';flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px">'+(t.checked?'✓':'')+'</div>'
           + '<div style="flex:1"><div style="font-size:14px;font-weight:600;'+(t.checked?'text-decoration:line-through;color:#aaa':'')+'">'+escHtml(t.name)+'</div>'
@@ -5111,9 +5122,9 @@ function renderAdminUsers(){
             +' · <span style="font-size:11px;background:'+(u.role==='logistik'?'#e3f2fd':'#f3e5f5')+';color:'+(u.role==='logistik'?'#1565c0':'#6a1b9a')+';border-radius:4px;padding:1px 5px;font-weight:700">'+(u.role==='logistik'?'Logistik':'Eventleitung')+'</span></div>'
         +'</div>'
         +'<div style="display:flex;gap:6px">'
-          +`<button onclick="openEditUser('${escAttr(uid)}')" style="font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid #ddd;background:#f5f5f5;cursor:pointer">✏️</button>`
+          +`<button onclick="openEditUser('${escAttr(uid)}')" style="font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid #ddd;background:#f5f5f5;cursor:pointer">✎</button>`
           +`<button onclick="toggleUserAdmin('${escAttr(uid)}',${!u.isAdmin})" style="font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid #ddd;background:#f5f5f5;cursor:pointer">`+(u.isAdmin?'Admin ✕':'Admin ✓')+'</button>'
-          +`<button onclick="deleteUser('${escAttr(uid)}')" style="font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid #ffcdd2;background:#fff5f5;color:#c62828;cursor:pointer">🗑</button>`
+          +`<button onclick="deleteUser('${escAttr(uid)}')" style="font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid #ffcdd2;background:#fff5f5;color:#c62828;cursor:pointer">×</button>`
         +'</div>'
         +'</div>';
     }).join('');
@@ -5206,7 +5217,7 @@ function verifyEventLeaderPin() {
     document.body.classList.add('event-leader-mode');
     closeModal('m-event-leader-pin');
     const elBtn=document.getElementById('event-leader-btn');
-    if(elBtn){elBtn.textContent='✅ Aufgaben +';elBtn.style.background='#2e7d32';}
+    if(elBtn){elBtn.textContent='Aufgaben +';elBtn.style.background='#2e7d32';}
     toast('Eventleitung-Modus aktiv — Aufgaben können jetzt hinzugefügt werden');
     render();
   } else {
@@ -5237,7 +5248,7 @@ function verifyLogistikLeaderPin() {
   if(storedUser && String(storedUser.pin)===String(_lgpBuffer)) {
     logistikLeaderMode=true;
     closeModal('m-logistik-leader-pin');
-    toast('✅ Modus aktiv — neue Fahrt kann erstellt werden');
+    toast('Modus aktiv — neue Fahrt kann erstellt werden');
     openNewFahrt();
   } else {
     _lgpBuffer='';
@@ -5311,7 +5322,6 @@ function renderFahrten(){
   const fahrten=Object.entries(logistikFahrten).sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''));
   if(fahrten.length===0){
     content.innerHTML=`<div style="text-align:center;padding:50px 20px;color:#bbb">
-      <div style="font-size:44px;margin-bottom:14px">🚐</div>
       <div style="font-size:16px;font-weight:700;color:#666">Noch keine Fahrten</div>
       ${isAdmin?'<div style="font-size:13px;margin-top:6px">Mit dem + Button neue Fahrt anlegen</div>':''}
     </div>`;
@@ -5324,11 +5334,11 @@ function renderFahrten(){
     const checked=items.filter(i=>i.checked).length;
     const isDone=f.status==='abgeschlossen';
     html+=`<div onclick="openFahrt('${fid}')" style="background:#fff;border-radius:14px;padding:14px 16px;box-shadow:0 1px 5px rgba(0,0,0,.07);cursor:pointer;display:flex;align-items:center;gap:12px${isDone?';opacity:.65':''}">
-      <div style="background:${isDone?'#e8f5e9':'#e8f0fe'};border-radius:12px;padding:12px;font-size:22px">🚐</div>
+      <div style="background:${isDone?'#e8f5e9':'#e8f0fe'};border-radius:12px;padding:10px 14px;font-size:11px;font-weight:800;color:${isDone?'#2e7d32':'#1565c0'};white-space:nowrap">${LG_LOC[f.from]||f.from||'?'} → ${LG_LOC[f.to]||f.to||'?'}</div>
       <div style="flex:1;min-width:0">
         <div style="font-weight:800;font-size:14px;color:#1c1c2e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(LG_LOC[f.from]||f.from||'?')} → ${escHtml(LG_LOC[f.to]||f.to||'?')}</div>
         <div style="font-size:12px;color:#888;margin-top:2px">${date} · ${escHtml(f.employee||'?')}</div>
-        <div style="font-size:12px;color:${isDone?'#2e7d32':'#888'};margin-top:1px">${isDone?'✅ Abgeschlossen':`${checked}/${items.length} abgehakt`}</div>
+        <div style="font-size:12px;color:${isDone?'#2e7d32':'#888'};margin-top:1px">${isDone?'Abgeschlossen':`${checked}/${items.length} abgehakt`}</div>
       </div>
       <div style="color:#ccc;font-size:18px">›</div>
     </div>`;
@@ -5402,7 +5412,7 @@ function renderFahrtDetail(){
           </div>
           ${item.photo
             ?`<img src="${item.photo}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;flex-shrink:0" onclick="viewFahrtPhoto('${ikey}')">`
-            :`<label style="cursor:pointer;color:#ccc;font-size:22px;flex-shrink:0" title="Foto hinzufügen">📷<input type="file" accept="image/*" capture="environment" onchange="uploadFahrtItemPhoto('${fid}','${ikey}',this)" style="display:none"></label>`}
+            :`<label style="cursor:pointer;background:#f5f5f5;border-radius:8px;padding:5px 9px;font-size:11px;font-weight:700;color:#aaa;flex-shrink:0" title="Foto hinzufügen">Foto<input type="file" accept="image/*" capture="environment" onchange="uploadFahrtItemPhoto('${fid}','${ikey}',this)" style="display:none"></label>`}
           ${isAdmin&&!isDone?`<button onclick="deleteFahrtItem('${fid}','${ikey}')" style="background:none;border:none;color:#ea4335;font-size:18px;cursor:pointer;flex-shrink:0">×</button>`:''}
         </div>`).join('');
     }
@@ -5412,7 +5422,7 @@ function renderFahrtDetail(){
   const addBtns=document.getElementById('lg-fahrt-add-btns');
   if(addBtns){
     addBtns.innerHTML=(!isDone&&isAdmin)?`
-      <button onclick="openAddFahrtItem('${fid}','inventory')" style="background:#e8f0fe;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;color:#1565c0;cursor:pointer;width:100%">📦 Inventarartikel hinzufügen</button>
+      <button onclick="openAddFahrtItem('${fid}','inventory')" style="background:#e8f0fe;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;color:#1565c0;cursor:pointer;width:100%">Inventarartikel hinzufügen</button>
       <button onclick="openAddFahrtItem('${fid}','custom')" style="background:#f8f9fa;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;color:#555;cursor:pointer;width:100%">+ Eigener Artikel</button>
     `:'';
   }
@@ -5421,11 +5431,11 @@ function renderFahrtDetail(){
   const footer=document.getElementById('lg-fahrt-footer');
   if(footer){
     if(isDone){
-      footer.innerHTML='<div style="text-align:center;color:#2e7d32;font-weight:800;font-size:15px;padding:6px">✅ Fahrt abgeschlossen — Inventar aktualisiert</div>';
+      footer.innerHTML='<div style="text-align:center;color:#2e7d32;font-weight:800;font-size:15px;padding:6px">Fahrt abgeschlossen — Inventar aktualisiert</div>';
     } else {
       const allChecked=items.length>0&&items.every(([,i])=>i.checked);
       footer.innerHTML=`<button onclick="completeFahrt('${fid}')" ${allChecked?'':'disabled'} style="width:100%;background:${allChecked?'#2e7d32':'#ccc'};color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:800;cursor:${allChecked?'pointer':'default'}">
-        ${allChecked?'✅ Fahrt abschließen':'Alle Artikel abhaken zum Abschließen'}
+        ${allChecked?'Fahrt abschließen':'Alle Artikel abhaken zum Abschließen'}
       </button>`;
     }
   }
@@ -5453,31 +5463,132 @@ function completeFahrt(fid){
   });
   updates['/logistikFahrten/'+fid+'/status']='abgeschlossen';
   if(db)db.ref('/').update(updates);
-  toast('✅ Fahrt abgeschlossen & Inventar aktualisiert');
+  toast('Fahrt abgeschlossen & Inventar aktualisiert');
 }
 
+// ── NEW FAHRT CREATION SCREEN ────────────────────────────────────
+let _newFahrtItems = []; // draft items before save
+let _nfItemCounter = 0;
+
 function openNewFahrt(){
-  document.getElementById('nf-date').value=new Date().toISOString().split('T')[0];
-  document.getElementById('nf-employee').value='';
-  document.getElementById('nf-from').value='AS';
-  document.getElementById('nf-to').value='LS';
-  openModal('m-new-fahrt');
+  _newFahrtItems = [];
+  _nfItemCounter = 0;
+  document.getElementById('nf-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('nf-from').value = 'AS';
+  document.getElementById('nf-to').value = 'LS';
+  renderNewFahrtItems();
+  showScreen('logistik-new-fahrt-screen');
+}
+
+function renderNewFahrtItems(){
+  const list = document.getElementById('nf-items-list');
+  if(!list) return;
+  if(!_newFahrtItems.length){
+    list.innerHTML='<div style="color:#bbb;font-size:13px;text-align:center;padding:20px 0">Noch keine Artikel — unten hinzufügen</div>';
+    return;
+  }
+  list.innerHTML = _newFahrtItems.map((it,idx)=>`
+    <div style="background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:14px">${escHtml(it.name)}</div>
+        <div style="font-size:11px;color:#aaa">${it.menge > 1 ? it.menge+'× ' : ''}${it.isCustom?'Eigener Artikel':'Inventar'}</div>
+      </div>
+      ${it.photo
+        ? `<img src="${it.photo}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;flex-shrink:0">`
+        : `<label style="cursor:pointer;background:#f5f5f5;border-radius:8px;padding:5px 9px;font-size:11px;font-weight:700;color:#aaa;flex-shrink:0">
+             Foto<input type="file" accept="image/*" capture="environment" onchange="attachPhotoToNewItem(${idx},this)" style="display:none">
+           </label>`}
+      <button onclick="_newFahrtItems.splice(${idx},1);renderNewFahrtItems()" style="background:none;border:none;color:#ea4335;font-size:18px;cursor:pointer;flex-shrink:0;padding:0 2px">×</button>
+    </div>`).join('');
+}
+
+function attachPhotoToNewItem(idx, input){
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => { _newFahrtItems[idx].photo = e.target.result; renderNewFahrtItems(); };
+  reader.readAsDataURL(file);
+}
+
+function nfOpenInventoryPicker(){
+  const from = document.getElementById('nf-from').value;
+  const list = document.getElementById('nf-inv-picker-list'); if(!list) return;
+  let html = '';
+  INV_CATS.forEach(cat=>{
+    const catItems = Object.entries(inventoryItems).filter(([,i])=>i.category===cat);
+    if(!catItems.length) return;
+    html += `<div style="font-size:11px;font-weight:800;text-transform:uppercase;color:#aaa;padding:10px 0 4px">${escHtml(cat)}</div>`;
+    catItems.forEach(([iid,item])=>{
+      const st = (inventoryStock[from]||{})[iid]||{};
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f5f5f5">
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:13px">${escHtml(item.name)}</div>
+          <div style="font-size:11px;color:#aaa">Bestand ${LG_LOC[from]}: ${st.ist??'?'}</div>
+        </div>
+        <input type="number" min="1" value="1" id="nfip-${iid}" style="width:52px;border:1px solid #ddd;border-radius:8px;padding:5px;font-size:13px;text-align:center">
+        <button onclick="nfAddInvItem('${iid}','${escAttr(item.name)}')" style="background:#1565c0;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:13px;font-weight:700;cursor:pointer">+</button>
+      </div>`;
+    });
+  });
+  list.innerHTML = html || '<div style="color:#bbb;text-align:center;padding:20px">Kein Inventar vorhanden</div>';
+  openModal('m-nf-inv-picker');
+}
+
+function nfAddInvItem(iid, name){
+  const el = document.getElementById('nfip-'+iid);
+  const menge = el ? Math.max(1, parseInt(el.value)||1) : 1;
+  _newFahrtItems.push({name, menge, isCustom:false, inventoryItemId:iid});
+  renderNewFahrtItems();
+  closeModal('m-nf-inv-picker');
+  toast(name+' hinzugefügt');
+}
+
+function nfAddCustomItem(){
+  const name = document.getElementById('nf-custom-name').value.trim();
+  const menge = Math.max(1, parseInt(document.getElementById('nf-custom-menge').value)||1);
+  if(!name){toast('Bitte Bezeichnung eingeben');return;}
+  _newFahrtItems.push({name, menge, isCustom:true});
+  renderNewFahrtItems();
+  closeModal('m-nf-custom-item');
+  document.getElementById('nf-custom-name').value='';
+  document.getElementById('nf-custom-menge').value='1';
+  toast(name+' hinzugefügt');
+}
+
+function openNfCustomModal(){
+  document.getElementById('nf-custom-name').value='';
+  document.getElementById('nf-custom-menge').value='1';
+  openModal('m-nf-custom-item');
+  setTimeout(()=>document.getElementById('nf-custom-name').focus(),100);
+}
+
+function saveNewFahrt(){
+  const date = document.getElementById('nf-date').value;
+  const from = document.getElementById('nf-from').value;
+  const to   = document.getElementById('nf-to').value;
+  if(!date){toast('Bitte Datum wählen');return;}
+  if(from===to){toast('Von und Nach müssen verschieden sein');return;}
+  const fahrt = {date, from, to, status:'offen', items:{}, createdAt:Date.now()};
+  // Build items object
+  _newFahrtItems.forEach((it,i)=>{
+    const key = 'item'+Date.now()+i;
+    fahrt.items[key] = {
+      name: it.name,
+      menge: it.menge||1,
+      isCustom: !!it.isCustom,
+      inventoryItemId: it.inventoryItemId||null,
+      checked: false,
+      ...(it.photo ? {photo:it.photo} : {})
+    };
+  });
+  if(db) db.ref('/logistikFahrten').push(fahrt).then(ref=>{
+    toast('Fahrt angelegt');
+    openFahrt(ref.key);
+  });
 }
 
 function createFahrt(){
-  const date=document.getElementById('nf-date').value;
-  const employee=document.getElementById('nf-employee').value.trim();
-  const from=document.getElementById('nf-from').value;
-  const to=document.getElementById('nf-to').value;
-  if(!date){toast('Bitte Datum wählen');return;}
-  if(!employee){toast('Bitte Fahrer eintragen');return;}
-  if(from===to){toast('Von und Nach müssen verschieden sein');return;}
-  const fahrt={date,employee,from,to,status:'offen',items:{},createdAt:Date.now()};
-  if(db)db.ref('/logistikFahrten').push(fahrt).then(ref=>{
-    closeModal('m-new-fahrt');
-    toast('Fahrt angelegt ✓');
-    openFahrt(ref.key);
-  });
+  // Legacy - redirects to new flow
+  saveNewFahrt();
 }
 
 function deleteFahrt(fid){
@@ -5555,11 +5666,95 @@ function uploadFahrtItemPhoto(fid,ikey,input){
   reader.readAsDataURL(file);
 }
 
+// ── INVENTAR SEED ─────────────────────────────────────────────────
+const _SEED_ITEMS = {
+  'moebel_barhocker':          {name:'Barhocker', category:'MÖBEL'},
+  'moebel_stehtische':         {name:'Stehtische', category:'MÖBEL'},
+  'moebel_lounge_unterteil':   {name:'Lounge – Unterteil (4eck)', category:'MÖBEL'},
+  'moebel_lounge_tisch':       {name:'Lounge – Tisch (Unterteil + Glasplatte)', category:'MÖBEL'},
+  'moebel_lounge_popokissen':  {name:'Lounge – Popokissen', category:'MÖBEL'},
+  'moebel_lounge_ruecken':     {name:'Lounge – Rücken Kissen', category:'MÖBEL'},
+  'moebel_lounge_eckkissen':   {name:'Lounge – Eckkissen', category:'MÖBEL'},
+  'moebel_lounge_seitenlehne': {name:'Lounge – Seitenlehne', category:'MÖBEL'},
+  'moebel_lounge_rueckenlehne':{name:'Lounge – Rückenlehne', category:'MÖBEL'},
+  'moebel_bankett_gold':       {name:'Bankettstuhl – gold', category:'MÖBEL'},
+  'moebel_bankett_blau':       {name:'Bankettstuhl – blau', category:'MÖBEL'},
+  'moebel_bankett_weiss':      {name:'Bankettstuhl – weiß', category:'MÖBEL'},
+  'moebel_bankett_schwarz':    {name:'Bankettstuhl – schwarz', category:'MÖBEL'},
+  'moebel_hochzeitsstuhl':     {name:'Hochzeitsstuhl', category:'MÖBEL'},
+  'moebel_stehtisch_rund':     {name:'Stehtisch rund', category:'MÖBEL'},
+  'moebel_eiswanne':           {name:'Eiswanne', category:'MÖBEL'},
+  'geschirr_sektglaeser':      {name:'Sektgläser', category:'GESCHIRR & GLÄSER'},
+};
+const _SEED_STOCK = {
+  AS: {
+    moebel_barhocker:          {ist:12,  soll:12},
+    moebel_stehtische:         {ist:0,   soll:0},
+    moebel_lounge_unterteil:   {ist:45,  soll:45},
+    moebel_lounge_tisch:       {ist:4,   soll:4},
+    moebel_lounge_popokissen:  {ist:45,  soll:45},
+    moebel_lounge_ruecken:     {ist:45,  soll:45},
+    moebel_lounge_eckkissen:   {ist:0,   soll:0},
+    moebel_lounge_seitenlehne: {ist:45,  soll:45},
+    moebel_lounge_rueckenlehne:{ist:45,  soll:45},
+    moebel_hochzeitsstuhl:     {ist:90,  soll:90},
+    moebel_stehtisch_rund:     {ist:10,  soll:10},
+    moebel_eiswanne:           {ist:2,   soll:2},
+  },
+  EG: {
+    moebel_barhocker:          {ist:10,  soll:10},
+    moebel_stehtische:         {ist:6,   soll:6},
+    moebel_lounge_unterteil:   {ist:13,  soll:13},
+    moebel_lounge_tisch:       {ist:0,   soll:0},
+    moebel_lounge_popokissen:  {ist:13,  soll:13},
+    moebel_lounge_ruecken:     {ist:12,  soll:12},
+    moebel_lounge_eckkissen:   {ist:2,   soll:2},
+    moebel_lounge_seitenlehne: {ist:0,   soll:0},
+    moebel_lounge_rueckenlehne:{ist:12,  soll:12},
+    moebel_bankett_weiss:      {ist:0,   soll:0},
+    moebel_hochzeitsstuhl:     {ist:0,   soll:0},
+    moebel_stehtisch_rund:     {ist:0,   soll:0},
+    moebel_eiswanne:           {ist:0,   soll:0},
+  },
+  LS: {
+    moebel_barhocker:          {ist:79,  soll:84},
+    moebel_stehtische:         {ist:0,   soll:35},
+    moebel_lounge_unterteil:   {ist:0,   soll:44},
+    moebel_lounge_tisch:       {ist:11,  soll:11},
+    moebel_lounge_popokissen:  {ist:0,   soll:44},
+    moebel_lounge_ruecken:     {ist:0,   soll:44},
+    moebel_lounge_eckkissen:   {ist:0,   soll:0},
+    moebel_lounge_seitenlehne: {ist:0,   soll:44},
+    moebel_lounge_rueckenlehne:{ist:0,   soll:44},
+    moebel_bankett_weiss:      {ist:0,   soll:28},
+    moebel_hochzeitsstuhl:     {ist:90,  soll:90},
+    moebel_stehtisch_rund:     {ist:0,   soll:0},
+    moebel_eiswanne:           {ist:2,   soll:2},
+  }
+};
+function seedInventoryIfEmpty() {
+  if(!db) return;
+  db.ref('/inventoryItems').once('value', snap => {
+    if(snap.exists()) return; // already seeded
+    const updates = {};
+    Object.entries(_SEED_ITEMS).forEach(([iid,item]) => {
+      updates['/inventoryItems/'+iid] = item;
+    });
+    ['AS','EG','LS'].forEach(loc => {
+      const stockForLoc = _SEED_STOCK[loc] || {};
+      Object.entries(stockForLoc).forEach(([iid,st]) => {
+        updates['/inventoryStock/'+loc+'/'+iid] = st;
+      });
+    });
+    db.ref('/').update(updates);
+  });
+}
+
 // ── INVENTAR ──────────────────────────────────────────────────────
 function renderInventarTab(){
   const content=document.getElementById('lg-content'); if(!content)return;
   if(!isAdmin){
-    content.innerHTML='<div style="text-align:center;padding:60px 20px;color:#bbb"><div style="font-size:36px;margin-bottom:12px">🔒</div><div style="font-size:15px;font-weight:700;color:#888">Nur für Admins</div></div>';
+    content.innerHTML='<div style="text-align:center;padding:60px 20px;color:#bbb"><div style="font-size:15px;font-weight:700;color:#888">Nur für Admins</div></div>';
     return;
   }
   let html='<div style="padding:14px">';
@@ -5571,7 +5766,7 @@ function renderInventarTab(){
       html+=`<div style="background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
           <div style="font-weight:700;font-size:14px">${escHtml(item.name)}</div>
-          <button onclick="deleteInventoryItem('${iid}')" style="background:none;border:none;color:#ea4335;font-size:16px;cursor:pointer;padding:2px 6px">🗑</button>
+          <button onclick="deleteInventoryItem('${iid}')" style="background:none;border:none;color:#ea4335;font-size:16px;cursor:pointer;padding:2px 6px">×</button>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
           ${['AS','EG','LS'].map(l=>{
@@ -5673,7 +5868,7 @@ function saveInventoryItem(){
     <!-- Logistik cards -->
     <div id="home-cards-logistik" style="display:none">
       <button class="home-card" onclick="openLogistik()">
-        <div class="home-card-body"><div class="home-card-title">🚐 Logistikfahrten</div><div class="home-card-sub">Fahrten & Transporte verwalten</div></div>
+        <div class="home-card-body"><div class="home-card-title">Logistikfahrten</div><div class="home-card-sub">Fahrten & Transporte verwalten</div></div>
         <div class="home-card-arr">›</div>
       </button>
     </div>
@@ -5693,7 +5888,7 @@ function saveInventoryItem(){
 <!-- FIRST ADMIN SETUP MODAL -->
 <div class="overlay" id="m-assign-task">
   <div class="modal">
-    <h2 id="m-assign-title">👤 Zuweisen</h2>
+    <h2 id="m-assign-title">Zuweisen</h2>
     <div id="m-assign-list" style="max-height:320px;overflow-y:auto;margin-bottom:8px"></div>
     <button class="mbtn red" id="m-assign-clear" onclick="saveTaskAssignment(null)">Zuweisung entfernen</button>
     <button class="mbtn grey" onclick="closeModal('m-assign-task')">Abbrechen</button>
@@ -5701,7 +5896,7 @@ function saveInventoryItem(){
 </div>
 <div class="overlay" id="m-edit-user">
   <div class="modal">
-    <h2>✏️ Mitarbeiter bearbeiten</h2>
+    <h2>Mitarbeiter bearbeiten</h2>
     <label class="tform-lbl">Name</label>
     <input type="text" class="tform-input" id="eu-name" placeholder="Name">
     <label class="tform-lbl">PIN (4-stellig)</label>
@@ -5720,7 +5915,7 @@ function saveInventoryItem(){
 </div>
 <div class="overlay" id="m-first-admin">
   <div class="modal">
-    <h2>⚙️ Admin einrichten</h2>
+    <h2>Admin einrichten</h2>
     <p style="font-size:13px;color:#666;margin-bottom:16px">Erstelle deinen Admin-Account. Dieser Button verschwindet, sobald ein Admin angelegt ist.</p>
     <input type="text" id="fa-name" placeholder="Dein Name" style="margin-bottom:10px">
     <input type="tel" id="fa-pin" placeholder="4-stelliger PIN" maxlength="4" inputmode="numeric" style="margin-bottom:10px">
@@ -5737,7 +5932,7 @@ function saveInventoryItem(){
 <!-- EVENT LEADER PIN MODAL -->
 <div class="overlay" id="m-event-leader-pin">
   <div class="modal">
-    <h2>🔓 Eventleitung-Modus</h2>
+    <h2>Eventleitung-Modus</h2>
     <p style="font-size:13px;color:#666;margin-bottom:16px">Gib deinen persönlichen Code ein, um Aufgaben hinzuzufügen.</p>
     <div class="pin-row" id="elp-dots" style="justify-content:center;margin-bottom:8px">
       <div class="pin-dot" id="elp0"></div><div class="pin-dot" id="elp1"></div>
@@ -5762,8 +5957,8 @@ function saveInventoryItem(){
       <div class="order-hdr-title">Logistik</div>
     </div>
     <div style="display:flex;border-top:1px solid rgba(255,255,255,.15)">
-      <button id="lg-tab-fahrten" onclick="setLogistikTab('fahrten')" style="flex:1;background:none;border:none;border-bottom:2px solid #fff;color:#fff;padding:10px;font-size:13px;font-weight:700;cursor:pointer">🚐 Fahrten</button>
-      <button id="lg-tab-inventar" onclick="setLogistikTab('inventar')" style="flex:1;background:none;border:none;border-bottom:2px solid transparent;color:#fff;padding:10px;font-size:13px;font-weight:700;opacity:.55;cursor:pointer">📦 Inventar</button>
+      <button id="lg-tab-fahrten" onclick="setLogistikTab('fahrten')" style="flex:1;background:none;border:none;border-bottom:2px solid #fff;color:#fff;padding:10px;font-size:13px;font-weight:700;cursor:pointer"> Fahrten</button>
+      <button id="lg-tab-inventar" onclick="setLogistikTab('inventar')" style="flex:1;background:none;border:none;border-bottom:2px solid transparent;color:#fff;padding:10px;font-size:13px;font-weight:700;opacity:.55;cursor:pointer">Inventar</button>
     </div>
   </div>
   <div class="main" id="lg-content" style="padding-bottom:80px"></div>
@@ -5774,7 +5969,7 @@ function saveInventoryItem(){
 <!-- LOGISTIK FAHRT PIN MODAL -->
 <div class="overlay" id="m-logistik-leader-pin">
   <div class="modal">
-    <h2>🔓 Neue Fahrt erstellen</h2>
+    <h2>Neue Fahrt erstellen</h2>
     <p style="font-size:13px;color:#666;margin-bottom:16px">Gib deinen persönlichen Code ein, um eine Fahrt hinzuzufügen.</p>
     <div class="pin-row" id="lgp-dots" style="justify-content:center;margin-bottom:8px">
       <div class="pin-dot" id="lgp0"></div><div class="pin-dot" id="lgp1"></div>
@@ -5797,7 +5992,7 @@ function saveInventoryItem(){
     <div class="order-hdr-top">
       <button class="back-btn" onclick="goToFahrten()">← Fahrten</button>
       <div class="order-hdr-title" id="lg-fahrt-title">Fahrt</div>
-      <button id="lg-fahrt-del-btn" onclick="" style="display:none;background:none;border:none;color:rgba(255,255,255,.7);font-size:20px;cursor:pointer;padding:0 4px">🗑</button>
+      <button id="lg-fahrt-del-btn" onclick="" style="display:none;background:none;border:none;color:rgba(255,255,255,.7);font-size:20px;cursor:pointer;padding:0 4px">×</button>
     </div>
   </div>
   <div class="main" style="padding-bottom:80px">
@@ -5808,35 +6003,81 @@ function saveInventoryItem(){
   <div id="lg-fahrt-footer" style="position:sticky;bottom:0;background:#fff;border-top:1px solid #eee;padding:12px 14px"></div>
 </div>
 
-<!-- NEW FAHRT MODAL -->
-<div class="overlay" id="m-new-fahrt">
+<!-- NEW FAHRT SCREEN -->
+<div id="logistik-new-fahrt-screen">
+  <div class="order-hdr">
+    <div class="order-hdr-top">
+      <button class="back-btn" onclick="showScreen('logistik-screen');_updateLgTabs();renderFahrten()">← Zurück</button>
+      <div class="order-hdr-title">Neue Fahrt</div>
+      <button onclick="saveNewFahrt()" style="background:none;border:none;color:#fff;font-size:13px;font-weight:800;cursor:pointer;padding:4px 8px">Anlegen</button>
+    </div>
+  </div>
+  <div class="main" style="padding:16px;padding-bottom:120px">
+    <!-- Date prominent at top -->
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:6px">Datum</div>
+      <input type="date" id="nf-date" style="width:100%;border:1.5px solid #e0e0e0;border-radius:12px;padding:13px 14px;font-size:16px;font-weight:700;color:#1c1c2e;background:#fff;outline:none">
+    </div>
+    <!-- Route row -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">
+      <div style="flex:1">
+        <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:6px">Von</div>
+        <select id="nf-from" style="width:100%;border:1.5px solid #e0e0e0;border-radius:12px;padding:12px 14px;font-size:14px;font-weight:700;color:#1c1c2e;background:#fff;outline:none">
+          <option value="AS">amSee</option>
+          <option value="EG">EVENTGIESSEREI</option>
+          <option value="LS">LAKESIDE</option>
+        </select>
+      </div>
+      <div style="font-size:18px;color:#888;font-weight:700;padding-top:22px">→</div>
+      <div style="flex:1">
+        <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:6px">Nach</div>
+        <select id="nf-to" style="width:100%;border:1.5px solid #e0e0e0;border-radius:12px;padding:12px 14px;font-size:14px;font-weight:700;color:#1c1c2e;background:#fff;outline:none">
+          <option value="AS">amSee</option>
+          <option value="EG">EVENTGIESSEREI</option>
+          <option value="LS" selected>LAKESIDE</option>
+        </select>
+      </div>
+    </div>
+    <!-- Items -->
+    <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:8px">Artikel</div>
+    <div id="nf-items-list"></div>
+    <!-- Add buttons -->
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+      <button onclick="nfOpenInventoryPicker()" style="background:#e8f0fe;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;color:#1565c0;cursor:pointer;width:100%">+ Aus Inventar wählen</button>
+      <button onclick="openNfCustomModal()" style="background:#f8f9fa;border:1.5px dashed #ddd;border-radius:12px;padding:13px;font-size:14px;font-weight:700;color:#555;cursor:pointer;width:100%">+ Eigener Artikel</button>
+    </div>
+  </div>
+  <div style="position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #eee;padding:12px 16px;max-width:480px;margin:0 auto">
+    <button onclick="saveNewFahrt()" style="width:100%;background:#1565c0;color:#fff;border:none;border-radius:12px;padding:15px;font-size:15px;font-weight:800;cursor:pointer">Fahrt anlegen</button>
+  </div>
+</div>
+
+<!-- NF INVENTORY PICKER MODAL -->
+<div class="overlay" id="m-nf-inv-picker">
+  <div class="modal" style="max-height:80vh;display:flex;flex-direction:column">
+    <h2>Inventarartikel</h2>
+    <div id="nf-inv-picker-list" style="overflow-y:auto;flex:1;margin-bottom:10px"></div>
+    <button class="mbtn grey" onclick="closeModal('m-nf-inv-picker')">Schließen</button>
+  </div>
+</div>
+
+<!-- NF CUSTOM ITEM MODAL -->
+<div class="overlay" id="m-nf-custom-item">
   <div class="modal">
-    <h2>🚐 Neue Logistikfahrt</h2>
-    <label class="tform-lbl">Datum</label>
-    <input type="date" class="tform-input" id="nf-date">
-    <label class="tform-lbl">Fahrer / Mitarbeiter</label>
-    <input type="text" class="tform-input" id="nf-employee" placeholder="Name des Fahrers">
-    <label class="tform-lbl">Von</label>
-    <select class="tform-input" id="nf-from">
-      <option value="AS">amSee</option>
-      <option value="EG">EVENTGIESSEREI</option>
-      <option value="LS">LAKESIDE</option>
-    </select>
-    <label class="tform-lbl">Nach</label>
-    <select class="tform-input" id="nf-to">
-      <option value="AS">amSee</option>
-      <option value="EG">EVENTGIESSEREI</option>
-      <option value="LS" selected>LAKESIDE</option>
-    </select>
-    <button class="mbtn" onclick="createFahrt()">Fahrt anlegen ✓</button>
-    <button class="mbtn grey" onclick="closeModal('m-new-fahrt')">Abbrechen</button>
+    <h2>Eigener Artikel</h2>
+    <label class="tform-lbl">Bezeichnung</label>
+    <input type="text" class="tform-input" id="nf-custom-name" placeholder="z.B. Kabeltrommel">
+    <label class="tform-lbl">Menge</label>
+    <input type="number" class="tform-input" id="nf-custom-menge" value="1" min="1">
+    <button class="mbtn" onclick="nfAddCustomItem()">Hinzufügen</button>
+    <button class="mbtn grey" onclick="closeModal('m-nf-custom-item')">Abbrechen</button>
   </div>
 </div>
 
 <!-- ADD INVENTORY ITEM TO FAHRT MODAL -->
 <div class="overlay" id="m-add-fahrt-item-inv">
   <div class="modal" style="max-height:80vh;display:flex;flex-direction:column">
-    <h2>📦 Inventarartikel</h2>
+    <h2>Inventarartikel</h2>
     <div id="inv-picker-list" style="overflow-y:auto;flex:1;margin-bottom:10px"></div>
     <button class="mbtn grey" onclick="closeModal('m-add-fahrt-item-inv')">Schließen</button>
   </div>
@@ -5858,7 +6099,7 @@ function saveInventoryItem(){
 <!-- ADD INVENTORY ITEM (KATALOG) MODAL -->
 <div class="overlay" id="m-add-inv-item">
   <div class="modal">
-    <h2>📦 Neuer Inventarartikel</h2>
+    <h2>Neuer Inventarartikel</h2>
     <p id="ai-cat-label" style="font-size:12px;color:#888;margin-bottom:12px"></p>
     <label class="tform-lbl">Artikelname</label>
     <input type="text" class="tform-input" id="ai-name" placeholder="z.B. Barhocker">
@@ -5983,5 +6224,12 @@ function saveInventoryItem(){
     <button class="mbtn grey" onclick="closeModal('m-task-note')">Abbrechen</button>
   </div>
 </div>
+<!-- PERSISTENT ADMIN CORNER BUTTON -->
+<button id="admin-corner-btn" onclick="toggleAdminCorner()"
+  style="display:none;position:fixed;top:12px;right:12px;z-index:9999;
+  background:rgba(28,28,46,0.75);color:#fff;border:none;border-radius:8px;
+  padding:7px 12px;font-size:11px;font-weight:800;letter-spacing:.5px;
+  cursor:pointer;align-items:center;gap:5px;backdrop-filter:blur(4px);
+  box-shadow:0 2px 8px rgba(0,0,0,.3)">Admin: AUS</button>
 </body>
 </html>
