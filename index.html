@@ -9,14 +9,14 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260617-044';
+      var V='20260617-045';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')===V) return; // already correct
       // Bypass CDN cache with fetch(cache:'reload') → document.write fresh HTML
       fetch(location.pathname,{cache:'reload'})
         .then(function(r){return r.text();})
         .then(function(html){
-          if(html.indexOf("var V='20260617-044'")>=0){
+          if(html.indexOf("var V='20260617-045'")>=0){
             history.replaceState({},'','?v='+V);
             document.open(); document.write(html); document.close();
           } else {
@@ -526,6 +526,24 @@
     </div>
     <div id="vorlage-container"></div>
     <button class="add-cat-row" onclick="openNewCatVorlage()">+ Neue Kategorie</button>
+  </div>
+</div>
+
+<!-- NAMED TEMPLATE SCREEN -->
+<div id="named-template-screen" style="display:none;min-height:100vh;background:var(--bg)">
+  <div class="hdr" style="background:var(--hdr-bg,#1c1c2e)">
+    <div class="hdr-top">
+      <button class="back-btn" onclick="closeNamedTemplate()">← Zurück</button>
+      <div class="hdr-center">
+        <div class="hdr-title" id="nt-title">Vorlage</div>
+        <div class="hdr-event" style="color:rgba(255,255,255,.55)" id="nt-subtitle"></div>
+      </div>
+      <button class="btn-r red" style="font-size:11px;padding:6px 10px" onclick="deleteNamedTemplate()">Löschen</button>
+    </div>
+  </div>
+  <div class="main" style="padding-bottom:80px">
+    <div id="nt-content"></div>
+    <button onclick="openAddNTTask()" style="width:100%;background:none;border:2px dashed #ccc;border-radius:12px;padding:12px;font-size:13px;font-weight:700;color:#aaa;cursor:pointer;margin-top:8px">+ Aufgabe hinzufügen</button>
   </div>
 </div>
 
@@ -1763,6 +1781,8 @@ let editWikiCatId = null;
 let azVideoData = null;         // base64 pending for new/edit AZ entry
 let azPrevScreen = 'events';   // where to go back from A-Z
 let vorlageMode = false;
+let namedTemplates = {AS:{},EG:{},LS:{}};
+let currentTemplateId = null;
 let feedbackData = {};
 let vorlageTaskOrder = {AS:{},EG:{},LS:{}};
 let vorlageHidden = {};  // tasks hidden in vorlage per loc: {loc:{taskId:true}}
@@ -1807,6 +1827,7 @@ function subscribeGlobal() {
     db.ref('/vorlageHidden/'+l).on('value', s => { vorlageHidden[l]=s.val()||{}; if(vorlageMode&&loc===l)renderIfApp(); });
     db.ref('/permTasks/'+l).on('value', s => { permTasks[l]=s.val()||{}; if(loc===l)renderIfApp(); });
     db.ref('/subNames/'+l).on('value', s => { subNames[l]=s.val()||{}; if(loc===l)renderIfApp(); });
+    db.ref('/namedTemplates/'+l).on('value', s => { namedTemplates[l]=s.val()||{}; if(loc===l){if(isEventsVisible())renderEvents(); if(currentTemplateId&&document.getElementById('named-template-screen').style.display!=='none')renderNamedTemplate();} });
     db.ref('/wikiCats/'+l).on('value', s => { wikiCats[l]=s.val()||{}; if(loc===l&&isAZVisible())renderAZ(); });
     db.ref('/wikiEntries/'+l).on('value', s => { wikiEntries[l]=s.val()||{}; if(loc===l&&isAZVisible())renderAZ(); });
     db.ref('/wikiVideos/'+l).on('value', s => { wikiVideos[l]=s.val()||{}; });
@@ -1876,7 +1897,7 @@ function subscribeEvent(l, eid) {
 let currentScreen = 'home-screen';
 function showScreen(name) {
   currentScreen = name;
-  ['setup','loc-picker','events-screen','app','order-screen','az-screen','vorlage-screen','feedback-screen','export-screen','home-screen','task-login-screen','my-tasks-screen','task-detail-screen','admin-tasks-screen','task-create-screen','admin-users-screen','logistik-screen','logistik-fahrt-screen','logistik-new-fahrt-screen'].forEach(id => {
+  ['setup','loc-picker','events-screen','app','order-screen','az-screen','vorlage-screen','feedback-screen','export-screen','home-screen','task-login-screen','my-tasks-screen','task-detail-screen','admin-tasks-screen','task-create-screen','admin-users-screen','logistik-screen','logistik-fahrt-screen','logistik-new-fahrt-screen','named-template-screen'].forEach(id => {
     const el = document.getElementById(id); if(!el) return;
     el.style.display = (id===name) ? (['loc-picker','home-screen'].includes(id)?'flex':'block') : 'none';
     if(el) el.style.overflowY=(id===name&&!['loc-picker','home-screen'].includes(id))?'auto':''; // scroll fix
@@ -2014,7 +2035,7 @@ function renderEventsList() {
 
   let html = '<div class="events-list">';
 
-  // Admin-only Vorlage tile – always at top
+  // Admin-only Vorlage tiles – always at top
   if (isAdmin) {
     html += `<div class="event-card vorlage-tile" onclick="pickVorlage()">
       <div class="event-date-col" style="opacity:.45">
@@ -2027,6 +2048,23 @@ function renderEventsList() {
       </div>
       <div class="event-arrow" style="color:#bbb">›</div>
     </div>`;
+    // Named templates
+    const tmplList=Object.entries(namedTemplates[loc]||{}).sort((a,b)=>(a[1].createdAt||0)-(b[1].createdAt||0));
+    tmplList.forEach(([tid,tmpl])=>{
+      const taskCount=Object.keys(tmpl.tasks||{}).length;
+      html+=`<div class="event-card vorlage-tile" onclick="openNamedTemplate('${tid}')">
+        <div class="event-date-col" style="opacity:.45">
+          <div style="font-size:22px;line-height:1;color:#888">▤</div>
+          <div style="font-size:9px;font-weight:700;color:#aaa;margin-top:5px;text-transform:uppercase;letter-spacing:.5px">Vorlage</div>
+        </div>
+        <div class="event-info">
+          <div class="event-name">${escHtml(tmpl.name||'Vorlage')}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:3px">${taskCount} Aufgaben</div>
+        </div>
+        <div class="event-arrow" style="color:#bbb">›</div>
+      </div>`;
+    });
+    html+=`<button onclick="createNamedTemplate()" style="width:100%;background:none;border:2px dashed #ccc;border-radius:14px;padding:13px;font-size:13px;font-weight:700;color:#aaa;cursor:pointer;margin-bottom:6px">+ Neue Vorlage</button>`;
   }
 
   if (sorted.length === 0) {
@@ -3705,6 +3743,118 @@ function updateCustomItem(id, field, val) {
 
 
 // ── VORLAGE SCREEN ──────────────────────────────────────────────────
+// ── NAMED TEMPLATES ────────────────────────────────────────────────
+let _ntEditTaskId = null;
+
+function createNamedTemplate(){
+  const name=prompt('Name der neuen Vorlage (z. B. Hochzeit, Brunch, Sommerfest):');
+  if(!name||!name.trim())return;
+  if(db)db.ref('/namedTemplates/'+loc).push({name:name.trim(),tasks:{},createdAt:Date.now()}).then(ref=>{
+    openNamedTemplate(ref.key);
+    toast('Vorlage "'+name.trim()+'" erstellt ✓');
+  });
+}
+
+function openNamedTemplate(tid){
+  currentTemplateId=tid;
+  const tmpl=(namedTemplates[loc]||{})[tid]; if(!tmpl)return;
+  document.getElementById('nt-title').textContent=escHtml(tmpl.name||'Vorlage');
+  document.getElementById('nt-subtitle').textContent=(locNames[loc]||loc);
+  renderNamedTemplate();
+  showScreen('named-template-screen');
+}
+
+function closeNamedTemplate(){
+  currentTemplateId=null;
+  showScreen('events-screen');
+}
+
+function deleteNamedTemplate(){
+  if(!currentTemplateId)return;
+  const tmpl=(namedTemplates[loc]||{})[currentTemplateId];
+  if(!confirm('Vorlage "'+(tmpl?tmpl.name:'')+'\" löschen?'))return;
+  if(db)db.ref('/namedTemplates/'+loc+'/'+currentTemplateId).remove();
+  closeNamedTemplate();
+  toast('Vorlage gelöscht');
+}
+
+function renderNamedTemplate(){
+  const cont=document.getElementById('nt-content'); if(!cont)return;
+  const tmpl=(namedTemplates[loc]||{})[currentTemplateId];
+  if(!tmpl){cont.innerHTML='';return;}
+  const tasks=Object.entries(tmpl.tasks||{}).sort((a,b)=>(a[1].order||0)-(b[1].order||0));
+  // Group by category
+  const cats={};
+  tasks.forEach(([tid,t])=>{
+    const c=t.cat||'Allgemein';
+    if(!cats[c])cats[c]=[];
+    cats[c].push([tid,t]);
+  });
+  if(Object.keys(cats).length===0){
+    cont.innerHTML=`<div style="text-align:center;padding:40px 20px;color:#bbb"><div style="font-size:14px;font-weight:700;color:#888">Noch keine Aufgaben</div><div style="font-size:12px;margin-top:6px">Mit dem Button unten Aufgaben hinzufügen</div></div>`;
+    return;
+  }
+  let html='';
+  Object.entries(cats).forEach(([catName,items])=>{
+    html+=`<div class="cat open" style="margin-bottom:10px;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.07)">
+      <div class="cat-hdr" onclick="this.closest('.cat').classList.toggle('open')">
+        <div class="cat-title">${escHtml(catName)}</div>
+        <span class="cat-count">${items.length}</span>
+        <span class="cat-arrow">▾</span>
+      </div>
+      <div class="cat-body">`;
+    items.forEach(([tid,t])=>{
+      html+=`<div style="padding:11px 15px;border-top:1px solid #f5f5f5;display:flex;align-items:center;gap:10px">
+        <div style="flex:1;font-size:13.5px;font-weight:600;color:var(--text)">${escHtml(t.de||'')}</div>
+        <button onclick="editNTTask('${tid}')" style="background:none;border:none;color:#aaa;cursor:pointer;font-size:14px;padding:2px 6px">✏️</button>
+        <button onclick="deleteNTTask('${tid}')" style="background:none;border:none;color:#e57373;cursor:pointer;font-size:16px;padding:2px 4px">×</button>
+      </div>`;
+    });
+    html+=`</div></div>`;
+  });
+  cont.innerHTML=html;
+}
+
+function openAddNTTask(){
+  _ntEditTaskId=null;
+  document.getElementById('nt-task-modal-title').textContent='Aufgabe hinzufügen';
+  document.getElementById('nt-task-text').value='';
+  document.getElementById('nt-task-cat').value='';
+  openModal('m-nt-task');
+  setTimeout(()=>document.getElementById('nt-task-text').focus(),100);
+}
+
+function editNTTask(tid){
+  const tmpl=(namedTemplates[loc]||{})[currentTemplateId]; if(!tmpl)return;
+  const t=(tmpl.tasks||{})[tid]; if(!t)return;
+  _ntEditTaskId=tid;
+  document.getElementById('nt-task-modal-title').textContent='Aufgabe bearbeiten';
+  document.getElementById('nt-task-text').value=t.de||'';
+  document.getElementById('nt-task-cat').value=t.cat||'';
+  openModal('m-nt-task');
+  setTimeout(()=>document.getElementById('nt-task-text').focus(),100);
+}
+
+function saveNTTask(){
+  const text=document.getElementById('nt-task-text').value.trim();
+  if(!text){toast('Bitte Text eingeben');return;}
+  const cat=document.getElementById('nt-task-cat').value.trim()||'Allgemein';
+  if(_ntEditTaskId){
+    if(db)db.ref('/namedTemplates/'+loc+'/'+currentTemplateId+'/tasks/'+_ntEditTaskId).update({de:text,cat});
+  } else {
+    const order=Date.now();
+    if(db)db.ref('/namedTemplates/'+loc+'/'+currentTemplateId+'/tasks').push({de:text,cat,order});
+  }
+  closeModal('m-nt-task');
+  toast('Gespeichert ✓');
+}
+
+function deleteNTTask(tid){
+  if(!confirm('Aufgabe löschen?'))return;
+  if(db)db.ref('/namedTemplates/'+loc+'/'+currentTemplateId+'/tasks/'+tid).remove();
+  toast('Aufgabe gelöscht');
+}
+
 function openVorlage() {
   document.getElementById('vorlage-loc-name').textContent = (locNames[loc]||loc) + ' — Vorlage';
   renderVorlage();
@@ -6878,6 +7028,17 @@ function saveInventoryItem(){
     </div>
     <button class="mbtn" onclick="addFahrtCustomItem()">Hinzufügen ✓</button>
     <button class="mbtn grey" onclick="closeModal('m-add-fahrt-item-custom')">Abbrechen</button>
+  </div>
+</div>
+
+<!-- NAMED TEMPLATE: ADD/EDIT TASK -->
+<div class="overlay" id="m-nt-task">
+  <div class="modal">
+    <h2 id="nt-task-modal-title">Aufgabe hinzufügen</h2>
+    <input type="text" id="nt-task-text" placeholder="Aufgabe (z. B. Tische eindecken)">
+    <input type="text" id="nt-task-cat" placeholder="Kategorie (z. B. Vorbereitung)">
+    <button class="mbtn" onclick="saveNTTask()">Speichern ✓</button>
+    <button class="mbtn grey" onclick="closeModal('m-nt-task')">Abbrechen</button>
   </div>
 </div>
 
