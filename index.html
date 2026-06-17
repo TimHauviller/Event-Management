@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260617-028';
+      var V='20260617-029';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')!==V){
         u.searchParams.set('v',V);
@@ -6054,6 +6054,32 @@ function renderInventarTab(){
   }
 }
 
+// Full location names for Inventar display
+const INV_LOC_NAMES = {AS:'amSee', EG:'Eventgießerei', LS:'Lakeside'};
+
+function _invLocHeader(l){
+  const col=LG_LOC_COLOR[l]||'#888';
+  return `<div style="background:${col};color:#fff;text-align:center;padding:5px 4px;border-radius:6px 6px 0 0;font-size:10px;font-weight:800;letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${INV_LOC_NAMES[l]}</div>`;
+}
+
+function _invTotals(iid){
+  let totSoll=0, totIst=0, hasSoll=false, hasIst=false;
+  ['AS','EG','LS'].forEach(l=>{
+    const st=(inventoryStock[l]||{})[iid]||{};
+    if(st.soll!==undefined){totSoll+=parseInt(st.soll)||0; hasSoll=true;}
+    if(st.ist!==undefined){totIst+=parseInt(st.ist)||0; hasIst=true;}
+  });
+  if(!hasSoll&&!hasIst)return '';
+  const diff=totIst-totSoll;
+  const dc=diff<0?'#ea4335':diff>0?'#2e7d32':'#888';
+  return `<div style="margin-top:8px;padding-top:8px;border-top:1px solid #f0f0f0;display:flex;gap:12px;align-items:center">
+    <span style="font-size:11px;color:#888;font-weight:700">Gesamt</span>
+    <span style="font-size:12px;font-weight:800;color:#1c1c2e">Ist: ${totIst}</span>
+    <span style="font-size:12px;font-weight:800;color:#1c1c2e">Soll: ${totSoll}</span>
+    <span style="font-size:12px;font-weight:800;color:${dc};margin-left:auto">Diff: ${diff>0?'+':''}${diff}</span>
+  </div>`;
+}
+
 function _renderInventarReadonly(content){
   let html='<div style="padding:14px">';
   INV_CATS.forEach(cat=>{
@@ -6062,19 +6088,30 @@ function _renderInventarReadonly(content){
     html+=`<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#888;margin:18px 0 8px">${escHtml(cat)}</div>`;
     items.forEach(([iid,item])=>{
       const photo=inventoryPhotos[iid];
-      html+=`<div style="background:#fff;border-radius:12px;padding:10px 12px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);display:flex;align-items:center;gap:10px">
-        ${photo
-          ?`<img src="${photo}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;flex-shrink:0">`
-          :`<div style="width:44px;height:44px;border-radius:8px;background:#f5f5f5;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:#ccc;text-align:center;line-height:1.2">kein Foto</div>`}
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:14px">${escHtml(item.name)}</div>
-          <div style="display:flex;gap:10px;margin-top:4px;flex-wrap:wrap">
-            ${['AS','EG','LS'].map(l=>{
-              const st=(inventoryStock[l]||{})[iid]||{};
-              return `<div style="font-size:11px;color:#888"><span style="font-weight:700;color:#555">${LG_LOC[l].substring(0,5)}</span>: ${st.ist??'—'}`;
-            }).join('')}
-          </div>
+      html+=`<div style="background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.07)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          ${photo
+            ?`<img src="${photo}" style="width:52px;height:52px;object-fit:cover;border-radius:8px;flex-shrink:0">`
+            :`<div style="width:52px;height:52px;border-radius:8px;background:#f5f5f5;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9px;color:#ccc;text-align:center;line-height:1.3">kein<br>Foto</div>`}
+          <div style="font-weight:800;font-size:15px;color:#1c1c2e;flex:1;min-width:0">${escHtml(item.name)}</div>
         </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+          ${['AS','EG','LS'].map(l=>{
+            const st=(inventoryStock[l]||{})[iid]||{};
+            return `<div style="border-radius:6px;overflow:hidden;border:1px solid #eee">
+              ${_invLocHeader(l)}
+              <div style="padding:7px 6px;background:#fafafa">
+                <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">
+                  <span style="color:#888">Ist</span><span style="font-weight:800;color:#1c1c2e">${st.ist??'—'}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:11px">
+                  <span style="color:#888">Soll</span><span style="font-weight:800;color:#1c1c2e">${st.soll??'—'}</span>
+                </div>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+        ${_invTotals(iid)}
       </div>`;
     });
   });
@@ -6090,37 +6127,39 @@ function _renderInventarAdmin(content){
     if(!items.length)html+=`<div style="color:#ccc;font-size:13px;margin-bottom:8px">Noch keine Artikel</div>`;
     items.forEach(([iid,item])=>{
       const photo=inventoryPhotos[iid];
-      html+=`<div style="background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      html+=`<div style="background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.07)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
           ${photo
-            ?`<img src="${photo}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;flex-shrink:0">`
-            :`<div style="width:44px;height:44px;border-radius:8px;background:#f5f5f5;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9px;color:#ccc;text-align:center;line-height:1.2;padding:2px">kein Foto</div>`}
-          <div style="flex:1;min-width:0;font-weight:700;font-size:14px">${escHtml(item.name)}</div>
-          <label style="cursor:pointer;background:#e8f0fe;border-radius:7px;padding:5px 9px;font-size:11px;font-weight:700;color:#1565c0;flex-shrink:0">
+            ?`<img src="${photo}" style="width:52px;height:52px;object-fit:cover;border-radius:8px;flex-shrink:0">`
+            :`<div style="width:52px;height:52px;border-radius:8px;background:#f5f5f5;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9px;color:#ccc;text-align:center;line-height:1.3">kein<br>Foto</div>`}
+          <div style="font-weight:800;font-size:15px;color:#1c1c2e;flex:1;min-width:0">${escHtml(item.name)}</div>
+          <label style="cursor:pointer;background:#e8edf8;border-radius:7px;padding:5px 9px;font-size:11px;font-weight:700;color:#1e3a6e;flex-shrink:0">
             Foto<input type="file" accept="image/*" onchange="uploadInventoryPhoto('${iid}',this)" style="display:none">
           </label>
-          <button onclick="deleteInventoryItem('${iid}')" style="background:none;border:none;color:#ea4335;font-size:16px;cursor:pointer;padding:2px 6px;flex-shrink:0">×</button>
+          <button onclick="deleteInventoryItem('${iid}')" style="background:none;border:none;color:#ea4335;font-size:18px;cursor:pointer;padding:2px 4px;flex-shrink:0">×</button>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
           ${['AS','EG','LS'].map(l=>{
             const st=(inventoryStock[l]||{})[iid]||{};
-            const diff=(parseInt(st.ist)||0)-(parseInt(st.soll)||0);
-            const diffColor=diff<0?'#ea4335':diff>0?'#2e7d32':'#888';
-            return `<div style="background:#f8f9fa;border-radius:8px;padding:8px">
-              <div style="font-size:10px;font-weight:800;color:#888;margin-bottom:5px">${LG_LOC[l].substring(0,6)}</div>
-              <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">
-                <label style="font-size:10px;color:#aaa">Ist</label>
-                <input type="number" value="${st.ist??''}" min="0" onchange="updateStock('${l}','${iid}','ist',this.value)" style="width:38px;border:1px solid #ddd;border-radius:5px;padding:2px 4px;font-size:12px;text-align:center;font-family:inherit">
-                <label style="font-size:10px;color:#aaa">Soll</label>
-                <input type="number" value="${st.soll??''}" min="0" onchange="updateStock('${l}','${iid}','soll',this.value)" style="width:38px;border:1px solid #ddd;border-radius:5px;padding:2px 4px;font-size:12px;text-align:center;font-family:inherit">
+            return `<div style="border-radius:6px;overflow:hidden;border:1px solid #e8e8e8">
+              ${_invLocHeader(l)}
+              <div style="padding:7px 6px;background:#fafafa">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+                  <span style="font-size:10px;color:#888;font-weight:600">Ist</span>
+                  <input type="number" value="${st.ist??''}" min="0" placeholder="—" onchange="updateStock('${l}','${iid}','ist',this.value)" style="width:44px;border:1px solid #ddd;border-radius:5px;padding:3px 4px;font-size:12px;font-weight:700;text-align:center;font-family:inherit;background:#fff">
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <span style="font-size:10px;color:#888;font-weight:600">Soll</span>
+                  <input type="number" value="${st.soll??''}" min="0" placeholder="—" onchange="updateStock('${l}','${iid}','soll',this.value)" style="width:44px;border:1px solid #ddd;border-radius:5px;padding:3px 4px;font-size:12px;font-weight:700;text-align:center;font-family:inherit;background:#fff">
+                </div>
               </div>
-              ${(st.ist!==undefined&&st.soll!==undefined)?`<div style="font-size:11px;color:${diffColor};font-weight:700;margin-top:3px">Diff: ${diff>0?'+':''}${diff}</div>`:''}
             </div>`;
           }).join('')}
         </div>
+        ${_invTotals(iid)}
       </div>`;
     });
-    html+=`<button onclick="openAddInventoryItem('${escAttr(cat)}')" style="width:100%;background:none;border:1.5px dashed #ddd;border-radius:10px;padding:10px;color:#aaa;font-size:13px;cursor:pointer;margin-bottom:4px">+ Artikel hinzufügen</button>`;
+    html+=`<button onclick="openAddInventoryItem('${escAttr(cat)}')" style="width:100%;background:none;border:1.5px dashed #ddd;border-radius:10px;padding:10px;color:#aaa;font-size:13px;cursor:pointer;margin-bottom:4px;font-family:inherit">+ Artikel hinzufügen</button>`;
   });
   html+='</div>';
   content.innerHTML=html;
