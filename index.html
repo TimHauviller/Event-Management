@@ -9,14 +9,14 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260617-048';
+      var V='20260617-049';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')===V) return; // already correct
       // Bypass CDN cache with fetch(cache:'reload') → document.write fresh HTML
       fetch(location.pathname,{cache:'reload'})
         .then(function(r){return r.text();})
         .then(function(html){
-          if(html.indexOf("var V='20260617-048'")>=0){
+          if(html.indexOf("var V='20260617-049'")>=0){
             history.replaceState({},'','?v='+V);
             document.open(); document.write(html); document.close();
           } else {
@@ -494,6 +494,11 @@
         <button class="btn-r grey" onclick="changePwd()">Passwort</button>
         <button class="btn-r grey" onclick="openAdminTasks()" style="background:#1c1c2e;color:#fff">Aufgaben</button>
         <button class="btn-r grey" onclick="openEmailSettings()" style="background:#1565c0;color:#fff">✉️ E-Mail Empfänger</button>
+      </div>
+      <div class="admin-bar-section" id="vorlage-actions" style="display:none">
+        <div class="admin-bar-section-lbl">Hauptvorlage</div>
+        <button class="btn-r grey" onclick="renameMainVorlage()">✏️ Umbenennen</button>
+        <button class="btn-r" style="background:#2a5298;color:#fff" onclick="copyMainVorlage()">Kopieren</button>
       </div>
       <hr class="admin-bar-sep admin-event-only">
       <div class="admin-bar-section admin-event-only">
@@ -1998,8 +2003,8 @@ function pickVorlage() {
   const vn=document.getElementById('vorlage-loc-name');
   if(vn) vn.textContent=vorlageNames[loc]||'Hauptvorlage';
   updateAdminButtons();
-  renderVorlage();
-  showScreen('vorlage-screen');
+  render();
+  showScreen('app');
 }
 
 function renameMainVorlage(){
@@ -2574,6 +2579,8 @@ function updateAdminButtons() {
   if(bar) bar.classList.toggle('show',on);
   const evbar=document.getElementById('ev-admin-bar');
   if(evbar) evbar.classList.toggle('show',on);
+  const va=document.getElementById('vorlage-actions');
+  if(va) va.style.display=vorlageMode?'flex':'none';
   // Persistent corner button
   const cb=document.getElementById('admin-corner-btn');
   if(cb){
