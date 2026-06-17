@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260611-019';
+      var V='20260611-020';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')!==V){
         u.searchParams.set('v',V);
@@ -230,6 +230,7 @@
     .task.ev-added .task-de::before{content:'★ ';color:#ff9800;font-size:11px}
     .add-task-row{display:none;padding:8px 15px;border-top:1px solid #f5f5f5}
     body.admin-mode .add-task-row{display:block}
+    body.event-leader-mode .add-task-row{display:block}
     .add-task-inner-btn{background:none;border:none;font-size:12px;font-weight:600;color:var(--accent,#3a8fd4);cursor:pointer;padding:0}
     .add-cat-row{display:none;width:100%;background:none;border:2px dashed var(--border);padding:12px;border-radius:var(--r);text-align:center;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted);margin-top:6px}
     body.admin-mode .add-cat-row{display:block}
@@ -458,6 +459,7 @@
         <div class="hdr-title" id="hdr-loc-name"></div>
         <div class="hdr-event" id="hdr-event-name"></div>
       </div>
+      <div id="hdr-user-name" style="font-size:11px;color:rgba(255,255,255,.6);font-weight:600;white-space:nowrap;padding-right:4px"></div>
     </div>
     <div class="prog-wrap"><div class="prog" id="prog-bar" style="width:0%"></div></div>
     <div class="prog-label">
@@ -473,6 +475,7 @@
       <button class="action-bar-btn" onclick="openOrder()">Getränkebestellung</button>
       <button class="action-bar-btn" onclick="openFeedback()">Feedback</button>
       <button class="action-bar-btn" onclick="printChecklist()">Drucken</button>
+      <button class="action-bar-btn" id="event-leader-btn" style="display:none;background:#4a148c;color:#fff" onclick="openEventLeaderPin()">🔓 Aufgaben +</button>
     </div>
   </div>
   <div class="main">
@@ -1691,6 +1694,7 @@ LS:[
 const FB_CONFIG_KEY = 'esl_fb_cfg';
 let loc = null, eventId = null;
 let isAdmin = false, loginOrigin = 'picker';
+let eventLeaderMode = false; // Mini-Admin für Eventleitungen
 let db = null, fbEnabled = false;
 let adminPassword = 'admin2024';
 let emailRecipients = []; // configurable list of email addresses
@@ -1862,9 +1866,13 @@ function pickLocation(l) {
   showScreen('events-screen');
 }
 
+function openLogistik() { showScreen('logistik-screen'); }
+
 function goToEvents() {
   vorlageMode = false;
   document.body.classList.remove('vorlage-mode');
+  eventLeaderMode = false;
+  document.body.classList.remove('event-leader-mode');
   eventId = null;
   evChecked={}; evHidden={}; evExtraTasks={}; evTaskOrder={}; evTaskNotes={}; evSubcatPhotos={}; evTaskAssignments={}; evCatAssignments={}; evSubcatAssignments={};
   document.getElementById('ev-loc-name').textContent = locNames[loc]||loc;
@@ -1882,6 +1890,11 @@ function pickEvent(eid) {
   evChecked={}; evHidden={}; evExtraTasks={}; evTaskOrder={}; evTaskNotes={}; evSubcatPhotos={}; evTaskAssignments={}; evCatAssignments={}; evSubcatAssignments={};
   document.getElementById('hdr-loc-name').textContent = locNames[loc]||loc;
   document.getElementById('hdr-event-name').textContent = ev.name||'';
+  const hdrUser=document.getElementById('hdr-user-name');
+  if(hdrUser) hdrUser.textContent=currentTaskUser?currentTaskUser.name:'';
+  // Show event-leader button for eventleitung role (not admins — they have full admin)
+  const elBtn=document.getElementById('event-leader-btn');
+  if(elBtn) elBtn.style.display=(currentTaskUser&&currentTaskUser.role==='eventleitung'&&!currentTaskUser.isAdmin&&!isAdmin)?'':'none';
   const lbl=document.getElementById('admin-bar-lbl');
   if(lbl) lbl.textContent='Event anpassen';
   const shBtn=document.getElementById('hdr-sheet-btn');
@@ -4675,8 +4688,17 @@ function showHomePIN(){
 function showHomeMenu(){
   const pv=document.getElementById('home-pin-view'),mv=document.getElementById('home-menu-view');
   if(pv)pv.style.display='none';if(mv)mv.style.display='';
+  const name = currentTaskUser&&currentTaskUser.name||'';
+  const role = currentTaskUser&&currentTaskUser.role||'eventleitung';
   const gr=document.getElementById('home-user-greeting');
-  if(gr)gr.textContent='Hallo, '+(currentTaskUser&&currentTaskUser.name||'');
+  if(gr)gr.textContent='Hallo, '+name+' 👋';
+  const areaEl=document.getElementById('home-user-area');
+  if(areaEl)areaEl.textContent=role==='logistik'?'Logistik':'Eventleitung';
+  // Show role-appropriate cards
+  const elCards=document.getElementById('home-cards-eventleitung');
+  const lgCards=document.getElementById('home-cards-logistik');
+  if(elCards)elCards.style.display=role==='logistik'?'none':'';
+  if(lgCards)lgCards.style.display=role==='logistik'?'':'none';
   const ac=document.getElementById('home-admin-card');
   if(ac)ac.style.display=(currentTaskUser&&currentTaskUser.isAdmin)?'':'none';
   updateHomeNotifBadge();
@@ -4686,7 +4708,7 @@ function verifyPin() {
   const match = Object.entries(taskUsers).find(([,u])=>String(u.pin)===String(pinBuffer));
   if(match){
     const [uid,u]=match;
-    const userData={uid,name:u.name,loc:u.loc};
+    const userData={uid,name:u.name,loc:u.loc,role:u.role||'eventleitung',isAdmin:!!u.isAdmin};
     localStorage.setItem('task_user',JSON.stringify(userData));
     currentTaskUser=userData;
     updateMyTasksHeader(); renderMyTasks(); markTasksSeen();
@@ -5057,7 +5079,8 @@ function renderAdminUsers(){
         +'<div class="login-avatar" style="width:36px;height:36px;font-size:14px">'+escHtml(ini)+'</div>'
         +'<div style="flex:1">'
           +'<div style="font-size:14px;font-weight:700">'+escHtml(u.name)+(u.isAdmin?' <span style="font-size:10px;background:#1c1c2e;color:#fff;border-radius:4px;padding:1px 5px">Admin</span>':'')+'</div>'
-          +'<div style="font-size:12px;color:var(--muted)">PIN: '+escHtml(String(u.pin||''))+(u.loc?' · '+escHtml(u.loc):'')+'</div>'
+          +'<div style="font-size:12px;color:var(--muted)">PIN: '+escHtml(String(u.pin||''))+(u.loc?' · '+escHtml(u.loc):'')
+            +' · <span style="font-size:11px;background:'+(u.role==='logistik'?'#e3f2fd':'#f3e5f5')+';color:'+(u.role==='logistik'?'#1565c0':'#6a1b9a')+';border-radius:4px;padding:1px 5px;font-weight:700">'+(u.role==='logistik'?'Logistik':'Eventleitung')+'</span></div>'
         +'</div>'
         +'<div style="display:flex;gap:6px">'
           +`<button onclick="openEditUser('${escAttr(uid)}')" style="font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid #ddd;background:#f5f5f5;cursor:pointer">✏️</button>`
@@ -5074,6 +5097,8 @@ function renderAdminUsers(){
     +'<input class="tform-input" id="nu-name" placeholder="Max Mustermann">'
     +'<label class="tform-lbl">PIN (4-stellig)</label>'
     +'<input class="tform-input" id="nu-pin" type="tel" placeholder="1234" maxlength="4">'
+    +'<label class="tform-lbl">Bereich</label>'
+    +'<select class="tform-input" id="nu-role"><option value="eventleitung">Eventleitung</option><option value="logistik">Logistik</option></select>'
     +'<label style="display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:13px;color:#444;cursor:pointer"><input type="checkbox" id="nu-admin" style="width:16px;height:16px"> Admin-Rechte</label>'
     +'<button onclick="createUser()" style="width:100%;background:var(--accent);color:#fff;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer">Mitarbeiter anlegen ✓</button>';
   document.getElementById('admin-users-content').innerHTML=html;
@@ -5086,7 +5111,8 @@ function createUser(){
   if(!name){toast('Bitte Namen eingeben');return;}
   if(!pin||pin.length<4){toast('Bitte 4-stelligen PIN eingeben');return;}
   if(!/^\d{4}$/.test(pin)){toast('PIN muss aus 4 Ziffern bestehen');return;}
-  const ud={name,pin,loc:'',createdAt:Date.now()};
+  const role=(document.getElementById('nu-role')&&document.getElementById('nu-role').value)||'eventleitung';
+  const ud={name,pin,loc:'',role,createdAt:Date.now()};
   if(isAdm) ud.isAdmin=true;
   if(db) db.ref('/taskUsers').push(ud);
   toast('Mitarbeiter angelegt ✓');
@@ -5101,6 +5127,8 @@ function openEditUser(uid) {
   document.getElementById('eu-name').value = u.name||'';
   document.getElementById('eu-pin').value = u.pin||'';
   document.getElementById('eu-admin').checked = !!u.isAdmin;
+  const euRole = document.getElementById('eu-role');
+  if(euRole) euRole.value = u.role||'eventleitung';
   openModal('m-edit-user');
   setTimeout(()=>document.getElementById('eu-name').focus(),100);
 }
@@ -5112,11 +5140,45 @@ function saveEditUser() {
   if(!/^\d{4}$/.test(pin)){ toast('PIN muss genau 4 Ziffern sein'); return; }
   const existing = Object.entries(taskUsers).find(([uid,u])=>String(u.pin)===pin && uid!==_editUid);
   if(existing){ toast('Dieser PIN ist bereits vergeben'); return; }
-  const updates = { name, pin, isAdmin: isAdm||null };
+  const euRole = document.getElementById('eu-role');
+  const role = euRole ? euRole.value : 'eventleitung';
+  const updates = { name, pin, isAdmin: isAdm||null, role };
   if(db) db.ref('/taskUsers/'+_editUid).update(updates);
   else { Object.assign(taskUsers[_editUid], updates); saveLocal(); }
   closeModal('m-edit-user');
   toast('Gespeichert ✓');
+}
+
+// ── EVENT LEADER PIN ──────────────────────────────────────────────
+let _elpBuffer = '';
+function openEventLeaderPin() {
+  _elpBuffer='';
+  for(let i=0;i<4;i++){const d=document.getElementById('elp'+i);if(d){d.classList.remove('on');d.style.background='';}}
+  const err=document.getElementById('elp-error'); if(err)err.textContent='';
+  openModal('m-event-leader-pin');
+}
+function elpKey(k) {
+  if(k==='⌫'){_elpBuffer=_elpBuffer.slice(0,-1);}
+  else if(_elpBuffer.length<4){_elpBuffer+=k;}
+  for(let i=0;i<4;i++){const d=document.getElementById('elp'+i);if(d)d.classList.toggle('on',i<_elpBuffer.length);}
+  if(_elpBuffer.length===4) verifyEventLeaderPin();
+}
+function verifyEventLeaderPin() {
+  if(!currentTaskUser){_elpBuffer='';return;}
+  const storedUser = taskUsers[currentTaskUser.uid];
+  if(storedUser && String(storedUser.pin)===String(_elpBuffer)) {
+    eventLeaderMode=true;
+    document.body.classList.add('event-leader-mode');
+    closeModal('m-event-leader-pin');
+    const elBtn=document.getElementById('event-leader-btn');
+    if(elBtn){elBtn.textContent='✅ Aufgaben +';elBtn.style.background='#2e7d32';}
+    toast('Eventleitung-Modus aktiv — Aufgaben können jetzt hinzugefügt werden');
+    render();
+  } else {
+    _elpBuffer='';
+    for(let i=0;i<4;i++){const d=document.getElementById('elp'+i);if(d){d.classList.remove('on');d.style.background='#ea4335';setTimeout(()=>{if(d)d.style.background='';},500);}}
+    const err=document.getElementById('elp-error');if(err){err.textContent='Falscher Code';setTimeout(()=>{if(err)err.textContent='';},2000);}
+  }
 }
 
 function toggleUserAdmin(uid,makeAdmin){
@@ -5162,11 +5224,25 @@ function deleteUser(uid){
     </div>
   </div>
   <div id="home-menu-view" style="display:none;width:100%;max-width:400px">
-    <div style="text-align:center;font-size:13px;color:#888;margin-bottom:20px" id="home-user-greeting">Hallo</div>
-    <button class="home-card" onclick="goToChecklisten()">
-      <div class="home-card-body"><div class="home-card-title">Event Checklisten</div><div class="home-card-sub">Aufgaben für Events verwalten</div></div>
-      <div class="home-card-arr">›</div>
-    </button>
+    <div style="text-align:center;margin-bottom:22px">
+      <div style="font-size:22px;font-weight:900;color:#1c1c2e;letter-spacing:-.3px" id="home-user-greeting">Hallo</div>
+      <div style="font-size:13px;color:#aaa;margin-top:2px" id="home-user-area"></div>
+    </div>
+    <!-- Eventleitung cards -->
+    <div id="home-cards-eventleitung">
+      <button class="home-card" onclick="goToChecklisten()">
+        <div class="home-card-body"><div class="home-card-title">Event Checklisten</div><div class="home-card-sub">Aufgaben für Events verwalten</div></div>
+        <div class="home-card-arr">›</div>
+      </button>
+    </div>
+    <!-- Logistik cards -->
+    <div id="home-cards-logistik" style="display:none">
+      <button class="home-card" onclick="openLogistik()">
+        <div class="home-card-body"><div class="home-card-title">🚐 Logistikfahrten</div><div class="home-card-sub">Fahrten & Transporte verwalten</div></div>
+        <div class="home-card-arr">›</div>
+      </button>
+    </div>
+    <!-- Always visible -->
     <button class="home-card" onclick="goToMyTasks()">
       <div class="home-card-body"><div class="home-card-title">Meine Aufgaben</div><div class="home-card-sub" id="home-task-sub"></div></div>
       <span id="home-notif-badge" class="notif-dot" style="display:none">0</span>
@@ -5195,6 +5271,11 @@ function deleteUser(uid){
     <input type="text" class="tform-input" id="eu-name" placeholder="Name">
     <label class="tform-lbl">PIN (4-stellig)</label>
     <input type="tel" class="tform-input" id="eu-pin" placeholder="1234" maxlength="4" inputmode="numeric">
+    <label class="tform-lbl">Bereich</label>
+    <select class="tform-input" id="eu-role" style="margin-bottom:14px">
+      <option value="eventleitung">Eventleitung</option>
+      <option value="logistik">Logistik</option>
+    </select>
     <label style="display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:13px;color:#444;cursor:pointer">
       <input type="checkbox" id="eu-admin" style="width:16px;height:16px"> Admin-Rechte
     </label>
@@ -5218,7 +5299,40 @@ function deleteUser(uid){
     <button class="mbtn grey" onclick="closeModal('m-first-admin')">Abbrechen</button>
   </div>
 </div>
+<!-- EVENT LEADER PIN MODAL -->
+<div class="overlay" id="m-event-leader-pin">
+  <div class="modal">
+    <h2>🔓 Eventleitung-Modus</h2>
+    <p style="font-size:13px;color:#666;margin-bottom:16px">Gib deinen persönlichen Code ein, um Aufgaben hinzuzufügen.</p>
+    <div class="pin-row" id="elp-dots" style="justify-content:center;margin-bottom:8px">
+      <div class="pin-dot" id="elp0"></div><div class="pin-dot" id="elp1"></div>
+      <div class="pin-dot" id="elp2"></div><div class="pin-dot" id="elp3"></div>
+    </div>
+    <div id="elp-error" style="color:#ea4335;text-align:center;font-size:13px;min-height:18px;margin-bottom:8px"></div>
+    <div class="pin-grid">
+      <button class="pin-btn" onclick="elpKey('1')">1</button><button class="pin-btn" onclick="elpKey('2')">2</button><button class="pin-btn" onclick="elpKey('3')">3</button>
+      <button class="pin-btn" onclick="elpKey('4')">4</button><button class="pin-btn" onclick="elpKey('5')">5</button><button class="pin-btn" onclick="elpKey('6')">6</button>
+      <button class="pin-btn" onclick="elpKey('7')">7</button><button class="pin-btn" onclick="elpKey('8')">8</button><button class="pin-btn" onclick="elpKey('9')">9</button>
+      <button class="pin-btn" style="visibility:hidden"></button><button class="pin-btn" onclick="elpKey('0')">0</button><button class="pin-btn" onclick="elpKey('⌫')">⌫</button>
+    </div>
+    <button class="mbtn grey" onclick="closeModal('m-event-leader-pin')" style="margin-top:10px">Abbrechen</button>
+  </div>
+</div>
 <!-- TASK LOGIN SCREEN -->
+<!-- LOGISTIK SCREEN -->
+<div id="logistik-screen">
+  <div class="order-hdr">
+    <div class="order-hdr-top">
+      <button class="back-btn" onclick="showScreen('home-screen')">← Home</button>
+      <div class="order-hdr-title">Logistikfahrten</div>
+    </div>
+  </div>
+  <div style="padding:24px;text-align:center;color:#888;margin-top:40px">
+    <div style="font-size:48px;margin-bottom:16px">🚐</div>
+    <div style="font-size:18px;font-weight:800;color:#1c1c2e;margin-bottom:8px">Logistikfahrten</div>
+    <div style="font-size:14px;color:#aaa">Dieser Bereich wird gerade eingerichtet.<br>Kommt bald!</div>
+  </div>
+</div>
 <div id="task-login-screen">
   <div class="order-hdr">
     <div class="order-hdr-top">
