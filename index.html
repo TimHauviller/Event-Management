@@ -9,14 +9,14 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260617-046';
+      var V='20260617-047';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')===V) return; // already correct
       // Bypass CDN cache with fetch(cache:'reload') → document.write fresh HTML
       fetch(location.pathname,{cache:'reload'})
         .then(function(r){return r.text();})
         .then(function(html){
-          if(html.indexOf("var V='20260617-046'")>=0){
+          if(html.indexOf("var V='20260617-047'")>=0){
             history.replaceState({},'','?v='+V);
             document.open(); document.write(html); document.close();
           } else {
@@ -541,7 +541,10 @@
         </div>
         <div class="hdr-event" style="color:rgba(255,255,255,.55)" id="nt-subtitle"></div>
       </div>
-      <button class="btn-r red" style="font-size:11px;padding:6px 10px" onclick="deleteNamedTemplate()">Löschen</button>
+      <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
+        <button class="btn-r" style="font-size:11px;padding:5px 10px;background:#2a5298" onclick="duplicateNamedTemplate()">Kopieren</button>
+        <button class="btn-r red" style="font-size:11px;padding:5px 10px" onclick="deleteNamedTemplate()">Löschen</button>
+      </div>
     </div>
   </div>
   <div class="main" style="padding-bottom:80px">
@@ -3789,6 +3792,23 @@ function renameNamedTemplate(){
   if(db)db.ref('/namedTemplates/'+loc+'/'+currentTemplateId+'/name').set(newName.trim());
   document.getElementById('nt-title').textContent=newName.trim();
   toast('Vorlage umbenannt');
+}
+
+function duplicateNamedTemplate(){
+  if(!currentTemplateId)return;
+  const tmpl=(namedTemplates[loc]||{})[currentTemplateId];
+  if(!tmpl)return;
+  const newName=prompt('Name der Kopie:','Kopie – '+(tmpl.name||'Vorlage'));
+  if(!newName||!newName.trim())return;
+  const copy={name:newName.trim(),createdAt:Date.now(),tasks:{}};
+  // Deep-copy tasks without checked state
+  Object.entries(tmpl.tasks||{}).forEach(([tid,t])=>{
+    copy.tasks[tid]={text:t.text,cat:t.cat||'',order:t.order||0};
+  });
+  if(db)db.ref('/namedTemplates/'+loc).push(copy).then(ref=>{
+    toast('Vorlage kopiert ✓');
+    openNamedTemplate(ref.key);
+  });
 }
 
 function renderNamedTemplate(){
