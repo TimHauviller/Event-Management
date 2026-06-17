@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260617-030';
+      var V='20260617-031';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')!==V){
         u.searchParams.set('v',V);
@@ -231,6 +231,7 @@
     .add-task-row{display:none;padding:8px 15px;border-top:1px solid #f5f5f5}
     body.admin-mode .add-task-row{display:block}
     body.event-leader-mode .add-task-row{display:block}
+    body.logged-in-mode .add-task-row{display:block}
     .add-task-inner-btn{background:none;border:none;font-size:12px;font-weight:600;color:var(--accent,#3a8fd4);cursor:pointer;padding:0}
     .add-cat-row{display:none;width:100%;background:none;border:2px dashed var(--border);padding:12px;border-radius:var(--r);text-align:center;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted);margin-top:6px}
     body.admin-mode .add-cat-row{display:block}
@@ -1893,7 +1894,7 @@ function goToEvents() {
   vorlageMode = false;
   document.body.classList.remove('vorlage-mode');
   eventLeaderMode = false;
-  document.body.classList.remove('event-leader-mode');
+  document.body.classList.remove('event-leader-mode','logged-in-mode');
   eventId = null;
   evChecked={}; evHidden={}; evExtraTasks={}; evTaskOrder={}; evTaskNotes={}; evSubcatPhotos={}; evTaskAssignments={}; evCatAssignments={}; evSubcatAssignments={};
   document.getElementById('ev-loc-name').textContent = locNames[loc]||loc;
@@ -1907,6 +1908,9 @@ function pickEvent(eid) {
   document.body.classList.remove('vorlage-mode');
   openCats.clear();
   eventId = eid;
+  // Any logged-in user can add tasks
+  if(currentTaskUser) document.body.classList.add('logged-in-mode');
+  else document.body.classList.remove('logged-in-mode');
   const ev = (allEvents[loc]||{})[eid]||{};
   evChecked={}; evHidden={}; evExtraTasks={}; evTaskOrder={}; evTaskNotes={}; evSubcatPhotos={}; evTaskAssignments={}; evCatAssignments={}; evSubcatAssignments={};
   document.getElementById('hdr-loc-name').textContent = locNames[loc]||loc;
@@ -4831,8 +4835,33 @@ function renderMyTasks(){
     }
   }
 
-  if(!tasks.length && !clHtml){el.innerHTML='<div style="text-align:center;padding:50px 20px;color:var(--muted);font-size:14px">Keine Aufgaben in dieser Kategorie</div>';return;}
-  el.innerHTML = clHtml + tasks.map(t=>renderTaskCard(t,'my')).join('');
+  // ── Logistik-Fahrten (wo dieser Nutzer Fahrer ist) ──
+  let lgHtml = '';
+  if(currentTaskUser && (currentTaskUser.roleLG || currentTaskUser.role==='logistik' || currentTaskUser.isAdmin)) {
+    const myName = currentTaskUser.name;
+    const myFahrten = Object.entries(logistikFahrten||{})
+      .filter(([,f])=>f.employee===myName)
+      .sort(([,a],[,b])=>(b.createdAt||0)-(a.createdAt||0));
+    if(myFahrten.length){
+      lgHtml='<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#999;margin:16px 0 8px">Meine Logistikfahrten</div>';
+      myFahrten.forEach(([fid,f])=>{
+        const items=Object.values(f.items||{});
+        const checked=items.filter(i=>i.checked).length;
+        const isDone=f.status==='abgeschlossen';
+        const noDate=!f.date;
+        const dateStr=f.date?new Date(f.date+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}):'Kein Datum';
+        lgHtml+=`<div style="background:#fff;border-radius:12px;padding:14px 16px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,.07);border-left:4px solid ${isDone?'#2e7d32':'#1e3a6e'}" onclick="showScreen('logistik-fahrt-screen');currentFahrtId='${fid}';renderFahrtDetail()">
+          <div style="font-weight:800;font-size:14px;color:#1c1c2e">Logistikfahrt</div>
+          <div style="font-size:12px;color:${noDate?'#ea4335':'#888'};margin-top:3px">${noDate?'Datum fehlt':dateStr}</div>
+          <div style="font-size:12px;color:${isDone?'#2e7d32':'#888'};margin-top:3px;font-weight:600">${isDone?'Abgeschlossen':`${checked} / ${items.length} abgehakt`}</div>
+        </div>`;
+      });
+      lgHtml+='<div style="margin-bottom:8px"></div>';
+    }
+  }
+
+  if(!tasks.length && !clHtml && !lgHtml){el.innerHTML='<div style="text-align:center;padding:50px 20px;color:var(--muted);font-size:14px">Keine Aufgaben in dieser Kategorie</div>';return;}
+  el.innerHTML = clHtml + lgHtml + tasks.map(t=>renderTaskCard(t,'my')).join('');
 }
 
 function renderTaskCard(t,from){
@@ -5383,14 +5412,14 @@ function renderFahrten(){
     html+=`<div onclick="openFahrt('${fid}')" class="event-card" style="border-left-color:${accentColor}${isDone?';opacity:.7':''}">
       <div class="event-date-col">
         <div class="event-date-wd">${wd||'—'}</div>
-        <div class="event-date-day" style="color:${accentColor}">${day}</div>
+        <div class="event-date-day" style="color:${accentColor}">${noDate?'?':day}</div>
         <div class="event-date-month">${mo}</div>
         <div class="event-date-year">${yr}</div>
       </div>
       <div style="flex:1;min-width:0">
-        <div style="margin-bottom:5px;display:flex;flex-wrap:wrap;gap:4px">${routeBadgesHtml||'<span style="color:#bbb;font-size:12px">Keine Route</span>'}</div>
-        <div style="font-size:12px;color:#888;margin-top:2px">${escHtml(f.employee||'?')} &middot; ${items.length} Artikel</div>
-        <div style="font-size:12px;color:${isDone?'#2e7d32':'#888'};margin-top:2px;font-weight:600">${isDone?'Abgeschlossen':`${checked}/${items.length} abgehakt`}</div>
+        <div style="font-size:14px;font-weight:800;color:#1c1c2e;margin-bottom:3px">Logistikfahrt${f.employee?` · ${escHtml(f.employee)}`:''}</div>
+        <div style="font-size:12px;color:#888">${items.length} Artikel &middot; ${isDone?'<span style="color:#2e7d32;font-weight:700">Abgeschlossen</span>':`${checked} abgehakt`}</div>
+        ${noDate?'<div style="font-size:11px;color:#ea4335;font-weight:700;margin-top:2px">Datum fehlt</div>':''}
       </div>
       <div style="color:#ccc;font-size:18px">›</div>
     </div>`;
@@ -5403,8 +5432,7 @@ function openFahrt(fid){
   currentFahrtId=fid;
   const f=logistikFahrten[fid]; if(!f)return;
   const title=document.getElementById('lg-fahrt-title');
-  const dateStr=f.date?new Date(f.date+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}):'Fahrt';
-  if(title)title.textContent=dateStr;
+  if(title)title.textContent='Logistikfahrt'+(f.employee?' · '+f.employee:'');
   const delBtn=document.getElementById('lg-fahrt-del-btn');
   if(delBtn){delBtn.style.display=isAdmin?'':'none';delBtn.onclick=()=>deleteFahrt(fid);}
   showScreen('logistik-fahrt-screen');
@@ -5428,10 +5456,10 @@ function renderFahrtDetail(){
   const info=document.getElementById('lg-fahrt-info');
   const noDate=!f.date;
   const canEdit=isAdmin||_fahrtEditMode;
-  // Build driver options from known users in logistikFahrten
-  const knownDrivers=[...new Set(Object.values(logistikFahrten).map(x=>x.employee).filter(Boolean))];
-  if(f.employee&&!knownDrivers.includes(f.employee))knownDrivers.unshift(f.employee);
-  const driverOpts=knownDrivers.map(d=>`<option value="${escHtml(d)}" ${d===(f.employee||'')?'selected':''}>${escHtml(d)}</option>`).join('');
+  // Build driver options from Logistik users (roleLG=true)
+  const lgDrivers=Object.values(taskUsers).filter(u=>u.roleLG||u.role==='logistik').sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  if(f.employee&&!lgDrivers.find(u=>u.name===f.employee))lgDrivers.unshift({name:f.employee});
+  const driverOpts=lgDrivers.map(u=>`<option value="${escHtml(u.name||u.uid||'')}" ${(u.name||u.uid||'')===(f.employee||'')?'selected':''}>${escHtml(u.name||u.uid||'')}</option>`).join('');
   if(info)info.innerHTML=`
     <div style="flex:1;text-align:center;padding:4px 0">
       <div style="font-size:10px;color:#aaa;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Datum</div>
@@ -5472,42 +5500,52 @@ function renderFahrtDetail(){
       });
       let html='';
       Object.entries(routeGroups).forEach(([rk,group])=>{
-        html+=`<div style="display:flex;align-items:center;gap:8px;background:#f8f9fa;border-radius:10px;padding:8px 12px;margin:12px 0 6px">
-          ${locRoute(group.from,group.to,true)}
+        const frCol=LG_LOC_COLOR[group.from]||'#888';
+        const toCol=LG_LOC_COLOR[group.to]||'#888';
+        const frName=INV_LOC_NAMES[group.from]||group.from;
+        const toName=INV_LOC_NAMES[group.to]||group.to;
+        html+=`<div style="display:flex;align-items:center;gap:6px;padding:10px 15px 4px;border-top:2px solid #f0f0f0;margin-top:6px">
+          <span style="background:${frCol};color:#fff;font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px">${escHtml(frName)}</span>
+          <span style="color:#bbb;font-weight:700;font-size:13px">→</span>
+          <span style="background:${toCol};color:#fff;font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px">${escHtml(toName)}</span>
         </div>`;
         group.items.forEach(([ikey,item])=>{
           const invPhoto=item.inventoryItemId?inventoryPhotos[item.inventoryItemId]:null;
           const displayPhoto=item.photo||invPhoto;
-          html+=`<div style="background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:6px">
-            <div style="display:flex;align-items:center;gap:10px">
-              <button onclick="toggleFahrtItem('${fid}','${ikey}')" style="flex-shrink:0;width:30px;height:30px;border-radius:50%;border:2px solid ${item.checked?'#2e7d32':'#ddd'};background:${item.checked?'#2e7d32':'#fff'};color:#fff;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center">${item.checked?'✓':''}</button>
-              ${displayPhoto?`<img src="${displayPhoto}" style="width:40px;height:40px;object-fit:cover;border-radius:8px;flex-shrink:0">`:''}
+          html+=`<div class="task${item.checked?' done':''}" style="padding:10px 15px">
+            <div class="chk${item.checked?' on':''}" onclick="toggleFahrtItem('${fid}','${ikey}')"></div>
+            <div class="task-txt" style="display:flex;align-items:center;gap:8px;min-width:0">
+              ${displayPhoto?`<img src="${displayPhoto}" style="width:32px;height:32px;object-fit:cover;border-radius:6px;flex-shrink:0">`:''}
               <div style="flex:1;min-width:0">
-                <div style="font-weight:700;font-size:14px;color:${item.checked?'#aaa':'#1c1c2e'};${item.checked?'text-decoration:line-through':''}">
-                  ${item.menge&&item.menge>1?`<span style="background:#f0f4ff;color:#1565c0;border-radius:4px;padding:1px 6px;font-size:12px;margin-right:5px">${item.menge}×</span>`:''}${escHtml(item.name)}
+                <div class="task-de">
+                  ${item.menge&&item.menge>1?`<span style="background:#f0f4ff;color:#1565c0;border-radius:4px;padding:1px 6px;font-size:11px;margin-right:5px;font-weight:800">${item.menge}×</span>`:''}${escHtml(item.name)}
                 </div>
-                ${item.comment?`<div style="font-size:12px;color:#888;margin-top:3px;font-style:italic">${escHtml(item.comment)}</div>`:''}
+                ${item.comment?`<div style="font-size:11px;color:#888;margin-top:2px;font-style:italic">${escHtml(item.comment)}</div>`:''}
+                ${item.rueckfahrt?`<div style="font-size:11px;color:#1565c0;font-weight:700;margin-top:2px">↩ Rückfahrt geplant</div>`:''}
               </div>
-              <button onclick="openItemActions('${fid}','${ikey}')" style="flex-shrink:0;background:none;border:none;color:#aaa;font-size:18px;cursor:pointer;padding:2px 6px;font-weight:700;line-height:1">···</button>
-              ${canEdit?`<button onclick="deleteFahrtItem('${fid}','${ikey}')" style="background:none;border:none;color:#ea4335;font-size:18px;cursor:pointer;flex-shrink:0;padding:0 2px">×</button>`:''}
             </div>
-            <label style="display:flex;align-items:center;gap:6px;margin-top:7px;cursor:pointer" onclick="event.stopPropagation()">
-              <input type="checkbox" ${item.rueckfahrt?'checked':''} onchange="toggleRueckfahrt('${fid}','${ikey}',this.checked)" style="width:14px;height:14px;accent-color:#1565c0">
-              <span style="font-size:11px;color:#888;font-weight:600">Rückfahrt nötig</span>
-            </label>
+            <div class="task-btns">
+              <button onclick="openItemActions('${fid}','${ikey}')" style="background:none;border:none;color:#bbb;font-size:18px;cursor:pointer;padding:2px 4px;font-weight:700;line-height:1">···</button>
+              ${canEdit?`<button onclick="deleteFahrtItem('${fid}','${ikey}')" style="background:none;border:none;color:#ea4335;font-size:16px;cursor:pointer;padding:2px 4px">×</button>`:''}
+            </div>
           </div>`;
         });
+        if(canEdit){
+          html+=`<div class="add-task-row" style="display:block"><button class="add-task-inner-btn" onclick="openAddFahrtItem('${fid}','inventory')">+ Aus Inventar</button> <button class="add-task-inner-btn" onclick="openAddFahrtItem('${fid}','custom')">+ Eigener Artikel</button></div>`;
+        }
       });
       itemsEl.innerHTML=html;
     }
   }
 
-  // Add buttons (visible in edit mode or admin mode)
+  // Add buttons — global (for empty fahrt or when no route exists yet)
   const addBtns=document.getElementById('lg-fahrt-add-btns');
   if(addBtns){
     addBtns.innerHTML=canEdit?`
-      <button onclick="openAddFahrtItem('${fid}','inventory')" style="background:#e8edf8;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;color:#1e3a6e;cursor:pointer;width:100%">+ Aus Inventar hinzufügen</button>
-      <button onclick="openAddFahrtItem('${fid}','custom')" style="background:#f8f9fa;border:1.5px dashed #ddd;border-radius:10px;padding:12px;font-size:13px;font-weight:700;color:#555;cursor:pointer;width:100%">+ Eigener Artikel</button>
+      <div style="padding:0 15px 8px;display:flex;gap:8px">
+        <button onclick="openAddFahrtItem('${fid}','inventory')" style="flex:1;background:#e8edf8;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:700;color:#1e3a6e;cursor:pointer">+ Aus Inventar</button>
+        <button onclick="openAddFahrtItem('${fid}','custom')" style="flex:1;background:#f8f9fa;border:1.5px dashed #ddd;border-radius:10px;padding:11px;font-size:13px;font-weight:700;color:#555;cursor:pointer">+ Eigener Artikel</button>
+      </div>
     `:'';
   }
 
@@ -5881,7 +5919,8 @@ function addFahrtInventoryItem(fid,iid){
   const item=inventoryItems[iid]; if(!item)return;
   const from=(document.getElementById('afi-inv-from')||{}).value||'AS';
   const to=(document.getElementById('afi-inv-to')||{}).value||'LS';
-  const newItem={name:item.name,menge,from,to,checked:false,isCustom:false,inventoryItemId:iid};
+  const rueckfahrt=!!(document.getElementById('afi-inv-rueck')||{}).checked;
+  const newItem={name:item.name,menge,from,to,checked:false,isCustom:false,inventoryItemId:iid,rueckfahrt};
   if(db)db.ref('/logistikFahrten/'+fid+'/items').push(newItem);
   toast(escHtml(item.name)+' hinzugefügt ✓');
   closeModal('m-add-fahrt-item-inv');
@@ -5892,8 +5931,9 @@ function addFahrtCustomItem(){
   const menge=parseInt(document.getElementById('afi-menge').value)||1;
   const from=(document.getElementById('afi-from')||{}).value||'AS';
   const to=(document.getElementById('afi-to')||{}).value||'LS';
+  const rueckfahrt=!!(document.getElementById('afi-rueck')||{}).checked;
   if(!name){toast('Bitte Bezeichnung eingeben');return;}
-  const newItem={name,menge,from,to,checked:false,isCustom:true};
+  const newItem={name,menge,from,to,checked:false,isCustom:true,rueckfahrt};
   if(db)db.ref('/logistikFahrten/'+_addFahrtId+'/items').push(newItem);
   closeModal('m-add-fahrt-item-custom');
   toast(escHtml(name)+' hinzugefügt ✓');
@@ -6521,6 +6561,10 @@ function saveInventoryItem(){
       </select>
     </div>
     <div id="inv-picker-list" style="overflow-y:auto;flex:1;margin-bottom:10px"></div>
+    <label style="display:flex;align-items:center;gap:8px;margin:10px 0 14px;cursor:pointer">
+      <input type="checkbox" id="afi-inv-rueck" style="width:16px;height:16px;accent-color:#1565c0">
+      <span style="font-size:13px;font-weight:700;color:#555">Rückfahrt nötig</span>
+    </label>
     <button class="mbtn grey" onclick="closeModal('m-add-fahrt-item-inv')">Schließen</button>
   </div>
 </div>
@@ -6543,6 +6587,10 @@ function saveInventoryItem(){
         <option value="AS">amSee</option><option value="EG">EVENTGIESSEREI</option><option value="LS" selected>LAKESIDE</option>
       </select>
     </div>
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:16px;cursor:pointer">
+      <input type="checkbox" id="afi-rueck" style="width:16px;height:16px;accent-color:#1565c0">
+      <span style="font-size:13px;font-weight:700;color:#555">Rückfahrt nötig</span>
+    </label>
     <button class="mbtn" onclick="addFahrtCustomItem()">Hinzufügen ✓</button>
     <button class="mbtn grey" onclick="closeModal('m-add-fahrt-item-custom')">Abbrechen</button>
   </div>
