@@ -9,14 +9,14 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260617-047';
+      var V='20260617-048';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')===V) return; // already correct
       // Bypass CDN cache with fetch(cache:'reload') → document.write fresh HTML
       fetch(location.pathname,{cache:'reload'})
         .then(function(r){return r.text();})
         .then(function(html){
-          if(html.indexOf("var V='20260617-047'")>=0){
+          if(html.indexOf("var V='20260617-048'")>=0){
             history.replaceState({},'','?v='+V);
             document.open(); document.write(html); document.close();
           } else {
@@ -513,11 +513,17 @@
   <div class="hdr" style="background:var(--hdr-bg,#1c1c2e)">
     <div class="hdr-top">
       <button class="back-btn" onclick="closeVorlage()">← Zurück</button>
-      <div class="hdr-center">
-        <div class="hdr-title" id="vorlage-loc-name">Vorlage</div>
+      <div class="hdr-center" style="display:flex;flex-direction:column;align-items:center;gap:2px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <div class="hdr-title" id="vorlage-loc-name">Hauptvorlage</div>
+          <button onclick="renameMainVorlage()" style="background:none;border:none;color:rgba(255,255,255,.55);font-size:14px;cursor:pointer;padding:2px 4px;line-height:1" title="Umbenennen">✏️</button>
+        </div>
         <div class="hdr-event" style="color:rgba(255,255,255,.55)">Gilt für alle Events</div>
       </div>
-      <button class="btn-r grey" style="font-size:11px;padding:6px 10px" onclick="openNewCatVorlage()">+ Kategorie</button>
+      <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
+        <button class="btn-r" style="font-size:11px;padding:5px 10px;background:#2a5298" onclick="copyMainVorlage()">Kopieren</button>
+        <button class="btn-r grey" style="font-size:11px;padding:5px 10px" onclick="openNewCatVorlage()">+ Kat.</button>
+      </div>
     </div>
   </div>
   <div class="main">
@@ -1787,6 +1793,7 @@ let editWikiCatId = null;
 let azVideoData = null;         // base64 pending for new/edit AZ entry
 let azPrevScreen = 'events';   // where to go back from A-Z
 let vorlageMode = false;
+let vorlageNames = {AS:'',EG:'',LS:''};
 let namedTemplates = {AS:{},EG:{},LS:{}};
 let currentTemplateId = null;
 let feedbackData = {};
@@ -1834,6 +1841,7 @@ function subscribeGlobal() {
     db.ref('/permTasks/'+l).on('value', s => { permTasks[l]=s.val()||{}; if(loc===l)renderIfApp(); });
     db.ref('/subNames/'+l).on('value', s => { subNames[l]=s.val()||{}; if(loc===l)renderIfApp(); });
     db.ref('/namedTemplates/'+l).on('value', s => { namedTemplates[l]=s.val()||{}; if(loc===l){if(isEventsVisible())renderEvents(); if(currentTemplateId&&document.getElementById('named-template-screen').style.display!=='none')renderNamedTemplate();} });
+    db.ref('/vorlageNames/'+l).on('value', s => { vorlageNames[l]=s.val()||''; if(loc===l&&isEventsVisible())renderEvents(); });
     db.ref('/wikiCats/'+l).on('value', s => { wikiCats[l]=s.val()||{}; if(loc===l&&isAZVisible())renderAZ(); });
     db.ref('/wikiEntries/'+l).on('value', s => { wikiEntries[l]=s.val()||{}; if(loc===l&&isAZVisible())renderAZ(); });
     db.ref('/wikiVideos/'+l).on('value', s => { wikiVideos[l]=s.val()||{}; });
@@ -1986,10 +1994,53 @@ function pickVorlage() {
   const shBtn=document.getElementById('hdr-sheet-btn');
   if(shBtn){shBtn.href='#';shBtn.classList.remove('show');}
   const lbl=document.getElementById('admin-bar-lbl');
-  if(lbl) lbl.textContent='Vorlage bearbeiten';
+  if(lbl) lbl.textContent=vorlageNames[loc]||'Hauptvorlage';
+  const vn=document.getElementById('vorlage-loc-name');
+  if(vn) vn.textContent=vorlageNames[loc]||'Hauptvorlage';
   updateAdminButtons();
-  render();
-  showScreen('app');
+  renderVorlage();
+  showScreen('vorlage-screen');
+}
+
+function renameMainVorlage(){
+  const cur=vorlageNames[loc]||'Hauptvorlage';
+  const newName=prompt('Name der Hauptvorlage:',cur);
+  if(!newName||!newName.trim())return;
+  if(db)db.ref('/vorlageNames/'+loc).set(newName.trim());
+  vorlageNames[loc]=newName.trim();
+  const vn=document.getElementById('vorlage-loc-name');
+  if(vn)vn.textContent=newName.trim();
+  toast('Vorlage umbenannt');
+}
+
+function copyMainVorlage(){
+  const cur=vorlageNames[loc]||'Hauptvorlage';
+  const newName=prompt('Name der Kopie:','Kopie – '+cur);
+  if(!newName||!newName.trim())return;
+  const copy={name:newName.trim(),createdAt:Date.now(),tasks:{}};
+  const hidden=vorlageHidden[loc]||{};
+  const builtIn=CHECKLISTS[loc]||[];
+  const extras=Object.values(customCats[loc]||{});
+  const allCats=builtIn.concat(extras.map(c=>({id:c.id,name:c.name,tasks:[],isCustom:true})));
+  let order=0;
+  allCats.forEach(cat=>{
+    const nm=catNames[cat.id]||cat.name;
+    const base=(cat.tasks||[]).filter(tk=>!hidden[tk.id]);
+    const perms=Object.values(permTasks[loc]||{}).filter(tk=>tk.catId===cat.id&&!hidden[tk.id]);
+    base.forEach(tk=>{
+      const key='t_'+tk.id;
+      copy.tasks[key]={text:tk.de||tk.text||'',cat:nm,order:order++};
+    });
+    perms.forEach(tk=>{
+      const key='p_'+tk.id;
+      copy.tasks[key]={text:tk.de||tk.text||'',cat:nm,order:order++};
+    });
+  });
+  if(db)db.ref('/namedTemplates/'+loc).push(copy).then(ref=>{
+    toast('Kopie erstellt ✓');
+    closeVorlage();
+    openNamedTemplate(ref.key);
+  });
 }
 
 function isEventsVisible() {
@@ -2049,10 +2100,12 @@ function renderEventsList() {
         <div style="font-size:9px;font-weight:700;color:#aaa;margin-top:5px;text-transform:uppercase;letter-spacing:.5px">Vorlage</div>
       </div>
       <div class="event-info">
-        <div class="event-name">Vorlage bearbeiten</div>
+        <div class="event-name">${escHtml(vorlageNames[loc]||'Hauptvorlage')}</div>
         <div style="font-size:12px;color:var(--muted);margin-top:3px">Gilt für alle Events dieser Location</div>
       </div>
-      <div class="event-arrow" style="color:#bbb">›</div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        <div class="event-arrow" style="color:#bbb">›</div>
+      </div>
     </div>`;
     // Named templates
     const tmplList=Object.entries(namedTemplates[loc]||{}).sort((a,b)=>(a[1].createdAt||0)-(b[1].createdAt||0));
@@ -3895,7 +3948,9 @@ function openVorlage() {
 }
 
 function closeVorlage() {
-  showScreen('app');
+  vorlageMode = false;
+  document.body.classList.remove('vorlage-mode');
+  showScreen('events-screen');
 }
 
 function openNewCatVorlage() {
