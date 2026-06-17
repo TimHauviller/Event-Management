@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260617-032';
+      var V='20260617-033';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')!==V){
         u.searchParams.set('v',V);
@@ -682,9 +682,9 @@
     <input type="text" id="add-de" placeholder="Aufgabe (Deutsch)">
     <input type="text" id="add-en" placeholder="Task (English)">
     <input type="text" id="add-sub" placeholder="Unterkategorie (optional)">
-    <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:10px;cursor:pointer;padding:8px;background:#fff8e1;border-radius:8px;border:1px solid #ffd54f">
-      <input type="checkbox" id="add-perm" style="width:auto;margin:0;cursor:pointer">
-      <span>📌 <strong>Dauerhaft</strong> – bleibt auch nach Event-Reset</span>
+    <label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;margin-bottom:10px;cursor:pointer;padding:10px;background:#fff8e1;border-radius:8px;border:1px solid #ffd54f">
+      <input type="checkbox" id="add-perm" style="width:auto;margin:2px 0 0;cursor:pointer;flex-shrink:0">
+      <span><strong>Dauerhaft (Vorlage)</strong><br><span style="font-size:11px;color:#888;font-weight:400">Wird automatisch in die Eventvorlage eingefügt und erscheint bei allen zukünftigen Events dieser Location. Bleibt auch nach Event-Reset erhalten.</span></span>
     </label>
     <button class="mbtn" onclick="saveNewTask()">Hinzufügen</button>
     <button class="mbtn grey" onclick="closeModal('m-add')">Abbrechen</button>
