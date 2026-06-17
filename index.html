@@ -9,14 +9,14 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260617-041';
+      var V='20260617-042';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')===V) return; // already correct
       // Bypass CDN cache with fetch(cache:'reload') → document.write fresh HTML
       fetch(location.pathname,{cache:'reload'})
         .then(function(r){return r.text();})
         .then(function(html){
-          if(html.indexOf("var V='20260617-041'")>=0){
+          if(html.indexOf("var V='20260617-042'")>=0){
             history.replaceState({},'','?v='+V);
             document.open(); document.write(html); document.close();
           } else {
@@ -1716,6 +1716,7 @@ let inventoryPhotos = {};
 let inventoryStock = {AS:{},EG:{},LS:{}};
 let logistikFahrten = {};
 let currentFahrtId = null;
+let _pendingRueckId = null;
 let logistikTab = 'fahrten';
 const INV_CATS = ['MÖBEL','GESCHIRR & GLÄSER','DEKORATION','TECHNIK & EQUIPMENT'];
 const LG_LOC = {AS:'amSee Leipzig',EG:'EVENTGIESSEREI',LS:'LAKESIDE'};
@@ -5430,7 +5431,6 @@ function renderFahrten(){
       </div>
       <div style="flex:1;min-width:0">
         <div style="font-size:14px;font-weight:800;color:#1c1c2e;margin-bottom:3px">${f.isRueckfahrt?'<span style="color:#1565c0">↩ Rückfahrt</span>':'Logistikfahrt'}${f.employee?` · ${escHtml(f.employee)}`:''}</div>
-        ${routeBadgesHtml?`<div style="margin-bottom:3px">${routeBadgesHtml}</div>`:''}
         <div style="font-size:12px;color:#888">${items.length} Artikel &middot; ${isDone?'<span style="color:#2e7d32;font-weight:700">Abgeschlossen</span>':`${checked} abgehakt`}</div>
         ${noDate?'<div style="font-size:11px;color:#ea4335;font-weight:700;margin-top:2px">Datum fehlt</div>':''}
       </div>
@@ -5643,13 +5643,32 @@ function completeFahrt(fid){
         };
       });
       db.ref('/logistikFahrten').push(rueck).then(ref=>{
-        toast('Fahrt abgeschlossen — Rückfahrt wurde automatisch angelegt');
-        openFahrt(ref.key);
+        _pendingRueckId=ref.key;
+        // populate modal
+        const lgDrivers=Object.values(taskUsers).filter(u=>u.roleLG||u.role==='logistik').sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+        const sel=document.getElementById('rueck-driver');
+        if(sel){sel.innerHTML='<option value="">— Fahrer wählen —</option>'+lgDrivers.map(u=>`<option value="${escHtml(u.name||u.uid||'')}">${escHtml(u.name||u.uid||'')}</option>`).join('');}
+        const di=document.getElementById('rueck-date');
+        if(di)di.value='';
+        openModal('m-rueck-setup');
       });
     } else {
       toast('Fahrt abgeschlossen & Inventar aktualisiert');
     }
   });
+}
+
+function confirmRueckSetup(){
+  if(!_pendingRueckId)return;
+  const date=document.getElementById('rueck-date').value;
+  const employee=document.getElementById('rueck-driver').value;
+  const updates={};
+  if(date)updates['/logistikFahrten/'+_pendingRueckId+'/date']=date;
+  if(employee)updates['/logistikFahrten/'+_pendingRueckId+'/employee']=employee;
+  if(db&&Object.keys(updates).length)db.ref('/').update(updates);
+  closeModal('m-rueck-setup');
+  openFahrt(_pendingRueckId);
+  _pendingRueckId=null;
 }
 
 function exportFahrtPDF(fid){
@@ -6695,6 +6714,20 @@ function saveInventoryItem(){
     </div>
     <button class="mbtn" onclick="addFahrtCustomItem()">Hinzufügen ✓</button>
     <button class="mbtn grey" onclick="closeModal('m-add-fahrt-item-custom')">Abbrechen</button>
+  </div>
+</div>
+
+<!-- RÜCKFAHRT SETUP MODAL -->
+<div class="overlay" id="m-rueck-setup">
+  <div class="modal">
+    <h2>↩ Neue Rückfahrt</h2>
+    <p style="font-size:13px;color:#888;margin-bottom:16px">Bitte Datum und Fahrer für die automatisch angelegte Rückfahrt ergänzen.</p>
+    <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:6px">Datum</label>
+    <input type="date" id="rueck-date" style="width:100%;border:1.5px solid #e0e0e0;border-radius:12px;padding:13px 14px;font-size:16px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit;box-sizing:border-box;margin-bottom:14px">
+    <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:6px">Fahrer</label>
+    <select id="rueck-driver" style="width:100%;border:1.5px solid #e0e0e0;border-radius:12px;padding:13px 14px;font-size:15px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit;box-sizing:border-box;margin-bottom:18px"></select>
+    <button class="mbtn" onclick="confirmRueckSetup()">Rückfahrt öffnen ✓</button>
+    <button class="mbtn grey" onclick="closeModal('m-rueck-setup');openFahrt(_pendingRueckId)">Später ergänzen</button>
   </div>
 </div>
 
