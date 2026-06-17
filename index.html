@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260611-018';
+      var V='20260611-019';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')!==V){
         u.searchParams.set('v',V);
@@ -3706,7 +3706,7 @@ function renderFeedback() {
   // \u2500\u2500 SONSTIGES \u2500\u2500
   html += sec('Sonstiges');
   html += card('Eigene Zufriedenheit', ratingRow('selfSat'));
-  html += card('Fundsachen', yesno('lostFound', 'Was wurde gefunden? Wo wird es aufbewahrt?') + photoSection('lostFound'));
+  html += card('Fundsachen', yesno('lostFound', 'Was wurde gefunden? Wo wird es aufbewahrt?') + `<p style="font-size:12px;color:#888;margin:8px 0 2px;line-height:1.5">📸 <em>Bitte ein ansprechendes Foto machen, das dem Kunden gezeigt werden kann — z.B. das Fundstück auf einem Kleiderbügel oder sauber drapiert, nicht einfach auf die Küchentheke gelegt.</em></p>` + photoSection('lostFound'));
   html += card('Sonstige Anmerkungen', ta('notes', 'Freie Anmerkungen...', 4) + photoSection('notes'));
 
   document.getElementById('feedback-content').innerHTML = html;
