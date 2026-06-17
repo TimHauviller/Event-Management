@@ -9,14 +9,14 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260617-045';
+      var V='20260617-046';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')===V) return; // already correct
       // Bypass CDN cache with fetch(cache:'reload') → document.write fresh HTML
       fetch(location.pathname,{cache:'reload'})
         .then(function(r){return r.text();})
         .then(function(html){
-          if(html.indexOf("var V='20260617-045'")>=0){
+          if(html.indexOf("var V='20260617-046'")>=0){
             history.replaceState({},'','?v='+V);
             document.open(); document.write(html); document.close();
           } else {
@@ -534,8 +534,11 @@
   <div class="hdr" style="background:var(--hdr-bg,#1c1c2e)">
     <div class="hdr-top">
       <button class="back-btn" onclick="closeNamedTemplate()">← Zurück</button>
-      <div class="hdr-center">
-        <div class="hdr-title" id="nt-title">Vorlage</div>
+      <div class="hdr-center" style="display:flex;flex-direction:column;align-items:center;gap:2px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <div class="hdr-title" id="nt-title">Vorlage</div>
+          <button onclick="renameNamedTemplate()" style="background:none;border:none;color:rgba(255,255,255,.55);font-size:14px;cursor:pointer;padding:2px 4px;line-height:1" title="Umbenennen">✏️</button>
+        </div>
         <div class="hdr-event" style="color:rgba(255,255,255,.55)" id="nt-subtitle"></div>
       </div>
       <button class="btn-r red" style="font-size:11px;padding:6px 10px" onclick="deleteNamedTemplate()">Löschen</button>
@@ -3776,6 +3779,16 @@ function deleteNamedTemplate(){
   if(db)db.ref('/namedTemplates/'+loc+'/'+currentTemplateId).remove();
   closeNamedTemplate();
   toast('Vorlage gelöscht');
+}
+
+function renameNamedTemplate(){
+  if(!currentTemplateId)return;
+  const tmpl=(namedTemplates[loc]||{})[currentTemplateId];
+  const newName=prompt('Name der Vorlage:',tmpl?tmpl.name:'');
+  if(newName===null||!newName.trim())return;
+  if(db)db.ref('/namedTemplates/'+loc+'/'+currentTemplateId+'/name').set(newName.trim());
+  document.getElementById('nt-title').textContent=newName.trim();
+  toast('Vorlage umbenannt');
 }
 
 function renderNamedTemplate(){
