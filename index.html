@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260617-026';
+      var V='20260617-027';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')!==V){
         u.searchParams.set('v',V);
@@ -1915,7 +1915,8 @@ function pickEvent(eid) {
   if(hdrUser) hdrUser.textContent=currentTaskUser?currentTaskUser.name:'';
   // Show event-leader button for eventleitung role (not admins — they have full admin)
   const elBtn=document.getElementById('event-leader-btn');
-  if(elBtn) elBtn.style.display=(currentTaskUser&&currentTaskUser.role==='eventleitung'&&!currentTaskUser.isAdmin&&!isAdmin)?'':'none';
+  const isEL=currentTaskUser&&(currentTaskUser.roleEL||currentTaskUser.role==='eventleitung')&&!currentTaskUser.isAdmin&&!isAdmin;
+  if(elBtn) elBtn.style.display=isEL?'':'none';
   const lbl=document.getElementById('admin-bar-lbl');
   if(lbl) lbl.textContent='Event anpassen';
   const shBtn=document.getElementById('hdr-sheet-btn');
@@ -5280,7 +5281,7 @@ function deleteUser(uid){
 // ══════════════════════════════════════════════════════════════════
 // LOGISTIK
 // ══════════════════════════════════════════════════════════════════
-const LG_LOC_COLOR = {AS:'#2d7a4f', EG:'#b8941e', LS:'#1a8b93'};
+const LG_LOC_COLOR = {AS:'#2d7a4f', EG:'#1e3a6e', LS:'#1a8b93'};
 const LG_LOC_SHORT = {AS:'amSee', EG:'Gieß.', LS:'Lakeside'};
 
 function locBadge(loc, large=false){
@@ -5343,11 +5344,21 @@ function renderFahrten(){
   }
   let html='<div style="padding:14px;display:flex;flex-direction:column;gap:10px">';
   fahrten.forEach(([fid,f])=>{
-    const date=f.date?new Date(f.date+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}):'?';
     const items=Object.values(f.items||{});
     const checked=items.filter(i=>i.checked).length;
     const isDone=f.status==='abgeschlossen';
-    // Build unique routes from items (support both legacy top-level from/to and per-item from/to)
+    const noDate=!f.date;
+    // Date parts like event cards
+    let day='?', mo='', wd='', yr='';
+    if(f.date){
+      const d=new Date(f.date+'T12:00:00');
+      day=d.getDate();
+      mo=d.toLocaleDateString('de-DE',{month:'short'}).toUpperCase();
+      wd=d.toLocaleDateString('de-DE',{weekday:'short'}).toUpperCase();
+      yr=d.getFullYear();
+    }
+    const accentColor=isDone?'#2e7d32':'#1565c0';
+    // Build unique routes from items
     const routePairs=new Set();
     items.forEach(it=>{
       const fr=it.from||f.from; const to=it.to||f.to;
@@ -5356,16 +5367,18 @@ function renderFahrten(){
     const routeBadgesHtml=[...routePairs].map(rk=>{
       const [fr,to]=rk.split('→');
       return locRoute(fr,to);
-    }).join('<span style="color:#ccc;margin:0 3px">|</span>');
-    html+=`<div onclick="openFahrt('${fid}')" style="background:#fff;border-radius:14px;padding:14px 16px;box-shadow:0 1px 5px rgba(0,0,0,.07);cursor:pointer;display:flex;align-items:center;gap:12px${isDone?';opacity:.65':''}">
-      <div style="background:${isDone?'#e8f5e9':'#e8f0fe'};border-radius:12px;padding:10px 12px;text-align:center;flex-shrink:0">
-        <div style="font-size:18px;font-weight:900;color:${isDone?'#2e7d32':'#1565c0'};line-height:1">${f.date?new Date(f.date+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'}):'?'}</div>
-        <div style="font-size:9px;font-weight:700;color:${isDone?'#2e7d32':'#1565c0'};margin-top:1px">${f.date?new Date(f.date+'T12:00:00').getFullYear():''}</div>
+    }).join('<span style="color:#ccc;margin:0 4px">|</span>');
+    html+=`<div onclick="openFahrt('${fid}')" class="event-card" style="border-left-color:${accentColor}${isDone?';opacity:.7':''}">
+      <div class="event-date-col">
+        <div class="event-date-wd">${wd||'—'}</div>
+        <div class="event-date-day" style="color:${accentColor}">${day}</div>
+        <div class="event-date-month">${mo}</div>
+        <div class="event-date-year">${yr}</div>
       </div>
       <div style="flex:1;min-width:0">
-        <div style="margin-bottom:3px;display:flex;flex-wrap:wrap;gap:4px">${routeBadgesHtml||'—'}</div>
-        <div style="font-size:12px;color:#888;margin-top:2px">${escHtml(f.employee||'?')} · ${items.length} Artikel</div>
-        <div style="font-size:12px;color:${isDone?'#2e7d32':'#888'};margin-top:1px">${isDone?'Abgeschlossen':`${checked}/${items.length} abgehakt`}</div>
+        <div style="margin-bottom:5px;display:flex;flex-wrap:wrap;gap:4px">${routeBadgesHtml||'<span style="color:#bbb;font-size:12px">Keine Route</span>'}</div>
+        <div style="font-size:12px;color:#888;margin-top:2px">${escHtml(f.employee||'?')} &middot; ${items.length} Artikel</div>
+        <div style="font-size:12px;color:${isDone?'#2e7d32':'#888'};margin-top:2px;font-weight:600">${isDone?'Abgeschlossen':`${checked}/${items.length} abgehakt`}</div>
       </div>
       <div style="color:#ccc;font-size:18px">›</div>
     </div>`;
@@ -5400,10 +5413,12 @@ function renderFahrtDetail(){
 
   // Info bar
   const info=document.getElementById('lg-fahrt-info');
+  const noDate=!f.date;
   if(info)info.innerHTML=`
     <div style="flex:1;text-align:center;padding:4px 0">
       <div style="font-size:10px;color:#aaa;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Datum</div>
-      <div style="font-weight:800;font-size:13px;color:#1c1c2e;margin-top:2px">${date}</div>
+      ${isAdmin?`<input type="date" value="${f.date||''}" onchange="updateFahrtDate('${fid}',this.value)" style="border:none;outline:none;font-weight:800;font-size:13px;color:${noDate?'#ea4335':'#1c1c2e'};background:transparent;text-align:center;font-family:inherit;width:100%;margin-top:2px">`
+      :`<div style="font-weight:800;font-size:13px;color:${noDate?'#ea4335':'#1c1c2e'};margin-top:2px">${noDate?'Datum fehlt!':date}</div>`}
     </div>
     <div style="width:1px;background:#e8e8e8;align-self:stretch;margin:4px 0"></div>
     <div style="flex:1;text-align:center;padding:4px 0">
@@ -5452,8 +5467,12 @@ function renderFahrtDetail(){
                 ${item.comment?`<div style="font-size:12px;color:#888;margin-top:3px;font-style:italic">${escHtml(item.comment)}</div>`:''}
               </div>
               <button onclick="openItemActions('${fid}','${ikey}')" style="flex-shrink:0;background:none;border:none;color:#aaa;font-size:18px;cursor:pointer;padding:2px 6px;font-weight:700;line-height:1">···</button>
-              ${isAdmin&&!isDone?`<button onclick="deleteFahrtItem('${fid}','${ikey}')" style="background:none;border:none;color:#ea4335;font-size:18px;cursor:pointer;flex-shrink:0;padding:0 2px">×</button>`:''}
+              ${isAdmin?`<button onclick="deleteFahrtItem('${fid}','${ikey}')" style="background:none;border:none;color:#ea4335;font-size:18px;cursor:pointer;flex-shrink:0;padding:0 2px">×</button>`:''}
             </div>
+            <label style="display:flex;align-items:center;gap:6px;margin-top:7px;cursor:pointer" onclick="event.stopPropagation()">
+              <input type="checkbox" ${item.rueckfahrt?'checked':''} onchange="toggleRueckfahrt('${fid}','${ikey}',this.checked)" style="width:14px;height:14px;accent-color:#1565c0">
+              <span style="font-size:11px;color:#888;font-weight:600">Rückfahrt nötig</span>
+            </label>
           </div>`;
         });
       });
@@ -5461,12 +5480,12 @@ function renderFahrtDetail(){
     }
   }
 
-  // Add buttons
+  // Add buttons (admins can always add, regardless of completion status)
   const addBtns=document.getElementById('lg-fahrt-add-btns');
   if(addBtns){
-    addBtns.innerHTML=(!isDone&&isAdmin)?`
-      <button onclick="openAddFahrtItem('${fid}','inventory')" style="background:#e8f0fe;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;color:#1565c0;cursor:pointer;width:100%">Inventarartikel hinzufügen</button>
-      <button onclick="openAddFahrtItem('${fid}','custom')" style="background:#f8f9fa;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;color:#555;cursor:pointer;width:100%">+ Eigener Artikel</button>
+    addBtns.innerHTML=isAdmin?`
+      <button onclick="openAddFahrtItem('${fid}','inventory')" style="background:#e8f0fe;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;color:#1565c0;cursor:pointer;width:100%">+ Aus Inventar hinzufügen</button>
+      <button onclick="openAddFahrtItem('${fid}','custom')" style="background:#f8f9fa;border:1.5px dashed #ddd;border-radius:10px;padding:12px;font-size:13px;font-weight:700;color:#555;cursor:pointer;width:100%">+ Eigener Artikel</button>
     `:'';
   }
 
@@ -5474,9 +5493,13 @@ function renderFahrtDetail(){
   const footer=document.getElementById('lg-fahrt-footer');
   if(footer){
     if(isDone){
+      const hasRueck=items.some(([,i])=>i.rueckfahrt);
       footer.innerHTML=`<div style="display:flex;flex-direction:column;gap:8px">
         <div style="text-align:center;color:#2e7d32;font-weight:800;font-size:15px;padding:4px">Fahrt abgeschlossen — Inventar aktualisiert</div>
-        <button onclick="exportFahrtPDF('${fid}')" style="width:100%;background:#1565c0;color:#fff;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit">Als PDF speichern</button>
+        <div style="display:flex;gap:8px">
+          <button onclick="exportFahrtPDF('${fid}')" style="flex:1;background:#1565c0;color:#fff;border:none;border-radius:12px;padding:13px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">Als PDF speichern</button>
+          ${hasRueck?`<button onclick="createRueckfahrt('${fid}')" style="flex:1;background:#e65100;color:#fff;border:none;border-radius:12px;padding:13px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">Rückfahrt anlegen</button>`:''}
+        </div>
       </div>`;
     } else {
       const allChecked=items.length>0&&items.every(([,i])=>i.checked);
@@ -5558,7 +5581,7 @@ function exportFahrtPDF(fid){
   });
 
   const locNames={AS:'amSee',EG:'EVENTGIESSEREI',LS:'LAKESIDE'};
-  const locCols={AS:[45,122,79],EG:[184,148,30],LS:[26,139,147]};
+  const locCols={AS:[45,122,79],EG:[30,58,110],LS:[26,139,147]};
 
   Object.values(groups).forEach(group=>{
     if(y>260){doc.addPage();y=20;}
@@ -5663,13 +5686,19 @@ function renderNewFahrtItems(){
     group.items.forEach(it=>{
       const invPhoto=it.inventoryItemId?inventoryPhotos[it.inventoryItemId]:null;
       const displayPhoto=it.photo||invPhoto;
-      html+=`<div style="background:#fff;border-radius:12px;padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
-        ${displayPhoto?`<img src="${displayPhoto}" style="width:40px;height:40px;object-fit:cover;border-radius:8px;flex-shrink:0">`:''}
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:13px">${escHtml(it.name)}</div>
-          ${it.menge>1?`<div style="font-size:11px;color:#aaa">${it.menge}×</div>`:''}
+      html+=`<div style="background:#fff;border-radius:12px;padding:10px 12px;margin-bottom:6px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+        <div style="display:flex;align-items:center;gap:10px">
+          ${displayPhoto?`<img src="${displayPhoto}" style="width:40px;height:40px;object-fit:cover;border-radius:8px;flex-shrink:0">`:''}
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:13px">${escHtml(it.name)}</div>
+            ${it.menge>1?`<div style="font-size:11px;color:#aaa">${it.menge}×</div>`:''}
+          </div>
+          <button onclick="_newFahrtItems.splice(${it.idx},1);renderNewFahrtItems()" style="background:none;border:none;color:#ea4335;font-size:18px;cursor:pointer;flex-shrink:0;padding:0 2px">×</button>
         </div>
-        <button onclick="_newFahrtItems.splice(${it.idx},1);renderNewFahrtItems()" style="background:none;border:none;color:#ea4335;font-size:18px;cursor:pointer;flex-shrink:0;padding:0 2px">×</button>
+        <label style="display:flex;align-items:center;gap:6px;margin-top:7px;cursor:pointer">
+          <input type="checkbox" ${it.rueckfahrt?'checked':''} onchange="_newFahrtItems[${it.idx}].rueckfahrt=this.checked" style="width:15px;height:15px;accent-color:#1565c0">
+          <span style="font-size:11px;color:#888;font-weight:600">Rückfahrt nötig</span>
+        </label>
       </div>`;
     });
   });
@@ -5769,6 +5798,7 @@ function saveNewFahrt(){
       isCustom: !!it.isCustom,
       inventoryItemId: it.inventoryItemId||null,
       checked: false,
+      rueckfahrt: !!it.rueckfahrt,
       ...(it.photo ? {photo:it.photo} : {})
     };
   });
@@ -5856,6 +5886,39 @@ function uploadFahrtItemPhoto(fid,ikey,input){
   const reader=new FileReader();
   reader.onload=e=>{if(db)db.ref('/logistikFahrten/'+fid+'/items/'+ikey+'/photo').set(e.target.result);};
   reader.readAsDataURL(file);
+}
+
+function toggleRueckfahrt(fid,ikey,val){
+  if(db)db.ref('/logistikFahrten/'+fid+'/items/'+ikey+'/rueckfahrt').set(!!val);
+}
+
+function updateFahrtDate(fid,val){
+  if(!val)return;
+  if(db)db.ref('/logistikFahrten/'+fid+'/date').set(val);
+  toast('Datum aktualisiert');
+}
+
+function createRueckfahrt(fid){
+  const f=logistikFahrten[fid]; if(!f)return;
+  const items=Object.values(f.items||{}).filter(it=>it.rueckfahrt);
+  if(!items.length){toast('Kein Artikel mit Rückfahrt markiert');return;}
+  const fahrt={date:'',status:'offen',items:{},createdAt:Date.now(),
+    employee:f.employee||'?',isRueckfahrt:true,originalFahrtId:fid};
+  items.forEach((it,i)=>{
+    const key='item'+Date.now()+i;
+    fahrt.items[key]={
+      name:it.name, menge:it.menge||1,
+      from:it.to||'LS',  // reversed
+      to:it.from||'AS',  // reversed
+      isCustom:!!it.isCustom,
+      inventoryItemId:it.inventoryItemId||null,
+      checked:false, rueckfahrt:false
+    };
+  });
+  if(db)db.ref('/logistikFahrten').push(fahrt).then(ref=>{
+    toast('Rückfahrt angelegt — Datum bitte noch setzen');
+    openFahrt(ref.key);
+  });
 }
 
 // ── ITEM ACTIONS (···) ────────────────────────────────────────────
@@ -6555,7 +6618,7 @@ function saveInventoryItem(){
 </div>
 <!-- PERSISTENT ADMIN CORNER BUTTON -->
 <button id="admin-corner-btn" onclick="toggleAdminCorner()"
-  style="display:none;position:fixed;top:12px;right:12px;z-index:9999;
+  style="display:none;position:fixed;bottom:24px;left:16px;z-index:9999;
   background:rgba(28,28,46,0.75);color:#fff;border:none;border-radius:8px;
   padding:7px 12px;font-size:11px;font-weight:800;letter-spacing:.5px;
   cursor:pointer;align-items:center;gap:5px;backdrop-filter:blur(4px);
