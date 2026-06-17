@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260617-029';
+      var V='20260617-030';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')!==V){
         u.searchParams.set('v',V);
@@ -1803,15 +1803,15 @@ function subscribeGlobal() {
   });
   db.ref('/videos').on('value', s => { videos=s.val()||{}; renderIfApp(); });
   // Logistik subscriptions
-  db.ref('/inventoryItems').on('value', s => { inventoryItems=s.val()||{}; seedInventoryIfEmpty(); if(isLogistikVisible())renderInventarTab(); });
-  db.ref('/inventoryPhotos').on('value', s => { inventoryPhotos=s.val()||{}; if(isLogistikVisible())renderInventarTab(); });
+  db.ref('/inventoryItems').on('value', s => { inventoryItems=s.val()||{}; seedInventoryIfEmpty(); if(isLogistikVisible()&&logistikTab==='inventar')renderInventarTab(); });
+  db.ref('/inventoryPhotos').on('value', s => { inventoryPhotos=s.val()||{}; if(isLogistikVisible()&&logistikTab==='inventar')renderInventarTab(); });
   db.ref('/logistikFahrten').on('value', s => {
     logistikFahrten=s.val()||{};
-    if(isLogistikVisible())renderFahrten();
+    if(isLogistikVisible()&&logistikTab==='fahrten')renderFahrten();
     if(currentFahrtId&&isFahrtVisible())renderFahrtDetail();
   });
   ['AS','EG','LS'].forEach(l => {
-    db.ref('/inventoryStock/'+l).on('value', s => { inventoryStock[l]=s.val()||{}; if(isLogistikVisible())renderInventarTab(); });
+    db.ref('/inventoryStock/'+l).on('value', s => { inventoryStock[l]=s.val()||{}; if(isLogistikVisible()&&logistikTab==='inventar')renderInventarTab(); });
   });
 }
 
@@ -1917,6 +1917,12 @@ function pickEvent(eid) {
   const elBtn=document.getElementById('event-leader-btn');
   const isEL=currentTaskUser&&(currentTaskUser.roleEL||currentTaskUser.role==='eventleitung')&&!currentTaskUser.isAdmin&&!isAdmin;
   if(elBtn) elBtn.style.display=isEL?'':'none';
+  // EL users get task-adding ability immediately (no PIN required)
+  if(isEL){
+    eventLeaderMode=true;
+    document.body.classList.add('event-leader-mode');
+    if(elBtn){elBtn.textContent='Aufgaben +';elBtn.style.background='#2e7d32';}
+  }
   const lbl=document.getElementById('admin-bar-lbl');
   if(lbl) lbl.textContent='Event anpassen';
   const shBtn=document.getElementById('hdr-sheet-btn');
@@ -2466,7 +2472,13 @@ function updateAdminButtons() {
   }
 }
 
-function setAdmin(on) { isAdmin=on; updateAdminButtons(); if(!on) toast('Admin-Modus deaktiviert'); }
+function setAdmin(on) {
+  isAdmin=on; updateAdminButtons();
+  if(!on) toast('Admin-Modus deaktiviert');
+  // Re-render current Logistik screen immediately
+  if(isLogistikVisible()) renderLogistik();
+  if(isFahrtVisible()&&currentFahrtId) renderFahrtDetail();
+}
 function toggleAdminCorner() { setAdmin(!isAdmin); }
 
 function toggleAdminFromPicker(){loginOrigin='picker';isAdmin?setAdmin(false):openLogin();}
@@ -5401,6 +5413,7 @@ function openFahrt(fid){
 
 function goToFahrten(){
   currentFahrtId=null;
+  _fahrtEditMode=false;
   showScreen('logistik-screen');
   _updateLgTabs();
   renderFahrten();
@@ -5414,16 +5427,25 @@ function renderFahrtDetail(){
   // Info bar
   const info=document.getElementById('lg-fahrt-info');
   const noDate=!f.date;
+  const canEdit=isAdmin||_fahrtEditMode;
+  // Build driver options from known users in logistikFahrten
+  const knownDrivers=[...new Set(Object.values(logistikFahrten).map(x=>x.employee).filter(Boolean))];
+  if(f.employee&&!knownDrivers.includes(f.employee))knownDrivers.unshift(f.employee);
+  const driverOpts=knownDrivers.map(d=>`<option value="${escHtml(d)}" ${d===(f.employee||'')?'selected':''}>${escHtml(d)}</option>`).join('');
   if(info)info.innerHTML=`
     <div style="flex:1;text-align:center;padding:4px 0">
       <div style="font-size:10px;color:#aaa;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Datum</div>
-      ${isAdmin?`<input type="date" value="${f.date||''}" onchange="updateFahrtDate('${fid}',this.value)" style="border:none;outline:none;font-weight:800;font-size:13px;color:${noDate?'#ea4335':'#1c1c2e'};background:transparent;text-align:center;font-family:inherit;width:100%;margin-top:2px">`
+      ${canEdit?`<input type="date" value="${f.date||''}" onchange="updateFahrtDate('${fid}',this.value)" style="border:none;outline:none;font-weight:800;font-size:13px;color:${noDate?'#ea4335':'#1c1c2e'};background:transparent;text-align:center;font-family:inherit;width:100%;margin-top:2px">`
       :`<div style="font-weight:800;font-size:13px;color:${noDate?'#ea4335':'#1c1c2e'};margin-top:2px">${noDate?'Datum fehlt!':date}</div>`}
     </div>
     <div style="width:1px;background:#e8e8e8;align-self:stretch;margin:4px 0"></div>
     <div style="flex:1;text-align:center;padding:4px 0">
       <div style="font-size:10px;color:#aaa;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Fahrer</div>
-      <div style="font-weight:700;font-size:12px;color:#555;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(f.employee||'?')}</div>
+      ${canEdit?`<select onchange="updateFahrtEmployee('${fid}',this.value)" style="border:none;outline:none;font-weight:700;font-size:12px;color:#555;background:transparent;text-align:center;font-family:inherit;width:100%;margin-top:2px;cursor:pointer">
+        <option value="">— auswählen —</option>${driverOpts}
+        <option value="__custom__">Anderen eingeben…</option>
+      </select>`
+      :`<div style="font-weight:700;font-size:12px;color:#555;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(f.employee||'?')}</div>`}
     </div>
     <div style="width:1px;background:#e8e8e8;align-self:stretch;margin:4px 0"></div>
     <div style="flex:1;text-align:center;padding:4px 0">
@@ -5467,7 +5489,7 @@ function renderFahrtDetail(){
                 ${item.comment?`<div style="font-size:12px;color:#888;margin-top:3px;font-style:italic">${escHtml(item.comment)}</div>`:''}
               </div>
               <button onclick="openItemActions('${fid}','${ikey}')" style="flex-shrink:0;background:none;border:none;color:#aaa;font-size:18px;cursor:pointer;padding:2px 6px;font-weight:700;line-height:1">···</button>
-              ${isAdmin?`<button onclick="deleteFahrtItem('${fid}','${ikey}')" style="background:none;border:none;color:#ea4335;font-size:18px;cursor:pointer;flex-shrink:0;padding:0 2px">×</button>`:''}
+              ${canEdit?`<button onclick="deleteFahrtItem('${fid}','${ikey}')" style="background:none;border:none;color:#ea4335;font-size:18px;cursor:pointer;flex-shrink:0;padding:0 2px">×</button>`:''}
             </div>
             <label style="display:flex;align-items:center;gap:6px;margin-top:7px;cursor:pointer" onclick="event.stopPropagation()">
               <input type="checkbox" ${item.rueckfahrt?'checked':''} onchange="toggleRueckfahrt('${fid}','${ikey}',this.checked)" style="width:14px;height:14px;accent-color:#1565c0">
@@ -5480,10 +5502,10 @@ function renderFahrtDetail(){
     }
   }
 
-  // Add buttons (admins can always add, regardless of completion status)
+  // Add buttons (visible in edit mode or admin mode)
   const addBtns=document.getElementById('lg-fahrt-add-btns');
   if(addBtns){
-    addBtns.innerHTML=isAdmin?`
+    addBtns.innerHTML=canEdit?`
       <button onclick="openAddFahrtItem('${fid}','inventory')" style="background:#e8edf8;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;color:#1e3a6e;cursor:pointer;width:100%">+ Aus Inventar hinzufügen</button>
       <button onclick="openAddFahrtItem('${fid}','custom')" style="background:#f8f9fa;border:1.5px dashed #ddd;border-radius:10px;padding:12px;font-size:13px;font-weight:700;color:#555;cursor:pointer;width:100%">+ Eigener Artikel</button>
     `:'';
@@ -5886,6 +5908,29 @@ function uploadFahrtItemPhoto(fid,ikey,input){
   const reader=new FileReader();
   reader.onload=e=>{if(db)db.ref('/logistikFahrten/'+fid+'/items/'+ikey+'/photo').set(e.target.result);};
   reader.readAsDataURL(file);
+}
+
+let _fahrtEditMode = false;
+
+function toggleFahrtEditMode(){
+  _fahrtEditMode = !_fahrtEditMode;
+  const btn = document.getElementById('lg-fahrt-edit-btn');
+  if(btn){
+    btn.textContent = _fahrtEditMode ? 'Fertig' : 'Bearbeiten';
+    btn.style.background = _fahrtEditMode ? '#e65100' : 'rgba(255,255,255,.15)';
+  }
+  if(currentFahrtId) renderFahrtDetail();
+}
+
+function updateFahrtEmployee(fid,val){
+  if(!val)return;
+  if(val==='__custom__'){
+    const name=prompt('Name des Fahrers:');
+    if(!name||!name.trim())return;
+    val=name.trim();
+  }
+  if(db)db.ref('/logistikFahrten/'+fid+'/employee').set(val);
+  toast('Fahrer aktualisiert');
 }
 
 function toggleRueckfahrt(fid,ikey,val){
@@ -6374,6 +6419,7 @@ function saveInventoryItem(){
     <div class="order-hdr-top">
       <button class="back-btn" onclick="goToFahrten()">← Fahrten</button>
       <div class="order-hdr-title" id="lg-fahrt-title">Fahrt</div>
+      <button id="lg-fahrt-edit-btn" onclick="toggleFahrtEditMode()" style="background:rgba(255,255,255,.15);border:none;color:#fff;font-size:12px;font-weight:800;cursor:pointer;padding:6px 12px;border-radius:8px;font-family:inherit">Bearbeiten</button>
       <button id="lg-fahrt-del-btn" onclick="" style="display:none;background:none;border:none;color:rgba(255,255,255,.7);font-size:20px;cursor:pointer;padding:0 4px">×</button>
     </div>
   </div>
