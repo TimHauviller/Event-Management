@@ -9,14 +9,14 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260617-043';
+      var V='20260617-044';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')===V) return; // already correct
       // Bypass CDN cache with fetch(cache:'reload') → document.write fresh HTML
       fetch(location.pathname,{cache:'reload'})
         .then(function(r){return r.text();})
         .then(function(html){
-          if(html.indexOf("var V='20260617-043'")>=0){
+          if(html.indexOf("var V='20260617-044'")>=0){
             history.replaceState({},'','?v='+V);
             document.open(); document.write(html); document.close();
           } else {
@@ -5681,12 +5681,11 @@ function renderFahrtDetail(){
         const grpTotal=group.items.length;
         const rkId='fcat_'+rk.replace(/[^a-zA-Z0-9]/g,'_');
         html+=`<div class="cat open" id="${rkId}" style="margin:8px 14px 0;border-radius:10px">
-          <div class="cat-hdr" style="border-left-color:${frCol};padding:10px 14px" onclick="this.closest('.cat').classList.toggle('open')">
-            <span style="width:9px;height:9px;border-radius:50%;background:${frCol};flex-shrink:0;display:inline-block"></span>
+          <div class="cat-hdr" style="border-left-color:#1e3a6e;padding:10px 14px" onclick="this.closest('.cat').classList.toggle('open')">
             <div class="cat-title" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-size:12px">
-              <span style="background:${frCol};color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px">${escHtml(frName)}</span>
+              <span style="background:#1e3a6e;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px">${escHtml(frName)}</span>
               <span style="color:#bbb;font-weight:700;font-size:11px">→</span>
-              <span style="background:${toCol};color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px">${escHtml(toName)}</span>
+              <span style="background:#1e3a6e;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px">${escHtml(toName)}</span>
             </div>
             <span class="cat-count">${grpChecked}/${grpTotal}</span>
             <span class="cat-arrow">▾</span>
