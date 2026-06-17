@@ -9,14 +9,14 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260617-049';
+      var V='20260617-050';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')===V) return; // already correct
       // Bypass CDN cache with fetch(cache:'reload') → document.write fresh HTML
       fetch(location.pathname,{cache:'reload'})
         .then(function(r){return r.text();})
         .then(function(html){
-          if(html.indexOf("var V='20260617-049'")>=0){
+          if(html.indexOf("var V='20260617-050'")>=0){
             history.replaceState({},'','?v='+V);
             document.open(); document.write(html); document.close();
           } else {
@@ -2029,21 +2029,21 @@ function copyMainVorlage(){
   const allCats=builtIn.concat(extras.map(c=>({id:c.id,name:c.name,tasks:[],isCustom:true})));
   let order=0;
   allCats.forEach(cat=>{
-    const nm=catNames[cat.id]||cat.name;
+    const catNm=catNames[cat.id]||cat.name;
     const base=(cat.tasks||[]).filter(tk=>!hidden[tk.id]);
     const perms=Object.values(permTasks[loc]||{}).filter(tk=>tk.catId===cat.id&&!hidden[tk.id]);
     base.forEach(tk=>{
-      const key='t_'+tk.id;
-      copy.tasks[key]={text:tk.de||tk.text||'',cat:nm,order:order++};
+      // use sub-group as category if present, else main category name
+      const grp=tk.sub?tk.sub:catNm;
+      copy.tasks['t_'+tk.id]={de:tk.de||'',cat:grp,order:order++};
     });
     perms.forEach(tk=>{
-      const key='p_'+tk.id;
-      copy.tasks[key]={text:tk.de||tk.text||'',cat:nm,order:order++};
+      const grp=tk.sub?tk.sub:catNm;
+      copy.tasks['p_'+tk.id]={de:tk.de||'',cat:grp,order:order++};
     });
   });
   if(db)db.ref('/namedTemplates/'+loc).push(copy).then(ref=>{
     toast('Kopie erstellt ✓');
-    closeVorlage();
     openNamedTemplate(ref.key);
   });
 }
@@ -3863,7 +3863,7 @@ function duplicateNamedTemplate(){
   const copy={name:newName.trim(),createdAt:Date.now(),tasks:{}};
   // Deep-copy tasks without checked state
   Object.entries(tmpl.tasks||{}).forEach(([tid,t])=>{
-    copy.tasks[tid]={text:t.text,cat:t.cat||'',order:t.order||0};
+    copy.tasks[tid]={de:t.de||'',cat:t.cat||'',order:t.order||0};
   });
   if(db)db.ref('/namedTemplates/'+loc).push(copy).then(ref=>{
     toast('Vorlage kopiert ✓');
