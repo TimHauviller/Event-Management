@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260617-024';
+      var V='20260617-026';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')!==V){
         u.searchParams.set('v',V);
@@ -5280,6 +5280,21 @@ function deleteUser(uid){
 // ══════════════════════════════════════════════════════════════════
 // LOGISTIK
 // ══════════════════════════════════════════════════════════════════
+const LG_LOC_COLOR = {AS:'#2d7a4f', EG:'#b8941e', LS:'#1a8b93'};
+const LG_LOC_SHORT = {AS:'amSee', EG:'Gieß.', LS:'Lakeside'};
+
+function locBadge(loc, large=false){
+  const col = LG_LOC_COLOR[loc] || '#888';
+  const label = LG_LOC[loc] || loc || '?';
+  const fs = large ? '12px' : '10px';
+  const pad = large ? '4px 10px' : '3px 7px';
+  return `<span style="background:${col};color:#fff;border-radius:6px;padding:${pad};font-size:${fs};font-weight:800;white-space:nowrap;letter-spacing:.2px">${escHtml(label)}</span>`;
+}
+
+function locRoute(from, to, large=false){
+  return `<span style="display:inline-flex;align-items:center;gap:5px">${locBadge(from,large)}<span style="color:#aaa;font-weight:700;font-size:${large?'13px':'11px'}">→</span>${locBadge(to,large)}</span>`;
+}
+
 function isLogistikVisible(){return(document.getElementById('logistik-screen')||{style:{}}).style.display==='block';}
 function isFahrtVisible(){return(document.getElementById('logistik-fahrt-screen')||{style:{}}).style.display==='block';}
 
@@ -5333,19 +5348,22 @@ function renderFahrten(){
     const checked=items.filter(i=>i.checked).length;
     const isDone=f.status==='abgeschlossen';
     // Build unique routes from items (support both legacy top-level from/to and per-item from/to)
-    const routeSet=new Set();
+    const routePairs=new Set();
     items.forEach(it=>{
       const fr=it.from||f.from; const to=it.to||f.to;
-      if(fr&&to)routeSet.add((LG_LOC[fr]||fr)+' → '+(LG_LOC[to]||to));
+      if(fr&&to)routePairs.add(fr+'→'+to);
     });
-    const routeLabel=routeSet.size?[...routeSet].join(', '):'—';
+    const routeBadgesHtml=[...routePairs].map(rk=>{
+      const [fr,to]=rk.split('→');
+      return locRoute(fr,to);
+    }).join('<span style="color:#ccc;margin:0 3px">|</span>');
     html+=`<div onclick="openFahrt('${fid}')" style="background:#fff;border-radius:14px;padding:14px 16px;box-shadow:0 1px 5px rgba(0,0,0,.07);cursor:pointer;display:flex;align-items:center;gap:12px${isDone?';opacity:.65':''}">
       <div style="background:${isDone?'#e8f5e9':'#e8f0fe'};border-radius:12px;padding:10px 12px;text-align:center;flex-shrink:0">
         <div style="font-size:18px;font-weight:900;color:${isDone?'#2e7d32':'#1565c0'};line-height:1">${f.date?new Date(f.date+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'}):'?'}</div>
         <div style="font-size:9px;font-weight:700;color:${isDone?'#2e7d32':'#1565c0'};margin-top:1px">${f.date?new Date(f.date+'T12:00:00').getFullYear():''}</div>
       </div>
       <div style="flex:1;min-width:0">
-        <div style="font-weight:800;font-size:13px;color:#1c1c2e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(routeLabel)}</div>
+        <div style="margin-bottom:3px;display:flex;flex-wrap:wrap;gap:4px">${routeBadgesHtml||'—'}</div>
         <div style="font-size:12px;color:#888;margin-top:2px">${escHtml(f.employee||'?')} · ${items.length} Artikel</div>
         <div style="font-size:12px;color:${isDone?'#2e7d32':'#888'};margin-top:1px">${isDone?'Abgeschlossen':`${checked}/${items.length} abgehakt`}</div>
       </div>
@@ -5417,22 +5435,25 @@ function renderFahrtDetail(){
       });
       let html='';
       Object.entries(routeGroups).forEach(([rk,group])=>{
-        html+=`<div style="font-size:12px;font-weight:800;color:#1565c0;background:#e8f0fe;border-radius:8px;padding:7px 12px;margin:10px 0 6px">
-          ${escHtml((LG_LOC[group.from]||group.from))} → ${escHtml((LG_LOC[group.to]||group.to))}
+        html+=`<div style="display:flex;align-items:center;gap:8px;background:#f8f9fa;border-radius:10px;padding:8px 12px;margin:12px 0 6px">
+          ${locRoute(group.from,group.to,true)}
         </div>`;
         group.items.forEach(([ikey,item])=>{
           const invPhoto=item.inventoryItemId?inventoryPhotos[item.inventoryItemId]:null;
           const displayPhoto=item.photo||invPhoto;
-          html+=`<div style="background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 1px 4px rgba(0,0,0,.06);display:flex;align-items:center;gap:10px;margin-bottom:6px">
-            <button onclick="toggleFahrtItem('${fid}','${ikey}')" style="flex-shrink:0;width:30px;height:30px;border-radius:50%;border:2px solid ${item.checked?'#2e7d32':'#ddd'};background:${item.checked?'#2e7d32':'#fff'};color:#fff;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center">${item.checked?'✓':''}</button>
-            ${displayPhoto?`<img src="${displayPhoto}" style="width:40px;height:40px;object-fit:cover;border-radius:8px;flex-shrink:0">`:''}
-            <div style="flex:1;min-width:0">
-              <div style="font-weight:700;font-size:14px;color:${item.checked?'#aaa':'#1c1c2e'};${item.checked?'text-decoration:line-through':''}">
-                ${item.menge&&item.menge>1?`<span style="background:#f0f4ff;color:#1565c0;border-radius:4px;padding:1px 6px;font-size:12px;margin-right:5px">${item.menge}×</span>`:''}${escHtml(item.name)}
+          html+=`<div style="background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:6px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <button onclick="toggleFahrtItem('${fid}','${ikey}')" style="flex-shrink:0;width:30px;height:30px;border-radius:50%;border:2px solid ${item.checked?'#2e7d32':'#ddd'};background:${item.checked?'#2e7d32':'#fff'};color:#fff;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center">${item.checked?'✓':''}</button>
+              ${displayPhoto?`<img src="${displayPhoto}" style="width:40px;height:40px;object-fit:cover;border-radius:8px;flex-shrink:0">`:''}
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:700;font-size:14px;color:${item.checked?'#aaa':'#1c1c2e'};${item.checked?'text-decoration:line-through':''}">
+                  ${item.menge&&item.menge>1?`<span style="background:#f0f4ff;color:#1565c0;border-radius:4px;padding:1px 6px;font-size:12px;margin-right:5px">${item.menge}×</span>`:''}${escHtml(item.name)}
+                </div>
+                ${item.comment?`<div style="font-size:12px;color:#888;margin-top:3px;font-style:italic">${escHtml(item.comment)}</div>`:''}
               </div>
+              <button onclick="openItemActions('${fid}','${ikey}')" style="flex-shrink:0;background:none;border:none;color:#aaa;font-size:18px;cursor:pointer;padding:2px 6px;font-weight:700;line-height:1">···</button>
+              ${isAdmin&&!isDone?`<button onclick="deleteFahrtItem('${fid}','${ikey}')" style="background:none;border:none;color:#ea4335;font-size:18px;cursor:pointer;flex-shrink:0;padding:0 2px">×</button>`:''}
             </div>
-            ${!item.photo?`<label style="cursor:pointer;background:#f5f5f5;border-radius:8px;padding:5px 9px;font-size:11px;font-weight:700;color:#aaa;flex-shrink:0">Foto<input type="file" accept="image/*" capture="environment" onchange="uploadFahrtItemPhoto('${fid}','${ikey}',this)" style="display:none"></label>`:''}
-            ${isAdmin&&!isDone?`<button onclick="deleteFahrtItem('${fid}','${ikey}')" style="background:none;border:none;color:#ea4335;font-size:18px;cursor:pointer;flex-shrink:0">×</button>`:''}
           </div>`;
         });
       });
@@ -5453,7 +5474,10 @@ function renderFahrtDetail(){
   const footer=document.getElementById('lg-fahrt-footer');
   if(footer){
     if(isDone){
-      footer.innerHTML='<div style="text-align:center;color:#2e7d32;font-weight:800;font-size:15px;padding:6px">Fahrt abgeschlossen — Inventar aktualisiert</div>';
+      footer.innerHTML=`<div style="display:flex;flex-direction:column;gap:8px">
+        <div style="text-align:center;color:#2e7d32;font-weight:800;font-size:15px;padding:4px">Fahrt abgeschlossen — Inventar aktualisiert</div>
+        <button onclick="exportFahrtPDF('${fid}')" style="width:100%;background:#1565c0;color:#fff;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit">Als PDF speichern</button>
+      </div>`;
     } else {
       const allChecked=items.length>0&&items.every(([,i])=>i.checked);
       footer.innerHTML=`<button onclick="completeFahrt('${fid}')" ${allChecked?'':'disabled'} style="width:100%;background:${allChecked?'#2e7d32':'#ccc'};color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:800;cursor:${allChecked?'pointer':'default'}">
@@ -5493,6 +5517,108 @@ function completeFahrt(fid){
   toast('Fahrt abgeschlossen & Inventar aktualisiert');
 }
 
+function exportFahrtPDF(fid){
+  const f=logistikFahrten[fid]; if(!f)return;
+  if(typeof jspdf==='undefined'&&typeof window.jspdf==='undefined'){toast('PDF-Bibliothek nicht geladen');return;}
+  const {jsPDF}=window.jspdf||jspdf;
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const W=210, ml=15, mr=15, cw=W-ml-mr;
+  let y=20;
+
+  // Header
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(18);
+  doc.setTextColor(21,101,192);
+  doc.text('Fahrtprotokoll',ml,y); y+=8;
+  doc.setDrawColor(21,101,192);
+  doc.setLineWidth(0.5);
+  doc.line(ml,y,W-mr,y); y+=7;
+
+  // Meta
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(11);
+  doc.setTextColor(50,50,50);
+  const dateStr=f.date||'—';
+  const driver=f.employee||'—';
+  doc.setFont('helvetica','bold'); doc.text('Datum:',ml,y);
+  doc.setFont('helvetica','normal'); doc.text(dateStr,ml+22,y);
+  doc.setFont('helvetica','bold'); doc.text('Fahrer:',ml+70,y);
+  doc.setFont('helvetica','normal'); doc.text(driver,ml+92,y); y+=6;
+  doc.setFont('helvetica','bold'); doc.text('Status:',ml,y);
+  doc.setFont('helvetica','normal'); doc.text('Abgeschlossen',ml+22,y); y+=10;
+
+  // Group items by route
+  const items=Object.entries(f.items||{});
+  const groups={};
+  items.forEach(([k,it])=>{
+    const fr=it.from||f.from||'—'; const to=it.to||f.to||'—';
+    const rk=fr+'→'+to;
+    if(!groups[rk])groups[rk]={from:fr,to:to,items:[]};
+    groups[rk].items.push({key:k,...it});
+  });
+
+  const locNames={AS:'amSee',EG:'EVENTGIESSEREI',LS:'LAKESIDE'};
+  const locCols={AS:[45,122,79],EG:[184,148,30],LS:[26,139,147]};
+
+  Object.values(groups).forEach(group=>{
+    if(y>260){doc.addPage();y=20;}
+    // Route header
+    const frLabel=locNames[group.from]||group.from;
+    const toLabel=locNames[group.to]||group.to;
+    const frCol=locCols[group.from]||[100,100,100];
+    const toCol=locCols[group.to]||[100,100,100];
+    doc.setFillColor(...frCol);
+    doc.roundedRect(ml,y-4,36,7,2,2,'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(255,255,255);
+    doc.text(frLabel,ml+18,y,{align:'center'});
+    doc.setFontSize(11); doc.setTextColor(160,160,160);
+    doc.text('→',ml+40,y);
+    doc.setFillColor(...toCol);
+    doc.roundedRect(ml+45,y-4,36,7,2,2,'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(255,255,255);
+    doc.text(toLabel,ml+63,y,{align:'center'});
+    y+=10;
+
+    // Items
+    group.items.forEach(it=>{
+      if(y>270){doc.addPage();y=20;}
+      // Checkbox
+      doc.setDrawColor(100,100,100); doc.setLineWidth(0.4);
+      doc.rect(ml,y-4,5,5);
+      if(it.checked){
+        doc.setDrawColor(46,125,50); doc.setLineWidth(0.7);
+        doc.line(ml+1,y-1.5,ml+2.5,y+0.5);
+        doc.line(ml+2.5,y+0.5,ml+4.5,y-3.5);
+      }
+      // Name + menge
+      doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(20,20,20);
+      const nameText=`${it.name||'?'}  ×${it.menge||1}`;
+      doc.text(nameText,ml+8,y);
+      y+=5;
+      // Comment
+      if(it.comment){
+        doc.setFont('helvetica','italic'); doc.setFontSize(9); doc.setTextColor(120,120,120);
+        const wrapped=doc.splitTextToSize(it.comment,cw-8);
+        doc.text(wrapped,ml+8,y);
+        y+=wrapped.length*4;
+      }
+      y+=2;
+    });
+    y+=4;
+  });
+
+  // Footer
+  if(y>275){doc.addPage();y=20;}
+  doc.setDrawColor(200,200,200); doc.setLineWidth(0.3);
+  doc.line(ml,y,W-mr,y); y+=5;
+  doc.setFont('helvetica','italic'); doc.setFontSize(8); doc.setTextColor(160,160,160);
+  doc.text('Erstellt mit Event Management App — '+new Date().toLocaleDateString('de-DE'),ml,y);
+
+  const fname='Fahrt_'+f.date+'_'+driver.replace(/\s+/g,'_')+'.pdf';
+  doc.save(fname);
+  toast('PDF gespeichert');
+}
+
 // ── NEW FAHRT CREATION SCREEN ────────────────────────────────────
 let _newFahrtItems = []; // draft items before save
 let _nfItemCounter = 0;
@@ -5501,6 +5627,16 @@ function openNewFahrt(){
   _newFahrtItems = [];
   _nfItemCounter = 0;
   document.getElementById('nf-date').value = new Date().toISOString().split('T')[0];
+  // Populate driver select with Logistik users
+  const sel = document.getElementById('nf-driver');
+  if(sel){
+    const drivers = Object.values(taskUsers).filter(u=>u.roleLG).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+    sel.innerHTML = drivers.map(u=>{
+      const isCurrent = currentTaskUser && currentTaskUser.uid===u.uid;
+      return `<option value="${escHtml(u.name||u.uid)}"${isCurrent?' selected':''}>${escHtml(u.name||u.uid)}</option>`;
+    }).join('');
+    if(!sel.options.length) sel.innerHTML='<option value="">Kein Logistik-Nutzer</option>';
+  }
   renderNewFahrtItems();
   showScreen('logistik-new-fahrt-screen');
 }
@@ -5521,8 +5657,8 @@ function renderNewFahrtItems(){
   });
   let html='';
   Object.entries(groups).forEach(([rk,group])=>{
-    html+=`<div style="font-size:12px;font-weight:800;color:#1565c0;background:#e8f0fe;border-radius:8px;padding:6px 12px;margin:8px 0 4px">
-      ${escHtml((LG_LOC[group.from]||group.from||'?'))} → ${escHtml((LG_LOC[group.to]||group.to||'?'))}
+    html+=`<div style="display:flex;align-items:center;gap:8px;background:#f8f9fa;border-radius:10px;padding:8px 12px;margin:8px 0 4px">
+      ${locRoute(group.from||'?',group.to||'?',true)}
     </div>`;
     group.items.forEach(it=>{
       const invPhoto=it.inventoryItemId?inventoryPhotos[it.inventoryItemId]:null;
@@ -5531,9 +5667,8 @@ function renderNewFahrtItems(){
         ${displayPhoto?`<img src="${displayPhoto}" style="width:40px;height:40px;object-fit:cover;border-radius:8px;flex-shrink:0">`:''}
         <div style="flex:1;min-width:0">
           <div style="font-weight:700;font-size:13px">${escHtml(it.name)}</div>
-          <div style="font-size:11px;color:#aaa">${it.menge>1?it.menge+'× ':''}</div>
+          ${it.menge>1?`<div style="font-size:11px;color:#aaa">${it.menge}×</div>`:''}
         </div>
-        ${!it.photo?`<label style="cursor:pointer;background:#f5f5f5;border-radius:8px;padding:5px 9px;font-size:11px;font-weight:700;color:#aaa;flex-shrink:0">Foto<input type="file" accept="image/*" capture="environment" onchange="attachPhotoToNewItem(${it.idx},this)" style="display:none"></label>`:''}
         <button onclick="_newFahrtItems.splice(${it.idx},1);renderNewFahrtItems()" style="background:none;border:none;color:#ea4335;font-size:18px;cursor:pointer;flex-shrink:0;padding:0 2px">×</button>
       </div>`;
     });
@@ -5621,8 +5756,9 @@ function saveNewFahrt(){
   const date = document.getElementById('nf-date').value;
   if(!date){toast('Bitte Datum wählen');return;}
   if(!_newFahrtItems.length){toast('Bitte mindestens einen Artikel hinzufügen');return;}
-  const fahrt = {date, status:'offen', items:{}, createdAt:Date.now(),
-    employee: currentTaskUser ? currentTaskUser.name : '?'};
+  const driverSel = document.getElementById('nf-driver');
+  const employee = (driverSel && driverSel.value) ? driverSel.value : (currentTaskUser ? currentTaskUser.name : '?');
+  const fahrt = {date, status:'offen', items:{}, createdAt:Date.now(), employee};
   _newFahrtItems.forEach((it,i)=>{
     const key = 'item'+Date.now()+i;
     fahrt.items[key] = {
@@ -5719,6 +5855,45 @@ function uploadFahrtItemPhoto(fid,ikey,input){
   const file=input.files[0]; if(!file)return;
   const reader=new FileReader();
   reader.onload=e=>{if(db)db.ref('/logistikFahrten/'+fid+'/items/'+ikey+'/photo').set(e.target.result);};
+  reader.readAsDataURL(file);
+}
+
+// ── ITEM ACTIONS (···) ────────────────────────────────────────────
+let _iakFid=null, _iakKey=null;
+
+function openItemActions(fid,ikey){
+  _iakFid=fid; _iakKey=ikey;
+  openModal('m-item-actions');
+}
+
+function itemActionComment(){
+  closeModal('m-item-actions');
+  const f=logistikFahrten[_iakFid]; if(!f)return;
+  const existing=(f.items&&f.items[_iakKey]&&f.items[_iakKey].comment)||'';
+  document.getElementById('iak-comment-text').value=existing;
+  openModal('m-item-comment');
+  setTimeout(()=>document.getElementById('iak-comment-text').focus(),100);
+}
+
+function saveItemComment(){
+  const text=document.getElementById('iak-comment-text').value.trim();
+  if(db)db.ref('/logistikFahrten/'+_iakFid+'/items/'+_iakKey+'/comment').set(text||null);
+  closeModal('m-item-comment');
+  toast('Kommentar gespeichert');
+}
+
+function itemActionPhoto(){
+  closeModal('m-item-actions');
+  document.getElementById('iak-photo-input').click();
+}
+
+function _iakPhotoSelected(input){
+  const file=input.files[0]; if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    if(db)db.ref('/logistikFahrten/'+_iakFid+'/items/'+_iakKey+'/photo').set(e.target.result);
+    toast('Foto gespeichert');
+  };
   reader.readAsDataURL(file);
 }
 
@@ -6123,6 +6298,10 @@ function saveInventoryItem(){
       <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:6px">Datum</div>
       <input type="date" id="nf-date" style="width:100%;border:1.5px solid #e0e0e0;border-radius:12px;padding:13px 14px;font-size:16px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
     </div>
+    <div style="margin-bottom:14px">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:6px">Fahrer</div>
+      <select id="nf-driver" style="width:100%;border:1.5px solid #e0e0e0;border-radius:12px;padding:13px 14px;font-size:15px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit"></select>
+    </div>
     <!-- Items grouped by route -->
     <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:8px">Artikel</div>
     <div id="nf-items-list"></div>
@@ -6218,6 +6397,31 @@ function saveInventoryItem(){
     </div>
     <button class="mbtn" onclick="addFahrtCustomItem()">Hinzufügen ✓</button>
     <button class="mbtn grey" onclick="closeModal('m-add-fahrt-item-custom')">Abbrechen</button>
+  </div>
+</div>
+
+<!-- ITEM ACTIONS MODAL (···) -->
+<div class="overlay" id="m-item-actions">
+  <div class="modal">
+    <h2 style="margin-bottom:18px">Artikel-Optionen</h2>
+    <button class="mbtn" style="width:100%;justify-content:flex-start;gap:12px" onclick="itemActionComment()">
+      <span style="font-size:18px">💬</span> Kommentar hinzufügen
+    </button>
+    <button class="mbtn" style="width:100%;justify-content:flex-start;gap:12px;margin-top:8px" onclick="itemActionPhoto()">
+      <span style="font-size:18px">📷</span> Foto hinzufügen
+    </button>
+    <button class="mbtn grey" style="margin-top:12px" onclick="closeModal('m-item-actions')">Schließen</button>
+  </div>
+</div>
+<input type="file" id="iak-photo-input" accept="image/*" capture="environment" style="display:none" onchange="_iakPhotoSelected(this)">
+
+<!-- ITEM COMMENT MODAL -->
+<div class="overlay" id="m-item-comment">
+  <div class="modal">
+    <h2>Kommentar</h2>
+    <textarea id="iak-comment-text" style="width:100%;min-height:100px;border:1px solid #ddd;border-radius:10px;padding:10px;font-family:inherit;font-size:14px;resize:vertical;box-sizing:border-box" placeholder="z.B. Steht im Lager hinten links…"></textarea>
+    <button class="mbtn" style="margin-top:12px" onclick="saveItemComment()">Speichern ✓</button>
+    <button class="mbtn grey" onclick="closeModal('m-item-comment')">Abbrechen</button>
   </div>
 </div>
 
