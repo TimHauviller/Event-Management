@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260611-017';
+      var V='20260611-018';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')!==V){
         u.searchParams.set('v',V);
@@ -1696,6 +1696,7 @@ let adminPassword = 'admin2024';
 let emailRecipients = []; // configurable list of email addresses
 
 let allEvents = {AS:{},EG:{},LS:{}};
+let allArchived = {AS:{},EG:{},LS:{}};
 let evChecked = {}, evHidden = {}, evExtraTasks = {}, evTaskOrder = {};
 let photos = {}, edits = {};
 let photoRequired = {};  // {taskId: true} — tasks that need a photo before checking
@@ -1771,6 +1772,12 @@ function subscribeGlobal() {
     db.ref('/events/'+l).on('value', s => {
       allEvents[l]=s.val()||{};
       if(loc===l && isEventsVisible()) renderEventsList();
+      checkAndArchiveExpiredEvents(l);
+    });
+    db.ref('/archive/'+l).on('value', s => {
+      allArchived[l]=s.val()||{};
+      if(loc===l && isEventsVisible()) renderEventsList();
+      pruneOldArchived(l);
     });
     db.ref('/catOrder/'+l).on('value', s => { catOrder[l]=s.val()||[]; if(loc===l)renderIfApp(); });
     db.ref('/vorlageOrder/'+l).on('value', s => { vorlageTaskOrder[l]=s.val()||{}; if(vorlageMode&&loc===l)renderIfApp(); });
@@ -1866,6 +1873,7 @@ function goToEvents() {
 }
 
 function pickEvent(eid) {
+  isArchivedEvent = false;
   vorlageMode = false;
   document.body.classList.remove('vorlage-mode');
   openCats.clear();
@@ -1903,6 +1911,38 @@ function pickVorlage() {
 
 function isEventsVisible() {
   return document.getElementById('events-screen').style.display==='block';
+}
+
+// ── ARCHIV ──────────────────────────────────────────────────────────
+function checkAndArchiveExpiredEvents(l) {
+  if(!db) return;
+  const now = new Date(); now.setHours(0,0,0,0); // start of today
+  const events = allEvents[l]||{};
+  Object.entries(events).forEach(([eid, ev]) => {
+    if(!ev.date) return;
+    const evDay = new Date(ev.date+'T00:00:00');
+    if(evDay < now) {
+      // Move to archive
+      const archived = Object.assign({}, ev, {archivedAt: Date.now()});
+      db.ref('/archive/'+l+'/'+eid).set(archived);
+      db.ref('/events/'+l+'/'+eid).remove();
+    }
+  });
+}
+
+function pruneOldArchived(l) {
+  if(!db) return;
+  const cutoff = Date.now() - 30*24*60*60*1000; // 30 days ago
+  const archived = allArchived[l]||{};
+  Object.entries(archived).forEach(([eid, ev]) => {
+    if(ev.archivedAt && ev.archivedAt < cutoff) {
+      db.ref('/archive/'+l+'/'+eid).remove();
+      db.ref('/eventData/'+l+'/'+eid).remove();
+      db.ref('/orders/'+l+'/'+eid).remove();
+      db.ref('/orderCustom/'+l+'/'+eid).remove();
+      db.ref('/orderMeta/'+l+'/'+eid).remove();
+    }
+  });
 }
 function renderIfApp() {
   if (document.getElementById('app').style.display==='block') render();
@@ -1962,7 +2002,6 @@ function renderEventsList() {
       </div>
       <div class="event-info">
         <div class="event-name">${escHtml(ev.name||'Unbenannt')}</div>
-
         <div class="event-meta-row">
           ${(ev.timeFrom||ev.timeTo)?`<span class="event-meta-tag">${ev.timeFrom||'?'} – ${ev.timeTo||'?'} Uhr</span>`:''}
           ${ev.pax?`<span class="event-meta-tag">${ev.pax} Personen</span>`:''}
@@ -1976,8 +2015,56 @@ function renderEventsList() {
     </div>`;
   });
   html += '</div>';
+
+  // ── Archiv section ──
+  const archivedSorted = Object.entries(allArchived[loc]||{}).sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''));
+  if(archivedSorted.length > 0) {
+    const DAY_MS = 24*60*60*1000;
+    html += `<div style="margin-top:18px">
+      <button onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';this.querySelector('.arch-arrow').textContent=this.nextElementSibling.style.display==='none'?'▸':'▾'"
+        style="width:100%;background:none;border:none;padding:8px 4px;display:flex;align-items:center;gap:8px;cursor:pointer;color:#888;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">
+        <span class="arch-arrow">▸</span> Archiv (${archivedSorted.length})
+        <span style="font-size:11px;font-weight:400;color:#aaa;margin-left:4px">— wird nach 30 Tagen gelöscht</span>
+      </button>
+      <div style="display:none">`;
+    archivedSorted.forEach(([eid,ev]) => {
+      let day='?',mo='',yr='',wd='';
+      if(ev.date){const d=new Date(ev.date+'T12:00:00');day=d.getDate();mo=MO[d.getMonth()];yr=d.getFullYear();wd=WD[d.getDay()];}
+      const daysLeft = ev.archivedAt ? Math.max(0, 30 - Math.floor((Date.now()-ev.archivedAt)/DAY_MS)) : '?';
+      html += `<div class="event-card" style="opacity:.65" onclick="pickArchivedEvent('${eid}')">
+        <div class="event-date-col">
+          <div class="event-date-wd">${wd}</div>
+          <div class="event-date-day">${day}</div>
+          <div class="event-date-month">${mo}</div>
+          <div class="event-date-year">${yr}</div>
+        </div>
+        <div class="event-info">
+          <div class="event-name">${escHtml(ev.name||'Unbenannt')}</div>
+          <div class="event-meta-row">
+            <span class="event-meta-tag" style="background:#f5f0e8;color:#a07040">📦 Archiv</span>
+            <span class="event-meta-tag" style="color:#bbb">löscht in ${daysLeft}d</span>
+          </div>
+        </div>
+        <div class="event-arrow" style="color:#ccc">›</div>
+      </div>`;
+    });
+    html += '</div></div>';
+  }
+
   container.innerHTML = html;
 }
+
+function pickArchivedEvent(eid) {
+  const ev = (allArchived[loc]||{})[eid];
+  if(!ev) return;
+  // Load as read-only: set eventId but mark archived
+  eventId = eid;
+  isArchivedEvent = true;
+  subscribeEvent(loc, eid);
+  showScreen('app');
+  toast('📦 Archiv-Event — nur Lesezugriff & Export möglich');
+}
+let isArchivedEvent = false;
 
 // ── CHECKLIST RENDER ───────────────────────────────────────────────
 function render() {
