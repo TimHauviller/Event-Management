@@ -9,14 +9,14 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260617-040';
+      var V='20260617-041';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')===V) return; // already correct
       // Bypass CDN cache with fetch(cache:'reload') → document.write fresh HTML
       fetch(location.pathname,{cache:'reload'})
         .then(function(r){return r.text();})
         .then(function(html){
-          if(html.indexOf("var V='"+V+"'")>=0){
+          if(html.indexOf("var V='20260617-041'")>=0){
             history.replaceState({},'','?v='+V);
             document.open(); document.write(html); document.close();
           } else {
@@ -5383,7 +5383,11 @@ function renderLogistik(){
 // ── FAHRTEN ───────────────────────────────────────────────────────
 function renderFahrten(){
   const content=document.getElementById('lg-content'); if(!content)return;
-  const fahrten=Object.entries(logistikFahrten).sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''));
+  const fahrten=Object.entries(logistikFahrten).sort((a,b)=>{
+    const ad=a[1].date||'', bd=b[1].date||'';
+    if(!ad&&bd)return -1; if(ad&&!bd)return 1;
+    return bd.localeCompare(ad);
+  });
   if(fahrten.length===0){
     content.innerHTML=`<div style="text-align:center;padding:50px 20px;color:#bbb">
       <div style="font-size:16px;font-weight:700;color:#666">Noch keine Fahrten</div>
@@ -5425,7 +5429,8 @@ function renderFahrten(){
         <div class="event-date-year">${yr}</div>
       </div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:14px;font-weight:800;color:#1c1c2e;margin-bottom:3px">Logistikfahrt${f.employee?` · ${escHtml(f.employee)}`:''}</div>
+        <div style="font-size:14px;font-weight:800;color:#1c1c2e;margin-bottom:3px">${f.isRueckfahrt?'<span style="color:#1565c0">↩ Rückfahrt</span>':'Logistikfahrt'}${f.employee?` · ${escHtml(f.employee)}`:''}</div>
+        ${routeBadgesHtml?`<div style="margin-bottom:3px">${routeBadgesHtml}</div>`:''}
         <div style="font-size:12px;color:#888">${items.length} Artikel &middot; ${isDone?'<span style="color:#2e7d32;font-weight:700">Abgeschlossen</span>':`${checked} abgehakt`}</div>
         ${noDate?'<div style="font-size:11px;color:#ea4335;font-weight:700;margin-top:2px">Datum fehlt</div>':''}
       </div>
@@ -5440,7 +5445,7 @@ function openFahrt(fid){
   currentFahrtId=fid;
   const f=logistikFahrten[fid]; if(!f)return;
   const title=document.getElementById('lg-fahrt-title');
-  if(title)title.textContent='Logistikfahrt'+(f.employee?' · '+f.employee:'');
+  if(title)title.textContent=(f.isRueckfahrt?'↩ Rückfahrt':'Logistikfahrt')+(f.employee?' · '+f.employee:'');
   const delBtn=document.getElementById('lg-fahrt-del-btn');
   if(delBtn){delBtn.style.display=isAdmin?'':'none';delBtn.onclick=()=>deleteFahrt(fid);}
   showScreen('logistik-fahrt-screen');
