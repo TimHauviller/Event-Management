@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260611-021';
+      var V='20260617-022';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')!==V){
         u.searchParams.set('v',V);
@@ -4684,7 +4684,9 @@ function verifyHomePIN(){
   const match=Object.entries(taskUsers).find(([,u])=>String(u.pin)===String(pinBuffer));
   if(match){
     const [uid,u]=match;
-    const ud={uid,name:u.name,loc:u.loc,isAdmin:!!u.isAdmin};
+    const roleEL = u.roleEL!==undefined ? !!u.roleEL : (u.role!=='logistik');
+    const roleLG = u.roleLG!==undefined ? !!u.roleLG : (u.role==='logistik');
+    const ud={uid,name:u.name,loc:u.loc,roleEL,roleLG,isAdmin:!!u.isAdmin};
     localStorage.setItem('task_user',JSON.stringify(ud));
     currentTaskUser=ud;
     showHomeMenu();
@@ -4707,16 +4709,21 @@ function showHomeMenu(){
   const pv=document.getElementById('home-pin-view'),mv=document.getElementById('home-menu-view');
   if(pv)pv.style.display='none';if(mv)mv.style.display='';
   const name = currentTaskUser&&currentTaskUser.name||'';
-  const role = currentTaskUser&&currentTaskUser.role||'eventleitung';
+  // Support both old 'role' and new dual roleEL/roleLG
+  const roleEL = currentTaskUser ? (currentTaskUser.roleEL!==undefined ? !!currentTaskUser.roleEL : currentTaskUser.role!=='logistik') : true;
+  const roleLG = currentTaskUser ? (currentTaskUser.roleLG!==undefined ? !!currentTaskUser.roleLG : currentTaskUser.role==='logistik') : false;
   const gr=document.getElementById('home-user-greeting');
   if(gr)gr.textContent='Hallo, '+name+' 👋';
   const areaEl=document.getElementById('home-user-area');
-  if(areaEl)areaEl.textContent=role==='logistik'?'Logistik':'Eventleitung';
+  const areaLabels=[];
+  if(roleEL)areaLabels.push('Eventleitung');
+  if(roleLG)areaLabels.push('Logistik');
+  if(areaEl)areaEl.textContent=areaLabels.join(' & ')||'Mitarbeiter';
   // Show role-appropriate cards
   const elCards=document.getElementById('home-cards-eventleitung');
   const lgCards=document.getElementById('home-cards-logistik');
-  if(elCards)elCards.style.display=role==='logistik'?'none':'';
-  if(lgCards)lgCards.style.display=role==='logistik'?'':'none';
+  if(elCards)elCards.style.display=roleEL?'':'none';
+  if(lgCards)lgCards.style.display=roleLG?'':'none';
   const ac=document.getElementById('home-admin-card');
   if(ac)ac.style.display=(currentTaskUser&&currentTaskUser.isAdmin)?'':'none';
   updateHomeNotifBadge();
@@ -4726,7 +4733,10 @@ function verifyPin() {
   const match = Object.entries(taskUsers).find(([,u])=>String(u.pin)===String(pinBuffer));
   if(match){
     const [uid,u]=match;
-    const userData={uid,name:u.name,loc:u.loc,role:u.role||'eventleitung',isAdmin:!!u.isAdmin};
+    // Support both old 'role' field and new dual roleEL/roleLG fields
+    const roleEL = u.roleEL!==undefined ? !!u.roleEL : (u.role!=='logistik');
+    const roleLG = u.roleLG!==undefined ? !!u.roleLG : (u.role==='logistik');
+    const userData={uid,name:u.name,loc:u.loc,roleEL,roleLG,isAdmin:!!u.isAdmin};
     localStorage.setItem('task_user',JSON.stringify(userData));
     currentTaskUser=userData;
     updateMyTasksHeader(); renderMyTasks(); markTasksSeen();
@@ -5115,8 +5125,11 @@ function renderAdminUsers(){
     +'<input class="tform-input" id="nu-name" placeholder="Max Mustermann">'
     +'<label class="tform-lbl">PIN (4-stellig)</label>'
     +'<input class="tform-input" id="nu-pin" type="tel" placeholder="1234" maxlength="4">'
-    +'<label class="tform-lbl">Bereich</label>'
-    +'<select class="tform-input" id="nu-role"><option value="eventleitung">Eventleitung</option><option value="logistik">Logistik</option></select>'
+    +'<label class="tform-lbl">Bereiche</label>'
+    +'<div style="display:flex;gap:16px;margin-bottom:14px">'
+    +'<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" id="nu-role-el" checked style="width:16px;height:16px"> Eventleitung</label>'
+    +'<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" id="nu-role-lg" style="width:16px;height:16px"> Logistik</label>'
+    +'</div>'
     +'<label style="display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:13px;color:#444;cursor:pointer"><input type="checkbox" id="nu-admin" style="width:16px;height:16px"> Admin-Rechte</label>'
     +'<button onclick="createUser()" style="width:100%;background:var(--accent);color:#fff;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer">Mitarbeiter anlegen ✓</button>';
   document.getElementById('admin-users-content').innerHTML=html;
@@ -5129,8 +5142,9 @@ function createUser(){
   if(!name){toast('Bitte Namen eingeben');return;}
   if(!pin||pin.length<4){toast('Bitte 4-stelligen PIN eingeben');return;}
   if(!/^\d{4}$/.test(pin)){toast('PIN muss aus 4 Ziffern bestehen');return;}
-  const role=(document.getElementById('nu-role')&&document.getElementById('nu-role').value)||'eventleitung';
-  const ud={name,pin,loc:'',role,createdAt:Date.now()};
+  const roleEL=!!(document.getElementById('nu-role-el')&&document.getElementById('nu-role-el').checked);
+  const roleLG=!!(document.getElementById('nu-role-lg')&&document.getElementById('nu-role-lg').checked);
+  const ud={name,pin,loc:'',roleEL,roleLG,createdAt:Date.now()};
   if(isAdm) ud.isAdmin=true;
   if(db) db.ref('/taskUsers').push(ud);
   toast('Mitarbeiter angelegt ✓');
@@ -5145,8 +5159,11 @@ function openEditUser(uid) {
   document.getElementById('eu-name').value = u.name||'';
   document.getElementById('eu-pin').value = u.pin||'';
   document.getElementById('eu-admin').checked = !!u.isAdmin;
-  const euRole = document.getElementById('eu-role');
-  if(euRole) euRole.value = u.role||'eventleitung';
+  const euEl = document.getElementById('eu-role-el');
+  const euLg = document.getElementById('eu-role-lg');
+  // legacy: if old 'role' field exists, migrate
+  if(euEl) euEl.checked = u.roleEL!==undefined ? !!u.roleEL : (u.role!=='logistik');
+  if(euLg) euLg.checked = u.roleLG!==undefined ? !!u.roleLG : (u.role==='logistik');
   openModal('m-edit-user');
   setTimeout(()=>document.getElementById('eu-name').focus(),100);
 }
@@ -5158,9 +5175,9 @@ function saveEditUser() {
   if(!/^\d{4}$/.test(pin)){ toast('PIN muss genau 4 Ziffern sein'); return; }
   const existing = Object.entries(taskUsers).find(([uid,u])=>String(u.pin)===pin && uid!==_editUid);
   if(existing){ toast('Dieser PIN ist bereits vergeben'); return; }
-  const euRole = document.getElementById('eu-role');
-  const role = euRole ? euRole.value : 'eventleitung';
-  const updates = { name, pin, isAdmin: isAdm||null, role };
+  const roleEL = !!(document.getElementById('eu-role-el')&&document.getElementById('eu-role-el').checked);
+  const roleLG = !!(document.getElementById('eu-role-lg')&&document.getElementById('eu-role-lg').checked);
+  const updates = { name, pin, isAdmin: isAdm||null, roleEL, roleLG };
   if(db) db.ref('/taskUsers/'+_editUid).update(updates);
   else { Object.assign(taskUsers[_editUid], updates); saveLocal(); }
   closeModal('m-edit-user');
@@ -5199,6 +5216,41 @@ function verifyEventLeaderPin() {
   }
 }
 
+// ── LOGISTIK FAHRT MINI-ADMIN PIN ─────────────────────────────────
+let _lgpBuffer = '';
+let logistikLeaderMode = false;
+function openLogistikLeaderPin() {
+  _lgpBuffer='';
+  for(let i=0;i<4;i++){const d=document.getElementById('lgp'+i);if(d){d.classList.remove('on');d.style.background='';}}
+  const err=document.getElementById('lgp-error'); if(err)err.textContent='';
+  openModal('m-logistik-leader-pin');
+}
+function lgpKey(k) {
+  if(k==='⌫'){_lgpBuffer=_lgpBuffer.slice(0,-1);}
+  else if(_lgpBuffer.length<4){_lgpBuffer+=k;}
+  for(let i=0;i<4;i++){const d=document.getElementById('lgp'+i);if(d)d.classList.toggle('on',i<_lgpBuffer.length);}
+  if(_lgpBuffer.length===4) verifyLogistikLeaderPin();
+}
+function verifyLogistikLeaderPin() {
+  if(!currentTaskUser){_lgpBuffer='';return;}
+  const storedUser = taskUsers[currentTaskUser.uid];
+  if(storedUser && String(storedUser.pin)===String(_lgpBuffer)) {
+    logistikLeaderMode=true;
+    closeModal('m-logistik-leader-pin');
+    toast('✅ Modus aktiv — neue Fahrt kann erstellt werden');
+    openNewFahrt();
+  } else {
+    _lgpBuffer='';
+    for(let i=0;i<4;i++){const d=document.getElementById('lgp'+i);if(d){d.classList.remove('on');d.style.background='#ea4335';setTimeout(()=>{if(d)d.style.background='';},500);}}
+    const err=document.getElementById('lgp-error');if(err){err.textContent='Falscher Code';setTimeout(()=>{if(err)err.textContent='';},2000);}
+  }
+}
+function logistikFahrtAddBtn() {
+  if(!currentTaskUser){toast('Bitte zuerst einloggen');return;}
+  if(currentTaskUser.isAdmin||logistikLeaderMode){openNewFahrt();return;}
+  openLogistikLeaderPin();
+}
+
 function toggleUserAdmin(uid,makeAdmin){
   if(db) db.ref('/taskUsers/'+uid+'/isAdmin').set(makeAdmin||null);
   if(currentTaskUser&&currentTaskUser.uid===uid){currentTaskUser.isAdmin=makeAdmin;localStorage.setItem('task_user',JSON.stringify(currentTaskUser));}
@@ -5221,6 +5273,9 @@ function isFahrtVisible(){return(document.getElementById('logistik-fahrt-screen'
 function openLogistik(){
   logistikTab='fahrten';
   showScreen('logistik-screen');
+  // Hide Inventar tab for non-admins
+  const invTab=document.getElementById('lg-tab-inventar');
+  if(invTab) invTab.style.display=isAdmin?'':'none';
   _updateLgTabs();
   renderLogistik();
 }
@@ -5239,7 +5294,9 @@ function _updateLgTabs(){
     btn.style.opacity=logistikTab===t?'1':'.55';
   });
   const fab=document.getElementById('lg-fab');
-  if(fab)fab.style.display=(isAdmin&&logistikTab==='fahrten')?'':'none';
+  // Show FAB for admins and for logistik employees (they PIN-verify on tap)
+  const isLgUser = currentTaskUser&&(currentTaskUser.roleLG||currentTaskUser.isAdmin);
+  if(fab)fab.style.display=(isLgUser&&logistikTab==='fahrten')?'':'none';
 }
 
 function renderLogistik(){
@@ -5649,11 +5706,11 @@ function saveInventoryItem(){
     <input type="text" class="tform-input" id="eu-name" placeholder="Name">
     <label class="tform-lbl">PIN (4-stellig)</label>
     <input type="tel" class="tform-input" id="eu-pin" placeholder="1234" maxlength="4" inputmode="numeric">
-    <label class="tform-lbl">Bereich</label>
-    <select class="tform-input" id="eu-role" style="margin-bottom:14px">
-      <option value="eventleitung">Eventleitung</option>
-      <option value="logistik">Logistik</option>
-    </select>
+    <label class="tform-lbl">Bereiche</label>
+    <div style="display:flex;gap:16px;margin-bottom:14px">
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" id="eu-role-el" style="width:16px;height:16px"> Eventleitung</label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" id="eu-role-lg" style="width:16px;height:16px"> Logistik</label>
+    </div>
     <label style="display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:13px;color:#444;cursor:pointer">
       <input type="checkbox" id="eu-admin" style="width:16px;height:16px"> Admin-Rechte
     </label>
@@ -5711,7 +5768,26 @@ function saveInventoryItem(){
   </div>
   <div class="main" id="lg-content" style="padding-bottom:80px"></div>
   <div id="lg-fab" style="display:none;position:fixed;bottom:24px;right:20px;z-index:200">
-    <button onclick="openNewFahrt()" style="background:#1565c0;color:#fff;border:none;border-radius:50%;width:56px;height:56px;font-size:26px;box-shadow:0 4px 16px rgba(0,0,0,.3);cursor:pointer;line-height:1">+</button>
+    <button onclick="logistikFahrtAddBtn()" style="background:#1565c0;color:#fff;border:none;border-radius:50%;width:56px;height:56px;font-size:26px;box-shadow:0 4px 16px rgba(0,0,0,.3);cursor:pointer;line-height:1">+</button>
+  </div>
+</div>
+<!-- LOGISTIK FAHRT PIN MODAL -->
+<div class="overlay" id="m-logistik-leader-pin">
+  <div class="modal">
+    <h2>🔓 Neue Fahrt erstellen</h2>
+    <p style="font-size:13px;color:#666;margin-bottom:16px">Gib deinen persönlichen Code ein, um eine Fahrt hinzuzufügen.</p>
+    <div class="pin-row" id="lgp-dots" style="justify-content:center;margin-bottom:8px">
+      <div class="pin-dot" id="lgp0"></div><div class="pin-dot" id="lgp1"></div>
+      <div class="pin-dot" id="lgp2"></div><div class="pin-dot" id="lgp3"></div>
+    </div>
+    <div id="lgp-error" style="color:#ea4335;text-align:center;font-size:13px;min-height:18px;margin-bottom:8px"></div>
+    <div class="pin-grid">
+      <button class="pin-btn" onclick="lgpKey('1')">1</button><button class="pin-btn" onclick="lgpKey('2')">2</button><button class="pin-btn" onclick="lgpKey('3')">3</button>
+      <button class="pin-btn" onclick="lgpKey('4')">4</button><button class="pin-btn" onclick="lgpKey('5')">5</button><button class="pin-btn" onclick="lgpKey('6')">6</button>
+      <button class="pin-btn" onclick="lgpKey('7')">7</button><button class="pin-btn" onclick="lgpKey('8')">8</button><button class="pin-btn" onclick="lgpKey('9')">9</button>
+      <button class="pin-btn" style="visibility:hidden"></button><button class="pin-btn" onclick="lgpKey('0')">0</button><button class="pin-btn" onclick="lgpKey('⌫')">⌫</button>
+    </div>
+    <button class="mbtn grey" onclick="closeModal('m-logistik-leader-pin')" style="margin-top:10px">Abbrechen</button>
   </div>
 </div>
 
