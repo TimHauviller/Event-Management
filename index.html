@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260617-033';
+      var V='20260617-034';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')!==V){
         u.searchParams.set('v',V);
@@ -423,9 +423,7 @@
     </div>
 
   </div>
-  <div class="picker-footer">
-    <button class="picker-admin-btn" id="picker-admin-btn" onclick="toggleAdminFromPicker()">Admin</button>
-  </div>
+  <div class="picker-footer" style="display:none"></div>
 </div>
 
 <!-- EVENTS SCREEN -->
@@ -436,7 +434,6 @@
       <div class="ev-loc-name" id="ev-loc-name"></div>
       <div style="display:flex;gap:6px">
         <button class="admin-btn" style="font-size:11px;padding:6px 10px" onclick="openAZ()">A-Z</button>
-        <button class="admin-btn" id="ev-admin-btn" onclick="toggleAdminFromEvents()">Admin</button>
       </div>
     </div>
   </div>
@@ -2065,11 +2062,11 @@ function renderEventsList() {
   const archivedSorted = Object.entries(allArchived[loc]||{}).sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''));
   if(archivedSorted.length > 0) {
     const DAY_MS = 24*60*60*1000;
-    html += `<div style="margin-top:18px">
+    html += `<div style="margin-top:40px;border-top:1px solid #ececec;padding-top:8px">
       <button onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';this.querySelector('.arch-arrow').textContent=this.nextElementSibling.style.display==='none'?'▸':'▾'"
-        style="width:100%;background:none;border:none;padding:8px 4px;display:flex;align-items:center;gap:8px;cursor:pointer;color:#888;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">
+        style="width:100%;background:none;border:none;padding:8px 4px;display:flex;align-items:center;gap:8px;cursor:pointer;color:#bbb;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">
         <span class="arch-arrow">▸</span> Archiv (${archivedSorted.length})
-        <span style="font-size:11px;font-weight:400;color:#aaa;margin-left:4px">— wird nach 30 Tagen gelöscht</span>
+        <span style="font-size:11px;font-weight:400;color:#ccc;margin-left:4px">— wird nach 30 Tagen gelöscht</span>
       </button>
       <div style="display:none">`;
     archivedSorted.forEach(([eid,ev]) => {
