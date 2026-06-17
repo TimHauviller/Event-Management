@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260617-027';
+      var V='20260617-028';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')!==V){
         u.searchParams.set('v',V);
@@ -5281,7 +5281,7 @@ function deleteUser(uid){
 // ══════════════════════════════════════════════════════════════════
 // LOGISTIK
 // ══════════════════════════════════════════════════════════════════
-const LG_LOC_COLOR = {AS:'#2d7a4f', EG:'#1e3a6e', LS:'#1a8b93'};
+const LG_LOC_COLOR = {AS:'#2d7a4f', EG:'#1a1712', LS:'#1a8b93'};
 const LG_LOC_SHORT = {AS:'amSee', EG:'Gieß.', LS:'Lakeside'};
 
 function locBadge(loc, large=false){
@@ -5357,7 +5357,7 @@ function renderFahrten(){
       wd=d.toLocaleDateString('de-DE',{weekday:'short'}).toUpperCase();
       yr=d.getFullYear();
     }
-    const accentColor=isDone?'#2e7d32':'#1565c0';
+    const accentColor=isDone?'#2e7d32':'#1e3a6e';
     // Build unique routes from items
     const routePairs=new Set();
     items.forEach(it=>{
@@ -5484,7 +5484,7 @@ function renderFahrtDetail(){
   const addBtns=document.getElementById('lg-fahrt-add-btns');
   if(addBtns){
     addBtns.innerHTML=isAdmin?`
-      <button onclick="openAddFahrtItem('${fid}','inventory')" style="background:#e8f0fe;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;color:#1565c0;cursor:pointer;width:100%">+ Aus Inventar hinzufügen</button>
+      <button onclick="openAddFahrtItem('${fid}','inventory')" style="background:#e8edf8;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;color:#1e3a6e;cursor:pointer;width:100%">+ Aus Inventar hinzufügen</button>
       <button onclick="openAddFahrtItem('${fid}','custom')" style="background:#f8f9fa;border:1.5px dashed #ddd;border-radius:10px;padding:12px;font-size:13px;font-weight:700;color:#555;cursor:pointer;width:100%">+ Eigener Artikel</button>
     `:'';
   }
@@ -5497,7 +5497,7 @@ function renderFahrtDetail(){
       footer.innerHTML=`<div style="display:flex;flex-direction:column;gap:8px">
         <div style="text-align:center;color:#2e7d32;font-weight:800;font-size:15px;padding:4px">Fahrt abgeschlossen — Inventar aktualisiert</div>
         <div style="display:flex;gap:8px">
-          <button onclick="exportFahrtPDF('${fid}')" style="flex:1;background:#1565c0;color:#fff;border:none;border-radius:12px;padding:13px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">Als PDF speichern</button>
+          <button onclick="exportFahrtPDF('${fid}')" style="flex:1;background:#1e3a6e;color:#fff;border:none;border-radius:12px;padding:13px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">Als PDF speichern</button>
           ${hasRueck?`<button onclick="createRueckfahrt('${fid}')" style="flex:1;background:#e65100;color:#fff;border:none;border-radius:12px;padding:13px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">Rückfahrt anlegen</button>`:''}
         </div>
       </div>`;
@@ -5581,7 +5581,7 @@ function exportFahrtPDF(fid){
   });
 
   const locNames={AS:'amSee',EG:'EVENTGIESSEREI',LS:'LAKESIDE'};
-  const locCols={AS:[45,122,79],EG:[30,58,110],LS:[26,139,147]};
+  const locCols={AS:[45,122,79],EG:[26,23,18],LS:[26,139,147]};
 
   Object.values(groups).forEach(group=>{
     if(y>260){doc.addPage();y=20;}
@@ -6294,7 +6294,7 @@ function saveInventoryItem(){
 <!-- TASK LOGIN SCREEN -->
 <!-- LOGISTIK SCREEN -->
 <div id="logistik-screen">
-  <div class="order-hdr">
+  <div class="order-hdr" style="background:#1e3a6e">
     <div class="order-hdr-top">
       <button class="back-btn" onclick="showScreen('home-screen')">← Home</button>
       <div class="order-hdr-title">Logistik</div>
@@ -6306,7 +6306,7 @@ function saveInventoryItem(){
   </div>
   <div class="main" id="lg-content" style="padding-bottom:80px"></div>
   <div id="lg-fab" style="display:none;position:fixed;bottom:24px;right:20px;z-index:200">
-    <button onclick="logistikFahrtAddBtn()" style="background:#1565c0;color:#fff;border:none;border-radius:50%;width:56px;height:56px;font-size:26px;box-shadow:0 4px 16px rgba(0,0,0,.3);cursor:pointer;line-height:1">+</button>
+    <button onclick="logistikFahrtAddBtn()" style="background:#1e3a6e;color:#fff;border:none;border-radius:50%;width:56px;height:56px;font-size:26px;box-shadow:0 4px 16px rgba(0,0,0,.3);cursor:pointer;line-height:1">+</button>
   </div>
 </div>
 <!-- LOGISTIK FAHRT PIN MODAL -->
@@ -6331,7 +6331,7 @@ function saveInventoryItem(){
 
 <!-- LOGISTIK FAHRT DETAIL SCREEN -->
 <div id="logistik-fahrt-screen">
-  <div class="order-hdr">
+  <div class="order-hdr" style="background:#1e3a6e">
     <div class="order-hdr-top">
       <button class="back-btn" onclick="goToFahrten()">← Fahrten</button>
       <div class="order-hdr-title" id="lg-fahrt-title">Fahrt</div>
@@ -6348,7 +6348,7 @@ function saveInventoryItem(){
 
 <!-- NEW FAHRT SCREEN -->
 <div id="logistik-new-fahrt-screen">
-  <div class="order-hdr">
+  <div class="order-hdr" style="background:#1e3a6e">
     <div class="order-hdr-top">
       <button class="back-btn" onclick="showScreen('logistik-screen');_updateLgTabs();renderFahrten()">← Zurück</button>
       <div class="order-hdr-title">Neue Fahrt</div>
