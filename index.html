@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260617-034';
+      var V='20260617-035';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')!==V){
         u.searchParams.set('v',V);
@@ -1707,7 +1707,7 @@ let logistikFahrten = {};
 let currentFahrtId = null;
 let logistikTab = 'fahrten';
 const INV_CATS = ['MÖBEL','GESCHIRR & GLÄSER','DEKORATION','TECHNIK & EQUIPMENT'];
-const LG_LOC = {AS:'amSee',EG:'EVENTGIESSEREI',LS:'LAKESIDE'};
+const LG_LOC = {AS:'amSee Leipzig',EG:'EVENTGIESSEREI',LS:'LAKESIDE'};
 let evChecked = {}, evHidden = {}, evExtraTasks = {}, evTaskOrder = {};
 let photos = {}, edits = {};
 let photoRequired = {};  // {taskId: true} — tasks that need a photo before checking
@@ -5515,7 +5515,7 @@ function renderFahrtDetail(){
               ${displayPhoto?`<img src="${displayPhoto}" style="width:32px;height:32px;object-fit:cover;border-radius:6px;flex-shrink:0">`:''}
               <div style="flex:1;min-width:0">
                 <div class="task-de">
-                  ${item.menge&&item.menge>1?`<span style="background:#f0f4ff;color:#1565c0;border-radius:4px;padding:1px 6px;font-size:11px;margin-right:5px;font-weight:800">${item.menge}×</span>`:''}${escHtml(item.name)}
+                  ${escHtml(item.name)}${item.menge&&item.menge>1?`<span style="color:#aaa;font-size:11px;font-weight:600;margin-left:6px">${item.menge}×</span>`:''}
                 </div>
                 ${item.comment?`<div style="font-size:11px;color:#888;margin-top:2px;font-style:italic">${escHtml(item.comment)}</div>`:''}
                 ${canEdit
@@ -5642,7 +5642,7 @@ function exportFahrtPDF(fid){
     groups[rk].items.push({key:k,...it});
   });
 
-  const locNames={AS:'amSee',EG:'EVENTGIESSEREI',LS:'LAKESIDE'};
+  const locNames={AS:'amSee Leipzig',EG:'EVENTGIESSEREI',LS:'LAKESIDE'};
   const locCols={AS:[45,122,79],EG:[26,23,18],LS:[26,139,147]};
 
   Object.values(groups).forEach(group=>{
@@ -5777,11 +5777,11 @@ function attachPhotoToNewItem(idx, input){
 function _nfRouteSelects(idSuffix){
   return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
     <select id="nf-${idSuffix}-from" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px 12px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
-      <option value="AS">amSee</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
+      <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
     </select>
     <span style="color:#888;font-weight:700;font-size:16px">→</span>
     <select id="nf-${idSuffix}-to" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px 12px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
-      <option value="AS">amSee</option><option value="EG">EVENTGIESSEREI</option><option value="LS" selected>LAKESIDE</option>
+      <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS" selected>LAKESIDE</option>
     </select>
   </div>`;
 }
@@ -6142,7 +6142,7 @@ function renderInventarTab(){
 }
 
 // Full location names for Inventar display
-const INV_LOC_NAMES = {AS:'amSee', EG:'Eventgießerei', LS:'Lakeside'};
+const INV_LOC_NAMES = {AS:'amSee Leipzig', EG:'EVENTGIESSEREI', LS:'LAKESIDE'};
 
 function _invLocHeader(l){
   const col=LG_LOC_COLOR[l]||'#888';
@@ -6513,11 +6513,11 @@ function saveInventoryItem(){
     <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:#888;margin-bottom:6px">Route</div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
       <select id="nf-inv-from" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px 10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
-        <option value="AS">amSee</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
+        <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
       </select>
       <span style="color:#888;font-weight:700">→</span>
       <select id="nf-inv-to" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px 10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
-        <option value="AS">amSee</option><option value="EG">EVENTGIESSEREI</option><option value="LS" selected>LAKESIDE</option>
+        <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS" selected>LAKESIDE</option>
       </select>
     </div>
     <div id="nf-inv-picker-list" style="overflow-y:auto;flex:1;margin-bottom:10px"></div>
@@ -6536,11 +6536,11 @@ function saveInventoryItem(){
     <label class="tform-lbl">Route</label>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
       <select id="nf-custom-from" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
-        <option value="AS">amSee</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
+        <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
       </select>
       <span style="color:#888;font-weight:700">→</span>
       <select id="nf-custom-to" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
-        <option value="AS">amSee</option><option value="EG">EVENTGIESSEREI</option><option value="LS" selected>LAKESIDE</option>
+        <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS" selected>LAKESIDE</option>
       </select>
     </div>
     <button class="mbtn" onclick="nfAddCustomItem()">Hinzufügen</button>
@@ -6555,11 +6555,11 @@ function saveInventoryItem(){
     <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:#888;margin-bottom:6px">Route</div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
       <select id="afi-inv-from" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
-        <option value="AS">amSee</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
+        <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
       </select>
       <span style="color:#888;font-weight:700">→</span>
       <select id="afi-inv-to" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
-        <option value="AS">amSee</option><option value="EG">EVENTGIESSEREI</option><option value="LS" selected>LAKESIDE</option>
+        <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS" selected>LAKESIDE</option>
       </select>
     </div>
     <div id="inv-picker-list" style="overflow-y:auto;flex:1;margin-bottom:10px"></div>
@@ -6582,11 +6582,11 @@ function saveInventoryItem(){
     <label class="tform-lbl">Route</label>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
       <select id="afi-from" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
-        <option value="AS">amSee</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
+        <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
       </select>
       <span style="color:#888;font-weight:700">→</span>
       <select id="afi-to" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
-        <option value="AS">amSee</option><option value="EG">EVENTGIESSEREI</option><option value="LS" selected>LAKESIDE</option>
+        <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS" selected>LAKESIDE</option>
       </select>
     </div>
     <label style="display:flex;align-items:center;gap:8px;margin-bottom:16px;cursor:pointer">
@@ -6601,14 +6601,10 @@ function saveInventoryItem(){
 <!-- ITEM ACTIONS MODAL (···) -->
 <div class="overlay" id="m-item-actions">
   <div class="modal">
-    <h2 style="margin-bottom:18px">Artikel-Optionen</h2>
-    <button class="mbtn" style="width:100%;justify-content:flex-start;gap:12px" onclick="itemActionComment()">
-      <span style="font-size:18px">💬</span> Kommentar hinzufügen
-    </button>
-    <button class="mbtn" style="width:100%;justify-content:flex-start;gap:12px;margin-top:8px" onclick="itemActionPhoto()">
-      <span style="font-size:18px">📷</span> Foto hinzufügen
-    </button>
-    <button class="mbtn grey" style="margin-top:12px" onclick="closeModal('m-item-actions')">Schließen</button>
+    <h2>Artikeloptionen</h2>
+    <button class="mbtn" onclick="itemActionComment()">Kommentar hinzufügen</button>
+    <button class="mbtn" onclick="itemActionPhoto()">Foto hinzufügen</button>
+    <button class="mbtn grey" onclick="closeModal('m-item-actions')">Schließen</button>
   </div>
 </div>
 <input type="file" id="iak-photo-input" accept="image/*" capture="environment" style="display:none" onchange="_iakPhotoSelected(this)">
