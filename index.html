@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260617-023';
+      var V='20260617-024';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')!==V){
         u.searchParams.set('v',V);
@@ -1703,6 +1703,7 @@ let allEvents = {AS:{},EG:{},LS:{}};
 let allArchived = {AS:{},EG:{},LS:{}};
 // ── LOGISTIK ──────────────────────────────────────────────────────
 let inventoryItems = {};
+let inventoryPhotos = {};
 let inventoryStock = {AS:{},EG:{},LS:{}};
 let logistikFahrten = {};
 let currentFahrtId = null;
@@ -1803,6 +1804,7 @@ function subscribeGlobal() {
   db.ref('/videos').on('value', s => { videos=s.val()||{}; renderIfApp(); });
   // Logistik subscriptions
   db.ref('/inventoryItems').on('value', s => { inventoryItems=s.val()||{}; seedInventoryIfEmpty(); if(isLogistikVisible())renderInventarTab(); });
+  db.ref('/inventoryPhotos').on('value', s => { inventoryPhotos=s.val()||{}; if(isLogistikVisible())renderInventarTab(); });
   db.ref('/logistikFahrten').on('value', s => {
     logistikFahrten=s.val()||{};
     if(isLogistikVisible())renderFahrten();
@@ -5284,9 +5286,6 @@ function isFahrtVisible(){return(document.getElementById('logistik-fahrt-screen'
 function openLogistik(){
   logistikTab='fahrten';
   showScreen('logistik-screen');
-  // Hide Inventar tab for non-admins
-  const invTab=document.getElementById('lg-tab-inventar');
-  if(invTab) invTab.style.display=isAdmin?'':'none';
   _updateLgTabs();
   renderLogistik();
 }
@@ -5333,11 +5332,21 @@ function renderFahrten(){
     const items=Object.values(f.items||{});
     const checked=items.filter(i=>i.checked).length;
     const isDone=f.status==='abgeschlossen';
+    // Build unique routes from items (support both legacy top-level from/to and per-item from/to)
+    const routeSet=new Set();
+    items.forEach(it=>{
+      const fr=it.from||f.from; const to=it.to||f.to;
+      if(fr&&to)routeSet.add((LG_LOC[fr]||fr)+' → '+(LG_LOC[to]||to));
+    });
+    const routeLabel=routeSet.size?[...routeSet].join(', '):'—';
     html+=`<div onclick="openFahrt('${fid}')" style="background:#fff;border-radius:14px;padding:14px 16px;box-shadow:0 1px 5px rgba(0,0,0,.07);cursor:pointer;display:flex;align-items:center;gap:12px${isDone?';opacity:.65':''}">
-      <div style="background:${isDone?'#e8f5e9':'#e8f0fe'};border-radius:12px;padding:10px 14px;font-size:11px;font-weight:800;color:${isDone?'#2e7d32':'#1565c0'};white-space:nowrap">${LG_LOC[f.from]||f.from||'?'} → ${LG_LOC[f.to]||f.to||'?'}</div>
+      <div style="background:${isDone?'#e8f5e9':'#e8f0fe'};border-radius:12px;padding:10px 12px;text-align:center;flex-shrink:0">
+        <div style="font-size:18px;font-weight:900;color:${isDone?'#2e7d32':'#1565c0'};line-height:1">${f.date?new Date(f.date+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'}):'?'}</div>
+        <div style="font-size:9px;font-weight:700;color:${isDone?'#2e7d32':'#1565c0'};margin-top:1px">${f.date?new Date(f.date+'T12:00:00').getFullYear():''}</div>
+      </div>
       <div style="flex:1;min-width:0">
-        <div style="font-weight:800;font-size:14px;color:#1c1c2e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(LG_LOC[f.from]||f.from||'?')} → ${escHtml(LG_LOC[f.to]||f.to||'?')}</div>
-        <div style="font-size:12px;color:#888;margin-top:2px">${date} · ${escHtml(f.employee||'?')}</div>
+        <div style="font-weight:800;font-size:13px;color:#1c1c2e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(routeLabel)}</div>
+        <div style="font-size:12px;color:#888;margin-top:2px">${escHtml(f.employee||'?')} · ${items.length} Artikel</div>
         <div style="font-size:12px;color:${isDone?'#2e7d32':'#888'};margin-top:1px">${isDone?'Abgeschlossen':`${checked}/${items.length} abgehakt`}</div>
       </div>
       <div style="color:#ccc;font-size:18px">›</div>
@@ -5351,7 +5360,8 @@ function openFahrt(fid){
   currentFahrtId=fid;
   const f=logistikFahrten[fid]; if(!f)return;
   const title=document.getElementById('lg-fahrt-title');
-  if(title)title.textContent=(LG_LOC[f.from]||f.from||'?')+' → '+(LG_LOC[f.to]||f.to||'?');
+  const dateStr=f.date?new Date(f.date+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}):'Fahrt';
+  if(title)title.textContent=dateStr;
   const delBtn=document.getElementById('lg-fahrt-del-btn');
   if(delBtn){delBtn.style.display=isAdmin?'':'none';delBtn.onclick=()=>deleteFahrt(fid);}
   showScreen('logistik-fahrt-screen');
@@ -5374,47 +5384,59 @@ function renderFahrtDetail(){
   const info=document.getElementById('lg-fahrt-info');
   if(info)info.innerHTML=`
     <div style="flex:1;text-align:center;padding:4px 0">
-      <div style="font-size:10px;color:#aaa;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Von</div>
-      <div style="font-weight:800;font-size:13px;color:#1c1c2e;margin-top:2px">${escHtml(LG_LOC[f.from]||f.from||'?')}</div>
-    </div>
-    <div style="font-size:20px;color:#aaa;padding:0 4px">→</div>
-    <div style="flex:1;text-align:center;padding:4px 0">
-      <div style="font-size:10px;color:#aaa;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Nach</div>
-      <div style="font-weight:800;font-size:13px;color:#1c1c2e;margin-top:2px">${escHtml(LG_LOC[f.to]||f.to||'?')}</div>
-    </div>
-    <div style="width:1px;background:#e8e8e8;align-self:stretch;margin:4px 0"></div>
-    <div style="flex:1;text-align:center;padding:4px 0">
       <div style="font-size:10px;color:#aaa;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Datum</div>
-      <div style="font-weight:700;font-size:12px;color:#555;margin-top:2px">${date}</div>
+      <div style="font-weight:800;font-size:13px;color:#1c1c2e;margin-top:2px">${date}</div>
     </div>
     <div style="width:1px;background:#e8e8e8;align-self:stretch;margin:4px 0"></div>
     <div style="flex:1;text-align:center;padding:4px 0">
       <div style="font-size:10px;color:#aaa;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Fahrer</div>
       <div style="font-weight:700;font-size:12px;color:#555;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(f.employee||'?')}</div>
     </div>
+    <div style="width:1px;background:#e8e8e8;align-self:stretch;margin:4px 0"></div>
+    <div style="flex:1;text-align:center;padding:4px 0">
+      <div style="font-size:10px;color:#aaa;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Status</div>
+      <div style="font-weight:700;font-size:12px;color:${isDone?'#2e7d32':'#f57c00'};margin-top:2px">${isDone?'Fertig':'Offen'}</div>
+    </div>
   `;
 
-  // Items
+  // Items grouped by route
   const itemsEl=document.getElementById('lg-fahrt-items');
   const items=Object.entries(f.items||{});
   if(itemsEl){
     if(items.length===0){
       itemsEl.innerHTML='<div style="text-align:center;color:#ccc;font-size:13px;padding:24px">Noch keine Artikel — unten hinzufügen</div>';
     } else {
-      itemsEl.innerHTML=items.map(([ikey,item])=>`
-        <div style="background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 1px 4px rgba(0,0,0,.06);display:flex;align-items:center;gap:10px">
-          <button onclick="toggleFahrtItem('${fid}','${ikey}')" style="flex-shrink:0;width:30px;height:30px;border-radius:50%;border:2px solid ${item.checked?'#2e7d32':'#ddd'};background:${item.checked?'#2e7d32':'#fff'};color:#fff;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center">${item.checked?'✓':''}</button>
-          <div style="flex:1;min-width:0">
-            <div style="font-weight:700;font-size:14px;color:${item.checked?'#aaa':'#1c1c2e'};${item.checked?'text-decoration:line-through':''}">
-              ${item.menge&&item.menge>1?`<span style="background:#f0f4ff;color:#1565c0;border-radius:4px;padding:1px 6px;font-size:12px;margin-right:5px">${item.menge}×</span>`:''}${escHtml(item.name)}
+      // Group by from→to (with fallback to top-level from/to for legacy data)
+      const routeGroups={};
+      items.forEach(([ikey,item])=>{
+        const fr=item.from||f.from||'?';
+        const to=item.to||f.to||'?';
+        const rk=fr+'→'+to;
+        if(!routeGroups[rk])routeGroups[rk]={from:fr,to:to,items:[]};
+        routeGroups[rk].items.push([ikey,item]);
+      });
+      let html='';
+      Object.entries(routeGroups).forEach(([rk,group])=>{
+        html+=`<div style="font-size:12px;font-weight:800;color:#1565c0;background:#e8f0fe;border-radius:8px;padding:7px 12px;margin:10px 0 6px">
+          ${escHtml((LG_LOC[group.from]||group.from))} → ${escHtml((LG_LOC[group.to]||group.to))}
+        </div>`;
+        group.items.forEach(([ikey,item])=>{
+          const invPhoto=item.inventoryItemId?inventoryPhotos[item.inventoryItemId]:null;
+          const displayPhoto=item.photo||invPhoto;
+          html+=`<div style="background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 1px 4px rgba(0,0,0,.06);display:flex;align-items:center;gap:10px;margin-bottom:6px">
+            <button onclick="toggleFahrtItem('${fid}','${ikey}')" style="flex-shrink:0;width:30px;height:30px;border-radius:50%;border:2px solid ${item.checked?'#2e7d32':'#ddd'};background:${item.checked?'#2e7d32':'#fff'};color:#fff;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center">${item.checked?'✓':''}</button>
+            ${displayPhoto?`<img src="${displayPhoto}" style="width:40px;height:40px;object-fit:cover;border-radius:8px;flex-shrink:0">`:''}
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:700;font-size:14px;color:${item.checked?'#aaa':'#1c1c2e'};${item.checked?'text-decoration:line-through':''}">
+                ${item.menge&&item.menge>1?`<span style="background:#f0f4ff;color:#1565c0;border-radius:4px;padding:1px 6px;font-size:12px;margin-right:5px">${item.menge}×</span>`:''}${escHtml(item.name)}
+              </div>
             </div>
-            <div style="font-size:11px;color:#ccc;margin-top:1px">${item.isCustom?'Eigener Artikel':'Inventar'}</div>
-          </div>
-          ${item.photo
-            ?`<img src="${item.photo}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;flex-shrink:0" onclick="viewFahrtPhoto('${ikey}')">`
-            :`<label style="cursor:pointer;background:#f5f5f5;border-radius:8px;padding:5px 9px;font-size:11px;font-weight:700;color:#aaa;flex-shrink:0" title="Foto hinzufügen">Foto<input type="file" accept="image/*" capture="environment" onchange="uploadFahrtItemPhoto('${fid}','${ikey}',this)" style="display:none"></label>`}
-          ${isAdmin&&!isDone?`<button onclick="deleteFahrtItem('${fid}','${ikey}')" style="background:none;border:none;color:#ea4335;font-size:18px;cursor:pointer;flex-shrink:0">×</button>`:''}
-        </div>`).join('');
+            ${!item.photo?`<label style="cursor:pointer;background:#f5f5f5;border-radius:8px;padding:5px 9px;font-size:11px;font-weight:700;color:#aaa;flex-shrink:0">Foto<input type="file" accept="image/*" capture="environment" onchange="uploadFahrtItemPhoto('${fid}','${ikey}',this)" style="display:none"></label>`:''}
+            ${isAdmin&&!isDone?`<button onclick="deleteFahrtItem('${fid}','${ikey}')" style="background:none;border:none;color:#ea4335;font-size:18px;cursor:pointer;flex-shrink:0">×</button>`:''}
+          </div>`;
+        });
+      });
+      itemsEl.innerHTML=html;
     }
   }
 
@@ -5455,10 +5477,15 @@ function completeFahrt(fid){
   const updates={};
   items.forEach(item=>{
     if(!item.isCustom&&item.inventoryItemId&&item.menge){
-      const fromIst=(inventoryStock[f.from]||{})[item.inventoryItemId]||{};
-      const toIst=(inventoryStock[f.to]||{})[item.inventoryItemId]||{};
-      updates['/inventoryStock/'+f.from+'/'+item.inventoryItemId+'/ist']=Math.max(0,(parseInt(fromIst.ist)||0)-parseInt(item.menge));
-      updates['/inventoryStock/'+f.to+'/'+item.inventoryItemId+'/ist']=(parseInt(toIst.ist)||0)+parseInt(item.menge);
+      // Use per-item from/to, fall back to top-level for legacy data
+      const fr=item.from||f.from;
+      const to=item.to||f.to;
+      if(fr&&to){
+        const fromIst=(inventoryStock[fr]||{})[item.inventoryItemId]||{};
+        const toIst=(inventoryStock[to]||{})[item.inventoryItemId]||{};
+        updates['/inventoryStock/'+fr+'/'+item.inventoryItemId+'/ist']=Math.max(0,(parseInt(fromIst.ist)||0)-parseInt(item.menge));
+        updates['/inventoryStock/'+to+'/'+item.inventoryItemId+'/ist']=(parseInt(toIst.ist)||0)+parseInt(item.menge);
+      }
     }
   });
   updates['/logistikFahrten/'+fid+'/status']='abgeschlossen';
@@ -5474,8 +5501,6 @@ function openNewFahrt(){
   _newFahrtItems = [];
   _nfItemCounter = 0;
   document.getElementById('nf-date').value = new Date().toISOString().split('T')[0];
-  document.getElementById('nf-from').value = 'AS';
-  document.getElementById('nf-to').value = 'LS';
   renderNewFahrtItems();
   showScreen('logistik-new-fahrt-screen');
 }
@@ -5487,19 +5512,33 @@ function renderNewFahrtItems(){
     list.innerHTML='<div style="color:#bbb;font-size:13px;text-align:center;padding:20px 0">Noch keine Artikel — unten hinzufügen</div>';
     return;
   }
-  list.innerHTML = _newFahrtItems.map((it,idx)=>`
-    <div style="background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
-      <div style="flex:1;min-width:0">
-        <div style="font-weight:700;font-size:14px">${escHtml(it.name)}</div>
-        <div style="font-size:11px;color:#aaa">${it.menge > 1 ? it.menge+'× ' : ''}${it.isCustom?'Eigener Artikel':'Inventar'}</div>
-      </div>
-      ${it.photo
-        ? `<img src="${it.photo}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;flex-shrink:0">`
-        : `<label style="cursor:pointer;background:#f5f5f5;border-radius:8px;padding:5px 9px;font-size:11px;font-weight:700;color:#aaa;flex-shrink:0">
-             Foto<input type="file" accept="image/*" capture="environment" onchange="attachPhotoToNewItem(${idx},this)" style="display:none">
-           </label>`}
-      <button onclick="_newFahrtItems.splice(${idx},1);renderNewFahrtItems()" style="background:none;border:none;color:#ea4335;font-size:18px;cursor:pointer;flex-shrink:0;padding:0 2px">×</button>
-    </div>`).join('');
+  // Group by from→to
+  const groups={};
+  _newFahrtItems.forEach((it,idx)=>{
+    const key=(it.from||'?')+'→'+(it.to||'?');
+    if(!groups[key])groups[key]={from:it.from,to:it.to,items:[]};
+    groups[key].items.push({...it,idx});
+  });
+  let html='';
+  Object.entries(groups).forEach(([rk,group])=>{
+    html+=`<div style="font-size:12px;font-weight:800;color:#1565c0;background:#e8f0fe;border-radius:8px;padding:6px 12px;margin:8px 0 4px">
+      ${escHtml((LG_LOC[group.from]||group.from||'?'))} → ${escHtml((LG_LOC[group.to]||group.to||'?'))}
+    </div>`;
+    group.items.forEach(it=>{
+      const invPhoto=it.inventoryItemId?inventoryPhotos[it.inventoryItemId]:null;
+      const displayPhoto=it.photo||invPhoto;
+      html+=`<div style="background:#fff;border-radius:12px;padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+        ${displayPhoto?`<img src="${displayPhoto}" style="width:40px;height:40px;object-fit:cover;border-radius:8px;flex-shrink:0">`:''}
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:13px">${escHtml(it.name)}</div>
+          <div style="font-size:11px;color:#aaa">${it.menge>1?it.menge+'× ':''}</div>
+        </div>
+        ${!it.photo?`<label style="cursor:pointer;background:#f5f5f5;border-radius:8px;padding:5px 9px;font-size:11px;font-weight:700;color:#aaa;flex-shrink:0">Foto<input type="file" accept="image/*" capture="environment" onchange="attachPhotoToNewItem(${it.idx},this)" style="display:none"></label>`:''}
+        <button onclick="_newFahrtItems.splice(${it.idx},1);renderNewFahrtItems()" style="background:none;border:none;color:#ea4335;font-size:18px;cursor:pointer;flex-shrink:0;padding:0 2px">×</button>
+      </div>`;
+    });
+  });
+  list.innerHTML=html;
 }
 
 function attachPhotoToNewItem(idx, input){
@@ -5509,34 +5548,48 @@ function attachPhotoToNewItem(idx, input){
   reader.readAsDataURL(file);
 }
 
+function _nfRouteSelects(idSuffix){
+  return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+    <select id="nf-${idSuffix}-from" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px 12px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
+      <option value="AS">amSee</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
+    </select>
+    <span style="color:#888;font-weight:700;font-size:16px">→</span>
+    <select id="nf-${idSuffix}-to" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px 12px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
+      <option value="AS">amSee</option><option value="EG">EVENTGIESSEREI</option><option value="LS" selected>LAKESIDE</option>
+    </select>
+  </div>`;
+}
+
 function nfOpenInventoryPicker(){
-  const from = document.getElementById('nf-from').value;
   const list = document.getElementById('nf-inv-picker-list'); if(!list) return;
-  let html = '';
+  let itemsHtml = '';
   INV_CATS.forEach(cat=>{
     const catItems = Object.entries(inventoryItems).filter(([,i])=>i.category===cat);
     if(!catItems.length) return;
-    html += `<div style="font-size:11px;font-weight:800;text-transform:uppercase;color:#aaa;padding:10px 0 4px">${escHtml(cat)}</div>`;
+    itemsHtml += `<div style="font-size:11px;font-weight:800;text-transform:uppercase;color:#aaa;padding:10px 0 4px">${escHtml(cat)}</div>`;
     catItems.forEach(([iid,item])=>{
-      const st = (inventoryStock[from]||{})[iid]||{};
-      html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f5f5f5">
-        <div style="flex:1">
+      const photo=inventoryPhotos[iid];
+      itemsHtml += `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f5f5f5">
+        ${photo?`<img src="${photo}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;flex-shrink:0">`:''}
+        <div style="flex:1;min-width:0">
           <div style="font-weight:700;font-size:13px">${escHtml(item.name)}</div>
-          <div style="font-size:11px;color:#aaa">Bestand ${LG_LOC[from]}: ${st.ist??'?'}</div>
         </div>
-        <input type="number" min="1" value="1" id="nfip-${iid}" style="width:52px;border:1px solid #ddd;border-radius:8px;padding:5px;font-size:13px;text-align:center">
+        <input type="number" min="1" value="1" id="nfip-${iid}" style="width:52px;border:1px solid #ddd;border-radius:8px;padding:5px;font-size:13px;text-align:center;font-family:inherit">
         <button onclick="nfAddInvItem('${iid}','${escAttr(item.name)}')" style="background:#1565c0;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:13px;font-weight:700;cursor:pointer">+</button>
       </div>`;
     });
   });
-  list.innerHTML = html || '<div style="color:#bbb;text-align:center;padding:20px">Kein Inventar vorhanden</div>';
+  list.innerHTML = itemsHtml || '<div style="color:#bbb;text-align:center;padding:20px">Kein Inventar vorhanden</div>';
   openModal('m-nf-inv-picker');
 }
 
 function nfAddInvItem(iid, name){
   const el = document.getElementById('nfip-'+iid);
   const menge = el ? Math.max(1, parseInt(el.value)||1) : 1;
-  _newFahrtItems.push({name, menge, isCustom:false, inventoryItemId:iid});
+  const from = (document.getElementById('nf-inv-from')||{}).value || 'AS';
+  const to   = (document.getElementById('nf-inv-to')||{}).value || 'LS';
+  if(from===to){toast('Von und Nach müssen verschieden sein');return;}
+  _newFahrtItems.push({name, menge, isCustom:false, inventoryItemId:iid, from, to});
   renderNewFahrtItems();
   closeModal('m-nf-inv-picker');
   toast(name+' hinzugefügt');
@@ -5545,8 +5598,11 @@ function nfAddInvItem(iid, name){
 function nfAddCustomItem(){
   const name = document.getElementById('nf-custom-name').value.trim();
   const menge = Math.max(1, parseInt(document.getElementById('nf-custom-menge').value)||1);
+  const from = (document.getElementById('nf-custom-from')||{}).value || 'AS';
+  const to   = (document.getElementById('nf-custom-to')||{}).value || 'LS';
   if(!name){toast('Bitte Bezeichnung eingeben');return;}
-  _newFahrtItems.push({name, menge, isCustom:true});
+  if(from===to){toast('Von und Nach müssen verschieden sein');return;}
+  _newFahrtItems.push({name, menge, isCustom:true, from, to});
   renderNewFahrtItems();
   closeModal('m-nf-custom-item');
   document.getElementById('nf-custom-name').value='';
@@ -5563,17 +5619,17 @@ function openNfCustomModal(){
 
 function saveNewFahrt(){
   const date = document.getElementById('nf-date').value;
-  const from = document.getElementById('nf-from').value;
-  const to   = document.getElementById('nf-to').value;
   if(!date){toast('Bitte Datum wählen');return;}
-  if(from===to){toast('Von und Nach müssen verschieden sein');return;}
-  const fahrt = {date, from, to, status:'offen', items:{}, createdAt:Date.now()};
-  // Build items object
+  if(!_newFahrtItems.length){toast('Bitte mindestens einen Artikel hinzufügen');return;}
+  const fahrt = {date, status:'offen', items:{}, createdAt:Date.now(),
+    employee: currentTaskUser ? currentTaskUser.name : '?'};
   _newFahrtItems.forEach((it,i)=>{
     const key = 'item'+Date.now()+i;
     fahrt.items[key] = {
       name: it.name,
       menge: it.menge||1,
+      from: it.from||'AS',
+      to: it.to||'LS',
       isCustom: !!it.isCustom,
       inventoryItemId: it.inventoryItemId||null,
       checked: false,
@@ -5612,8 +5668,6 @@ function openAddFahrtItem(fid,type){
 }
 
 function renderInventoryPicker(fid){
-  const f=logistikFahrten[fid];
-  const fromLoc=f?f.from:'AS';
   const list=document.getElementById('inv-picker-list'); if(!list)return;
   let html='';
   INV_CATS.forEach(cat=>{
@@ -5621,13 +5675,11 @@ function renderInventoryPicker(fid){
     if(!catItems.length)return;
     html+=`<div style="font-size:11px;font-weight:800;text-transform:uppercase;color:#aaa;padding:10px 0 4px">${escHtml(cat)}</div>`;
     catItems.forEach(([iid,item])=>{
-      const st=(inventoryStock[fromLoc]||{})[iid]||{};
+      const photo=inventoryPhotos[iid];
       html+=`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f5f5f5">
-        <div style="flex:1">
-          <div style="font-weight:700;font-size:13px">${escHtml(item.name)}</div>
-          <div style="font-size:11px;color:#aaa">Bestand ${LG_LOC[fromLoc]}: ${st.ist??'?'}</div>
-        </div>
-        <input type="number" min="1" value="1" id="ip-${iid}" style="width:52px;border:1px solid #ddd;border-radius:8px;padding:5px;font-size:13px;text-align:center">
+        ${photo?`<img src="${photo}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;flex-shrink:0">`:''}
+        <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">${escHtml(item.name)}</div></div>
+        <input type="number" min="1" value="1" id="ip-${iid}" style="width:52px;border:1px solid #ddd;border-radius:8px;padding:5px;font-size:13px;text-align:center;font-family:inherit">
         <button onclick="addFahrtInventoryItem('${fid}','${iid}')" style="background:#1565c0;color:#fff;border:none;border-radius:8px;padding:7px 13px;font-size:13px;font-weight:700;cursor:pointer">+</button>
       </div>`;
     });
@@ -5639,7 +5691,9 @@ function renderInventoryPicker(fid){
 function addFahrtInventoryItem(fid,iid){
   const menge=parseInt(document.getElementById('ip-'+iid).value)||1;
   const item=inventoryItems[iid]; if(!item)return;
-  const newItem={name:item.name,menge,checked:false,isCustom:false,inventoryItemId:iid};
+  const from=(document.getElementById('afi-inv-from')||{}).value||'AS';
+  const to=(document.getElementById('afi-inv-to')||{}).value||'LS';
+  const newItem={name:item.name,menge,from,to,checked:false,isCustom:false,inventoryItemId:iid};
   if(db)db.ref('/logistikFahrten/'+fid+'/items').push(newItem);
   toast(escHtml(item.name)+' hinzugefügt ✓');
   closeModal('m-add-fahrt-item-inv');
@@ -5648,8 +5702,10 @@ function addFahrtInventoryItem(fid,iid){
 function addFahrtCustomItem(){
   const name=document.getElementById('afi-name').value.trim();
   const menge=parseInt(document.getElementById('afi-menge').value)||1;
+  const from=(document.getElementById('afi-from')||{}).value||'AS';
+  const to=(document.getElementById('afi-to')||{}).value||'LS';
   if(!name){toast('Bitte Bezeichnung eingeben');return;}
-  const newItem={name,menge,checked:false,isCustom:true};
+  const newItem={name,menge,from,to,checked:false,isCustom:true};
   if(db)db.ref('/logistikFahrten/'+_addFahrtId+'/items').push(newItem);
   closeModal('m-add-fahrt-item-custom');
   toast(escHtml(name)+' hinzugefügt ✓');
@@ -5753,20 +5809,59 @@ function seedInventoryIfEmpty() {
 // ── INVENTAR ──────────────────────────────────────────────────────
 function renderInventarTab(){
   const content=document.getElementById('lg-content'); if(!content)return;
-  if(!isAdmin){
-    content.innerHTML='<div style="text-align:center;padding:60px 20px;color:#bbb"><div style="font-size:15px;font-weight:700;color:#888">Nur für Admins</div></div>';
-    return;
+  if(isAdmin){
+    _renderInventarAdmin(content);
+  } else {
+    _renderInventarReadonly(content);
   }
+}
+
+function _renderInventarReadonly(content){
+  let html='<div style="padding:14px">';
+  INV_CATS.forEach(cat=>{
+    const items=Object.entries(inventoryItems).filter(([,i])=>i.category===cat);
+    if(!items.length)return;
+    html+=`<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#888;margin:18px 0 8px">${escHtml(cat)}</div>`;
+    items.forEach(([iid,item])=>{
+      const photo=inventoryPhotos[iid];
+      html+=`<div style="background:#fff;border-radius:12px;padding:10px 12px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);display:flex;align-items:center;gap:10px">
+        ${photo
+          ?`<img src="${photo}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;flex-shrink:0">`
+          :`<div style="width:44px;height:44px;border-radius:8px;background:#f5f5f5;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:#ccc;text-align:center;line-height:1.2">kein Foto</div>`}
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:14px">${escHtml(item.name)}</div>
+          <div style="display:flex;gap:10px;margin-top:4px;flex-wrap:wrap">
+            ${['AS','EG','LS'].map(l=>{
+              const st=(inventoryStock[l]||{})[iid]||{};
+              return `<div style="font-size:11px;color:#888"><span style="font-weight:700;color:#555">${LG_LOC[l].substring(0,5)}</span>: ${st.ist??'—'}`;
+            }).join('')}
+          </div>
+        </div>
+      </div>`;
+    });
+  });
+  html+='</div>';
+  content.innerHTML=html;
+}
+
+function _renderInventarAdmin(content){
   let html='<div style="padding:14px">';
   INV_CATS.forEach(cat=>{
     const items=Object.entries(inventoryItems).filter(([,i])=>i.category===cat);
     html+=`<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#888;margin:18px 0 8px">${escHtml(cat)}</div>`;
     if(!items.length)html+=`<div style="color:#ccc;font-size:13px;margin-bottom:8px">Noch keine Artikel</div>`;
     items.forEach(([iid,item])=>{
+      const photo=inventoryPhotos[iid];
       html+=`<div style="background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <div style="font-weight:700;font-size:14px">${escHtml(item.name)}</div>
-          <button onclick="deleteInventoryItem('${iid}')" style="background:none;border:none;color:#ea4335;font-size:16px;cursor:pointer;padding:2px 6px">×</button>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          ${photo
+            ?`<img src="${photo}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;flex-shrink:0">`
+            :`<div style="width:44px;height:44px;border-radius:8px;background:#f5f5f5;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9px;color:#ccc;text-align:center;line-height:1.2;padding:2px">kein Foto</div>`}
+          <div style="flex:1;min-width:0;font-weight:700;font-size:14px">${escHtml(item.name)}</div>
+          <label style="cursor:pointer;background:#e8f0fe;border-radius:7px;padding:5px 9px;font-size:11px;font-weight:700;color:#1565c0;flex-shrink:0">
+            Foto<input type="file" accept="image/*" onchange="uploadInventoryPhoto('${iid}',this)" style="display:none">
+          </label>
+          <button onclick="deleteInventoryItem('${iid}')" style="background:none;border:none;color:#ea4335;font-size:16px;cursor:pointer;padding:2px 6px;flex-shrink:0">×</button>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
           ${['AS','EG','LS'].map(l=>{
@@ -5777,9 +5872,9 @@ function renderInventarTab(){
               <div style="font-size:10px;font-weight:800;color:#888;margin-bottom:5px">${LG_LOC[l].substring(0,6)}</div>
               <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">
                 <label style="font-size:10px;color:#aaa">Ist</label>
-                <input type="number" value="${st.ist??''}" min="0" onchange="updateStock('${l}','${iid}','ist',this.value)" style="width:38px;border:1px solid #ddd;border-radius:5px;padding:2px 4px;font-size:12px;text-align:center">
+                <input type="number" value="${st.ist??''}" min="0" onchange="updateStock('${l}','${iid}','ist',this.value)" style="width:38px;border:1px solid #ddd;border-radius:5px;padding:2px 4px;font-size:12px;text-align:center;font-family:inherit">
                 <label style="font-size:10px;color:#aaa">Soll</label>
-                <input type="number" value="${st.soll??''}" min="0" onchange="updateStock('${l}','${iid}','soll',this.value)" style="width:38px;border:1px solid #ddd;border-radius:5px;padding:2px 4px;font-size:12px;text-align:center">
+                <input type="number" value="${st.soll??''}" min="0" onchange="updateStock('${l}','${iid}','soll',this.value)" style="width:38px;border:1px solid #ddd;border-radius:5px;padding:2px 4px;font-size:12px;text-align:center;font-family:inherit">
               </div>
               ${(st.ist!==undefined&&st.soll!==undefined)?`<div style="font-size:11px;color:${diffColor};font-weight:700;margin-top:3px">Diff: ${diff>0?'+':''}${diff}</div>`:''}
             </div>`;
@@ -5791,6 +5886,16 @@ function renderInventarTab(){
   });
   html+='</div>';
   content.innerHTML=html;
+}
+
+function uploadInventoryPhoto(iid, input){
+  const file=input.files[0]; if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    if(db)db.ref('/inventoryPhotos/'+iid).set(e.target.result);
+    toast('Foto gespeichert');
+  };
+  reader.readAsDataURL(file);
 }
 
 function updateStock(loc,iid,field,val){
@@ -6009,53 +6114,43 @@ function saveInventoryItem(){
     <div class="order-hdr-top">
       <button class="back-btn" onclick="showScreen('logistik-screen');_updateLgTabs();renderFahrten()">← Zurück</button>
       <div class="order-hdr-title">Neue Fahrt</div>
-      <button onclick="saveNewFahrt()" style="background:none;border:none;color:#fff;font-size:13px;font-weight:800;cursor:pointer;padding:4px 8px">Anlegen</button>
+      <button onclick="saveNewFahrt()" style="background:none;border:none;color:#fff;font-size:13px;font-weight:800;cursor:pointer;padding:4px 8px;font-family:inherit">Anlegen</button>
     </div>
   </div>
   <div class="main" style="padding:16px;padding-bottom:120px">
     <!-- Date prominent at top -->
-    <div style="margin-bottom:16px">
+    <div style="margin-bottom:20px">
       <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:6px">Datum</div>
-      <input type="date" id="nf-date" style="width:100%;border:1.5px solid #e0e0e0;border-radius:12px;padding:13px 14px;font-size:16px;font-weight:700;color:#1c1c2e;background:#fff;outline:none">
+      <input type="date" id="nf-date" style="width:100%;border:1.5px solid #e0e0e0;border-radius:12px;padding:13px 14px;font-size:16px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
     </div>
-    <!-- Route row -->
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">
-      <div style="flex:1">
-        <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:6px">Von</div>
-        <select id="nf-from" style="width:100%;border:1.5px solid #e0e0e0;border-radius:12px;padding:12px 14px;font-size:14px;font-weight:700;color:#1c1c2e;background:#fff;outline:none">
-          <option value="AS">amSee</option>
-          <option value="EG">EVENTGIESSEREI</option>
-          <option value="LS">LAKESIDE</option>
-        </select>
-      </div>
-      <div style="font-size:18px;color:#888;font-weight:700;padding-top:22px">→</div>
-      <div style="flex:1">
-        <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:6px">Nach</div>
-        <select id="nf-to" style="width:100%;border:1.5px solid #e0e0e0;border-radius:12px;padding:12px 14px;font-size:14px;font-weight:700;color:#1c1c2e;background:#fff;outline:none">
-          <option value="AS">amSee</option>
-          <option value="EG">EVENTGIESSEREI</option>
-          <option value="LS" selected>LAKESIDE</option>
-        </select>
-      </div>
-    </div>
-    <!-- Items -->
+    <!-- Items grouped by route -->
     <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:8px">Artikel</div>
     <div id="nf-items-list"></div>
     <!-- Add buttons -->
-    <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
-      <button onclick="nfOpenInventoryPicker()" style="background:#e8f0fe;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;color:#1565c0;cursor:pointer;width:100%">+ Aus Inventar wählen</button>
-      <button onclick="openNfCustomModal()" style="background:#f8f9fa;border:1.5px dashed #ddd;border-radius:12px;padding:13px;font-size:14px;font-weight:700;color:#555;cursor:pointer;width:100%">+ Eigener Artikel</button>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
+      <button onclick="nfOpenInventoryPicker()" style="background:#e8f0fe;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;color:#1565c0;cursor:pointer;width:100%;font-family:inherit">+ Aus Inventar wählen</button>
+      <button onclick="openNfCustomModal()" style="background:#f8f9fa;border:1.5px dashed #ddd;border-radius:12px;padding:13px;font-size:14px;font-weight:700;color:#555;cursor:pointer;width:100%;font-family:inherit">+ Eigener Artikel</button>
     </div>
   </div>
   <div style="position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #eee;padding:12px 16px;max-width:480px;margin:0 auto">
-    <button onclick="saveNewFahrt()" style="width:100%;background:#1565c0;color:#fff;border:none;border-radius:12px;padding:15px;font-size:15px;font-weight:800;cursor:pointer">Fahrt anlegen</button>
+    <button onclick="saveNewFahrt()" style="width:100%;background:#1565c0;color:#fff;border:none;border-radius:12px;padding:15px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit">Fahrt anlegen</button>
   </div>
 </div>
 
 <!-- NF INVENTORY PICKER MODAL -->
 <div class="overlay" id="m-nf-inv-picker">
-  <div class="modal" style="max-height:80vh;display:flex;flex-direction:column">
-    <h2>Inventarartikel</h2>
+  <div class="modal" style="max-height:85vh;display:flex;flex-direction:column">
+    <h2>Inventarartikel hinzufügen</h2>
+    <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:#888;margin-bottom:6px">Route</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <select id="nf-inv-from" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px 10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
+        <option value="AS">amSee</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
+      </select>
+      <span style="color:#888;font-weight:700">→</span>
+      <select id="nf-inv-to" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px 10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
+        <option value="AS">amSee</option><option value="EG">EVENTGIESSEREI</option><option value="LS" selected>LAKESIDE</option>
+      </select>
+    </div>
     <div id="nf-inv-picker-list" style="overflow-y:auto;flex:1;margin-bottom:10px"></div>
     <button class="mbtn grey" onclick="closeModal('m-nf-inv-picker')">Schließen</button>
   </div>
@@ -6066,9 +6161,19 @@ function saveInventoryItem(){
   <div class="modal">
     <h2>Eigener Artikel</h2>
     <label class="tform-lbl">Bezeichnung</label>
-    <input type="text" class="tform-input" id="nf-custom-name" placeholder="z.B. Kabeltrommel">
+    <input type="text" class="tform-input" id="nf-custom-name" placeholder="z.B. Kabeltrommel" style="font-family:inherit">
     <label class="tform-lbl">Menge</label>
-    <input type="number" class="tform-input" id="nf-custom-menge" value="1" min="1">
+    <input type="number" class="tform-input" id="nf-custom-menge" value="1" min="1" style="font-family:inherit">
+    <label class="tform-lbl">Route</label>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+      <select id="nf-custom-from" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
+        <option value="AS">amSee</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
+      </select>
+      <span style="color:#888;font-weight:700">→</span>
+      <select id="nf-custom-to" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
+        <option value="AS">amSee</option><option value="EG">EVENTGIESSEREI</option><option value="LS" selected>LAKESIDE</option>
+      </select>
+    </div>
     <button class="mbtn" onclick="nfAddCustomItem()">Hinzufügen</button>
     <button class="mbtn grey" onclick="closeModal('m-nf-custom-item')">Abbrechen</button>
   </div>
@@ -6076,8 +6181,18 @@ function saveInventoryItem(){
 
 <!-- ADD INVENTORY ITEM TO FAHRT MODAL -->
 <div class="overlay" id="m-add-fahrt-item-inv">
-  <div class="modal" style="max-height:80vh;display:flex;flex-direction:column">
-    <h2>Inventarartikel</h2>
+  <div class="modal" style="max-height:85vh;display:flex;flex-direction:column">
+    <h2>Inventarartikel hinzufügen</h2>
+    <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:#888;margin-bottom:6px">Route</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <select id="afi-inv-from" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
+        <option value="AS">amSee</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
+      </select>
+      <span style="color:#888;font-weight:700">→</span>
+      <select id="afi-inv-to" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
+        <option value="AS">amSee</option><option value="EG">EVENTGIESSEREI</option><option value="LS" selected>LAKESIDE</option>
+      </select>
+    </div>
     <div id="inv-picker-list" style="overflow-y:auto;flex:1;margin-bottom:10px"></div>
     <button class="mbtn grey" onclick="closeModal('m-add-fahrt-item-inv')">Schließen</button>
   </div>
@@ -6088,9 +6203,19 @@ function saveInventoryItem(){
   <div class="modal">
     <h2>+ Eigener Artikel</h2>
     <label class="tform-lbl">Bezeichnung</label>
-    <input type="text" class="tform-input" id="afi-name" placeholder="z.B. Kabeltrommel">
+    <input type="text" class="tform-input" id="afi-name" placeholder="z.B. Kabeltrommel" style="font-family:inherit">
     <label class="tform-lbl">Menge</label>
-    <input type="number" class="tform-input" id="afi-menge" value="1" min="1">
+    <input type="number" class="tform-input" id="afi-menge" value="1" min="1" style="font-family:inherit">
+    <label class="tform-lbl">Route</label>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+      <select id="afi-from" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
+        <option value="AS">amSee</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
+      </select>
+      <span style="color:#888;font-weight:700">→</span>
+      <select id="afi-to" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
+        <option value="AS">amSee</option><option value="EG">EVENTGIESSEREI</option><option value="LS" selected>LAKESIDE</option>
+      </select>
+    </div>
     <button class="mbtn" onclick="addFahrtCustomItem()">Hinzufügen ✓</button>
     <button class="mbtn grey" onclick="closeModal('m-add-fahrt-item-custom')">Abbrechen</button>
   </div>
