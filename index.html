@@ -9,12 +9,24 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260617-035';
+      var V='20260617-040';
       var u=new URL(window.location.href);
-      if(u.searchParams.get('v')!==V){
-        u.searchParams.set('v',V);
-        window.location.replace(u.toString());
-      }
+      if(u.searchParams.get('v')===V) return; // already correct
+      // Bypass CDN cache with fetch(cache:'reload') → document.write fresh HTML
+      fetch(location.pathname,{cache:'reload'})
+        .then(function(r){return r.text();})
+        .then(function(html){
+          if(html.indexOf("var V='"+V+"'")>=0){
+            history.replaceState({},'','?v='+V);
+            document.open(); document.write(html); document.close();
+          } else {
+            // CDN still stale – simple redirect as fallback
+            u.searchParams.set('v',V); window.location.replace(u.toString());
+          }
+        })
+        .catch(function(){
+          u.searchParams.set('v',V); window.location.replace(u.toString());
+        });
     })();
   </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -473,7 +485,6 @@
       <button class="action-bar-btn" onclick="openOrder()">Getränkebestellung</button>
       <button class="action-bar-btn" onclick="openFeedback()">Feedback</button>
       <button class="action-bar-btn" onclick="printChecklist()">Drucken</button>
-      <button class="action-bar-btn" id="event-leader-btn" style="display:none;background:#4a148c;color:#fff" onclick="openEventLeaderPin()">Aufgaben +</button>
     </div>
   </div>
   <div class="main">
@@ -5472,11 +5483,6 @@ function renderFahrtDetail(){
       </select>`
       :`<div style="font-weight:700;font-size:12px;color:#555;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(f.employee||'?')}</div>`}
     </div>
-    <div style="width:1px;background:#e8e8e8;align-self:stretch;margin:4px 0"></div>
-    <div style="flex:1;text-align:center;padding:4px 0">
-      <div style="font-size:10px;color:#aaa;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Status</div>
-      <div style="font-weight:700;font-size:12px;color:${isDone?'#2e7d32':'#f57c00'};margin-top:2px">${isDone?'Fertig':'Offen'}</div>
-    </div>
   `;
 
   // Items grouped by route
@@ -5501,29 +5507,44 @@ function renderFahrtDetail(){
         const toCol=LG_LOC_COLOR[group.to]||'#888';
         const frName=INV_LOC_NAMES[group.from]||group.from;
         const toName=INV_LOC_NAMES[group.to]||group.to;
-        html+=`<div style="display:flex;align-items:center;gap:6px;padding:10px 15px 4px;border-top:2px solid #f0f0f0;margin-top:6px">
-          <span style="background:${frCol};color:#fff;font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px">${escHtml(frName)}</span>
-          <span style="color:#bbb;font-weight:700;font-size:13px">→</span>
-          <span style="background:${toCol};color:#fff;font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px">${escHtml(toName)}</span>
-        </div>`;
+        const grpChecked=group.items.filter(([,i])=>i.checked).length;
+        const grpTotal=group.items.length;
+        const rkId='fcat_'+rk.replace(/[^a-zA-Z0-9]/g,'_');
+        html+=`<div class="cat open" id="${rkId}" style="margin:8px 14px 0;border-radius:10px">
+          <div class="cat-hdr" style="border-left-color:${frCol};padding:10px 14px" onclick="this.closest('.cat').classList.toggle('open')">
+            <span style="width:9px;height:9px;border-radius:50%;background:${frCol};flex-shrink:0;display:inline-block"></span>
+            <div class="cat-title" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-size:12px">
+              <span style="background:${frCol};color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px">${escHtml(frName)}</span>
+              <span style="color:#bbb;font-weight:700;font-size:11px">→</span>
+              <span style="background:${toCol};color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px">${escHtml(toName)}</span>
+            </div>
+            <span class="cat-count">${grpChecked}/${grpTotal}</span>
+            <span class="cat-arrow">▾</span>
+          </div>
+          <div class="cat-body">`;
         group.items.forEach(([ikey,item])=>{
           const invPhoto=item.inventoryItemId?inventoryPhotos[item.inventoryItemId]:null;
           const displayPhoto=item.photo||invPhoto;
+          const staffPhoto=item.staffPhoto||null;
           html+=`<div class="task${item.checked?' done':''}" style="padding:10px 15px">
             <div class="chk${item.checked?' on':''}" onclick="toggleFahrtItem('${fid}','${ikey}')"></div>
             <div class="task-txt" style="display:flex;align-items:center;gap:8px;min-width:0">
-              ${displayPhoto?`<img src="${displayPhoto}" style="width:32px;height:32px;object-fit:cover;border-radius:6px;flex-shrink:0">`:''}
+              <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
+                ${displayPhoto?`<img src="${displayPhoto}" onclick="event.stopPropagation();openPhotoViewer('${displayPhoto}')" style="width:32px;height:32px;object-fit:cover;border-radius:6px;cursor:zoom-in" title="Artikelfoto">`:''}
+                ${staffPhoto?`<img src="${staffPhoto}" onclick="event.stopPropagation();openPhotoViewer('${staffPhoto}')" style="width:32px;height:32px;object-fit:cover;border-radius:6px;cursor:zoom-in;border:2px solid #ea4335" title="Mitarbeiter-Foto">`:''}
+              </div>
               <div style="flex:1;min-width:0">
                 <div class="task-de">
-                  ${escHtml(item.name)}${item.menge&&item.menge>1?`<span style="color:#aaa;font-size:11px;font-weight:600;margin-left:6px">${item.menge}×</span>`:''}
+                  ${escHtml(item.name)}${item.menge&&item.menge>1?`<span style="color:#555;font-size:11px;font-weight:700;margin-left:6px">${item.menge}×</span>`:''}
                 </div>
                 ${item.comment?`<div style="font-size:11px;color:#888;margin-top:2px;font-style:italic">${escHtml(item.comment)}</div>`:''}
+                ${item.staffComment?`<div style="font-size:11px;color:#ea4335;font-weight:700;margin-top:2px">${escHtml(item.staffComment)}</div>`:''}
                 ${canEdit
                   ?`<label style="display:flex;align-items:center;gap:5px;margin-top:4px;cursor:pointer" onclick="event.stopPropagation()">
                       <input type="checkbox" ${item.rueckfahrt?'checked':''} onchange="toggleRueckfahrt('${fid}','${ikey}',this.checked)" style="width:13px;height:13px;accent-color:#1565c0">
                       <span style="font-size:11px;color:#555;font-weight:600">Rückfahrt nötig</span>
                     </label>`
-                  :(item.rueckfahrt?`<div style="font-size:11px;color:#1565c0;font-weight:700;margin-top:2px">↩ Rückfahrt geplant</div>`:'')}
+                  :(item.rueckfahrt?`<div style="font-size:10px;color:#bbb;font-weight:400;margin-top:2px">kehrt zurück</div>`:'')}
               </div>
             </div>
             <div class="task-btns">
@@ -5533,10 +5554,20 @@ function renderFahrtDetail(){
           </div>`;
         });
         if(canEdit){
-          html+=`<div class="add-task-row" style="display:block"><button class="add-task-inner-btn" onclick="openAddFahrtItem('${fid}','inventory')">+ Aus Inventar</button> <button class="add-task-inner-btn" onclick="openAddFahrtItem('${fid}','custom')">+ Eigener Artikel</button></div>`;
+          html+=`<div class="add-task-row" style="display:block;padding:8px 14px;border-top:1px solid #f5f5f5"><button class="add-task-inner-btn" onclick="openAddFahrtItem('${fid}','inventory')">+ Aus Inventar</button> <button class="add-task-inner-btn" onclick="openAddFahrtItem('${fid}','custom')">+ Eigener Artikel</button></div>`;
         }
+        html+=`</div></div>`;
       });
       itemsEl.innerHTML=html;
+      // Update progress bar
+      const allIt=Object.values(f.items||{});
+      const chkCnt=allIt.filter(i=>i.checked).length;
+      const totCnt=allIt.length;
+      const pct=totCnt>0?Math.round(chkCnt/totCnt*100):0;
+      const pb=document.getElementById('lg-fahrt-prog-bar');
+      const pt=document.getElementById('lg-fahrt-prog-text');
+      if(pb)pb.style.width=pct+'%';
+      if(pt)pt.textContent=chkCnt+' / '+totCnt+' erledigt'+(totCnt>0?' ('+pct+'%)':'');
     }
   }
 
@@ -5555,13 +5586,9 @@ function renderFahrtDetail(){
   const footer=document.getElementById('lg-fahrt-footer');
   if(footer){
     if(isDone){
-      const hasRueck=items.some(([,i])=>i.rueckfahrt);
       footer.innerHTML=`<div style="display:flex;flex-direction:column;gap:8px">
         <div style="text-align:center;color:#2e7d32;font-weight:800;font-size:15px;padding:4px">Fahrt abgeschlossen — Inventar aktualisiert</div>
-        <div style="display:flex;gap:8px">
-          <button onclick="exportFahrtPDF('${fid}')" style="flex:1;background:#1e3a6e;color:#fff;border:none;border-radius:12px;padding:13px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">Als PDF speichern</button>
-          ${hasRueck?`<button onclick="createRueckfahrt('${fid}')" style="flex:1;background:#e65100;color:#fff;border:none;border-radius:12px;padding:13px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">Rückfahrt anlegen</button>`:''}
-        </div>
+        <button onclick="exportFahrtPDF('${fid}')" style="width:100%;background:#1e3a6e;color:#fff;border:none;border-radius:12px;padding:13px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">Als PDF speichern</button>
       </div>`;
     } else {
       const allChecked=items.length>0&&items.every(([,i])=>i.checked);
@@ -5598,8 +5625,26 @@ function completeFahrt(fid){
     }
   });
   updates['/logistikFahrten/'+fid+'/status']='abgeschlossen';
-  if(db)db.ref('/').update(updates);
-  toast('Fahrt abgeschlossen & Inventar aktualisiert');
+  if(db)db.ref('/').update(updates).then(()=>{
+    const rueckItems=Object.values(f.items||{}).filter(it=>it.rueckfahrt);
+    if(rueckItems.length){
+      const rueck={date:'',status:'offen',items:{},createdAt:Date.now(),employee:'',isRueckfahrt:true,originalFahrtId:fid};
+      rueckItems.forEach((it,i)=>{
+        rueck.items['item'+Date.now()+i]={
+          name:it.name,menge:it.menge||1,
+          from:it.to||'LS',to:it.from||'AS',
+          isCustom:!!it.isCustom,inventoryItemId:it.inventoryItemId||null,
+          checked:false,rueckfahrt:false
+        };
+      });
+      db.ref('/logistikFahrten').push(rueck).then(ref=>{
+        toast('Fahrt abgeschlossen — Rückfahrt wurde automatisch angelegt');
+        openFahrt(ref.key);
+      });
+    } else {
+      toast('Fahrt abgeschlossen & Inventar aktualisiert');
+    }
+  });
 }
 
 function exportFahrtPDF(fid){
@@ -5680,12 +5725,18 @@ function exportFahrtPDF(fid){
       const nameText=`${it.name||'?'}  ×${it.menge||1}`;
       doc.text(nameText,ml+8,y);
       y+=5;
-      // Comment
+      // Creator comment
       if(it.comment){
         doc.setFont('helvetica','italic'); doc.setFontSize(9); doc.setTextColor(120,120,120);
         const wrapped=doc.splitTextToSize(it.comment,cw-8);
-        doc.text(wrapped,ml+8,y);
-        y+=wrapped.length*4;
+        doc.text(wrapped,ml+8,y); y+=wrapped.length*4;
+      }
+      // Staff comment (red + bold)
+      if(it.staffComment){
+        doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(220,50,40);
+        const wrapped=doc.splitTextToSize('Mitarbeiter: '+it.staffComment,cw-8);
+        doc.text(wrapped,ml+8,y); y+=wrapped.length*4;
+        doc.setTextColor(20,20,20);
       }
       y+=2;
     });
@@ -5922,10 +5973,13 @@ function addFahrtInventoryItem(fid,iid){
   const from=(document.getElementById('afi-inv-from')||{}).value||'AS';
   const to=(document.getElementById('afi-inv-to')||{}).value||'LS';
   const rueckfahrt=!!(document.getElementById('afi-inv-rueck')||{}).checked;
+  const comment=((document.getElementById('afi-inv-comment')||{}).value||'').trim();
   const newItem={name:item.name,menge,from,to,checked:false,isCustom:false,inventoryItemId:iid,rueckfahrt};
+  if(comment)newItem.comment=comment;
   if(db)db.ref('/logistikFahrten/'+fid+'/items').push(newItem);
+  const commentEl=document.getElementById('afi-inv-comment');
+  if(commentEl)commentEl.value='';
   toast(escHtml(item.name)+' hinzugefügt ✓');
-  closeModal('m-add-fahrt-item-inv');
 }
 
 function addFahrtCustomItem(){
@@ -5934,9 +5988,13 @@ function addFahrtCustomItem(){
   const from=(document.getElementById('afi-from')||{}).value||'AS';
   const to=(document.getElementById('afi-to')||{}).value||'LS';
   const rueckfahrt=!!(document.getElementById('afi-rueck')||{}).checked;
+  const comment=((document.getElementById('afi-comment')||{}).value||'').trim();
   if(!name){toast('Bitte Bezeichnung eingeben');return;}
   const newItem={name,menge,from,to,checked:false,isCustom:true,rueckfahrt};
+  if(comment)newItem.comment=comment;
+  if(_afiPhotoData)newItem.photo=_afiPhotoData;
   if(db)db.ref('/logistikFahrten/'+_addFahrtId+'/items').push(newItem);
+  _afiPhotoData=null;
   closeModal('m-add-fahrt-item-custom');
   toast(escHtml(name)+' hinzugefügt ✓');
 }
@@ -6019,7 +6077,7 @@ function openItemActions(fid,ikey){
 function itemActionComment(){
   closeModal('m-item-actions');
   const f=logistikFahrten[_iakFid]; if(!f)return;
-  const existing=(f.items&&f.items[_iakKey]&&f.items[_iakKey].comment)||'';
+  const existing=(f.items&&f.items[_iakKey]&&f.items[_iakKey].staffComment)||'';
   document.getElementById('iak-comment-text').value=existing;
   openModal('m-item-comment');
   setTimeout(()=>document.getElementById('iak-comment-text').focus(),100);
@@ -6027,7 +6085,7 @@ function itemActionComment(){
 
 function saveItemComment(){
   const text=document.getElementById('iak-comment-text').value.trim();
-  if(db)db.ref('/logistikFahrten/'+_iakFid+'/items/'+_iakKey+'/comment').set(text||null);
+  if(db)db.ref('/logistikFahrten/'+_iakFid+'/items/'+_iakKey+'/staffComment').set(text||null);
   closeModal('m-item-comment');
   toast('Kommentar gespeichert');
 }
@@ -6041,8 +6099,32 @@ function _iakPhotoSelected(input){
   const file=input.files[0]; if(!file)return;
   const reader=new FileReader();
   reader.onload=e=>{
-    if(db)db.ref('/logistikFahrten/'+_iakFid+'/items/'+_iakKey+'/photo').set(e.target.result);
-    toast('Foto gespeichert');
+    if(db)db.ref('/logistikFahrten/'+_iakFid+'/items/'+_iakKey+'/staffPhoto').set(e.target.result);
+    toast('Mitarbeiter-Foto gespeichert');
+  };
+  reader.readAsDataURL(file);
+}
+
+// Photo viewer
+function openPhotoViewer(src){
+  const pv=document.getElementById('photo-viewer');
+  const pi=document.getElementById('photo-viewer-img');
+  if(pv&&pi){pi.src=src;pv.style.display='flex';}
+}
+function closePhotoViewer(){
+  const pv=document.getElementById('photo-viewer');
+  if(pv){pv.style.display='none';document.getElementById('photo-viewer-img').src='';}
+}
+
+// Creation photo helpers
+let _afiPhotoData=null;
+function _afiPhotoSelected(input){
+  const file=input.files[0]; if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    _afiPhotoData=e.target.result;
+    const nm=document.getElementById('afi-photo-name');
+    if(nm)nm.textContent=file.name;
   };
   reader.readAsDataURL(file);
 }
@@ -6464,10 +6546,14 @@ function saveInventoryItem(){
       <button id="lg-fahrt-edit-btn" onclick="toggleFahrtEditMode()" style="background:rgba(255,255,255,.15);border:none;color:#fff;font-size:12px;font-weight:800;cursor:pointer;padding:6px 12px;border-radius:8px;font-family:inherit">Bearbeiten</button>
       <button id="lg-fahrt-del-btn" onclick="" style="display:none;background:none;border:none;color:rgba(255,255,255,.7);font-size:20px;cursor:pointer;padding:0 4px">×</button>
     </div>
+    <div style="background:rgba(255,255,255,.18);height:3px;margin:2px 16px 0;border-radius:2px"><div id="lg-fahrt-prog-bar" style="height:3px;background:#fff;border-radius:2px;transition:width .4s;width:0%"></div></div>
+    <div style="padding:4px 16px 6px;display:flex;justify-content:space-between;align-items:center">
+      <span id="lg-fahrt-prog-text" style="font-size:11px;font-weight:700;color:rgba(255,255,255,.75)">0 / 0 erledigt</span>
+    </div>
   </div>
   <div class="main" style="padding-bottom:80px">
     <div id="lg-fahrt-info" style="background:#f8f9fa;padding:12px 16px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:0"></div>
-    <div id="lg-fahrt-items" style="padding:14px;display:flex;flex-direction:column;gap:8px"></div>
+    <div id="lg-fahrt-items"></div>
     <div id="lg-fahrt-add-btns" style="padding:0 14px 14px;display:flex;flex-direction:column;gap:8px"></div>
   </div>
   <div id="lg-fahrt-footer" style="position:sticky;bottom:0;background:#fff;border-top:1px solid #eee;padding:12px 14px"></div>
@@ -6563,10 +6649,12 @@ function saveInventoryItem(){
       </select>
     </div>
     <div id="inv-picker-list" style="overflow-y:auto;flex:1;margin-bottom:10px"></div>
-    <label style="display:flex;align-items:center;gap:8px;margin:10px 0 14px;cursor:pointer">
+    <label style="display:flex;align-items:center;gap:8px;margin:10px 0 10px;cursor:pointer">
       <input type="checkbox" id="afi-inv-rueck" style="width:16px;height:16px;accent-color:#1565c0">
       <span style="font-size:13px;font-weight:700;color:#555">Rückfahrt nötig</span>
     </label>
+    <label class="tform-lbl">Kommentar (optional, für nächsten Artikel)</label>
+    <textarea id="afi-inv-comment" class="tform-input" placeholder="Hinweis, Lagerort, Zustand…" style="min-height:50px;resize:vertical;font-family:inherit;margin-bottom:10px"></textarea>
     <button class="mbtn grey" onclick="closeModal('m-add-fahrt-item-inv')">Schließen</button>
   </div>
 </div>
@@ -6589,19 +6677,33 @@ function saveInventoryItem(){
         <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS" selected>LAKESIDE</option>
       </select>
     </div>
-    <label style="display:flex;align-items:center;gap:8px;margin-bottom:16px;cursor:pointer">
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;cursor:pointer">
       <input type="checkbox" id="afi-rueck" style="width:16px;height:16px;accent-color:#1565c0">
       <span style="font-size:13px;font-weight:700;color:#555">Rückfahrt nötig</span>
     </label>
+    <label class="tform-lbl">Kommentar (optional)</label>
+    <textarea id="afi-comment" class="tform-input" placeholder="Hinweis, Lagerort, Zustand…" style="min-height:60px;resize:vertical;font-family:inherit;margin-bottom:10px"></textarea>
+    <div style="margin-bottom:16px">
+      <input type="file" id="afi-photo-input" accept="image/*" style="display:none" onchange="_afiPhotoSelected(this)">
+      <button type="button" onclick="document.getElementById('afi-photo-input').click()" style="background:#f8f9fa;border:1.5px dashed #ddd;border-radius:8px;padding:8px 14px;font-size:12px;color:#666;cursor:pointer;font-family:inherit">+ Foto hinzufügen</button>
+      <span id="afi-photo-name" style="font-size:11px;color:#888;margin-left:8px"></span>
+    </div>
     <button class="mbtn" onclick="addFahrtCustomItem()">Hinzufügen ✓</button>
     <button class="mbtn grey" onclick="closeModal('m-add-fahrt-item-custom')">Abbrechen</button>
   </div>
 </div>
 
+<!-- PHOTO VIEWER OVERLAY -->
+<div id="photo-viewer" onclick="closePhotoViewer()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;align-items:center;justify-content:center;cursor:pointer">
+  <img id="photo-viewer-img" src="" style="max-width:92vw;max-height:88vh;border-radius:10px;object-fit:contain;box-shadow:0 8px 40px rgba(0,0,0,.5)">
+  <div style="position:absolute;top:16px;right:20px;color:#fff;font-size:26px;font-weight:300;line-height:1">×</div>
+</div>
+
 <!-- ITEM ACTIONS MODAL (···) -->
 <div class="overlay" id="m-item-actions">
   <div class="modal">
-    <h2>Artikeloptionen</h2>
+    <h2>Mitarbeiter-Hinweis</h2>
+    <p style="font-size:12px;color:#888;margin-bottom:14px">Kommentar oder Foto werden rot hervorgehoben.</p>
     <button class="mbtn" onclick="itemActionComment()">Kommentar hinzufügen</button>
     <button class="mbtn" onclick="itemActionPhoto()">Foto hinzufügen</button>
     <button class="mbtn grey" onclick="closeModal('m-item-actions')">Schließen</button>
@@ -6612,7 +6714,7 @@ function saveInventoryItem(){
 <!-- ITEM COMMENT MODAL -->
 <div class="overlay" id="m-item-comment">
   <div class="modal">
-    <h2>Kommentar</h2>
+    <h2>Mitarbeiter-Kommentar</h2>
     <textarea id="iak-comment-text" style="width:100%;min-height:100px;border:1px solid #ddd;border-radius:10px;padding:10px;font-family:inherit;font-size:14px;resize:vertical;box-sizing:border-box" placeholder="z.B. Steht im Lager hinten links…"></textarea>
     <button class="mbtn" style="margin-top:12px" onclick="saveItemComment()">Speichern ✓</button>
     <button class="mbtn grey" onclick="closeModal('m-item-comment')">Abbrechen</button>
