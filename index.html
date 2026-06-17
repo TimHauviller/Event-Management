@@ -9,14 +9,14 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260617-042';
+      var V='20260617-043';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')===V) return; // already correct
       // Bypass CDN cache with fetch(cache:'reload') → document.write fresh HTML
       fetch(location.pathname,{cache:'reload'})
         .then(function(r){return r.text();})
         .then(function(html){
-          if(html.indexOf("var V='20260617-042'")>=0){
+          if(html.indexOf("var V='20260617-043'")>=0){
             history.replaceState({},'','?v='+V);
             document.open(); document.write(html); document.close();
           } else {
@@ -1873,7 +1873,9 @@ function subscribeEvent(l, eid) {
 }
 
 // ── NAVIGATION ─────────────────────────────────────────────────────
+let currentScreen = 'home-screen';
 function showScreen(name) {
+  currentScreen = name;
   ['setup','loc-picker','events-screen','app','order-screen','az-screen','vorlage-screen','feedback-screen','export-screen','home-screen','task-login-screen','my-tasks-screen','task-detail-screen','admin-tasks-screen','task-create-screen','admin-users-screen','logistik-screen','logistik-fahrt-screen','logistik-new-fahrt-screen'].forEach(id => {
     const el = document.getElementById(id); if(!el) return;
     el.style.display = (id===name) ? (['loc-picker','home-screen'].includes(id)?'flex':'block') : 'none';
@@ -3366,6 +3368,169 @@ function deletePermTask(id){
   delete permTasks[loc][id];
   if(db) db.ref('/permTasks/'+loc+'/'+id).remove(); else saveLocal();
   render(); toast('Aufgabe gelöscht');
+}
+
+// ── A-Z WISSENSDATENBANK ──────────────────────────────────────────
+function isAZVisible(){return document.getElementById('az-screen')&&document.getElementById('az-screen').style.display!=='none';}
+
+function openAZ(fromScreen){
+  azPrevScreen=fromScreen||currentScreen||'events';
+  document.getElementById('az-search-input').value='';
+  showScreen('az-screen');
+  const adminBtn=document.getElementById('az-admin-btn');
+  if(adminBtn)adminBtn.style.display=isAdmin?'':'none';
+  renderAZ();
+}
+
+function closeAZ(){showScreen(azPrevScreen||'events');}
+
+function toggleAdminFromAZ(){
+  if(!isAdmin){toast('Nur Admins');return;}
+  document.body.classList.toggle('admin-mode');
+}
+
+function renderAZ(filter){
+  const cont=document.getElementById('az-content'); if(!cont)return;
+  const cats=wikiCats[loc]||{};
+  const entries=wikiEntries[loc]||{};
+  const q=(filter||'').toLowerCase().trim();
+  const catList=Object.entries(cats).sort((a,b)=>(a[1].order||0)-(b[1].order||0)||(a[1].name||'').localeCompare(b[1].name||''));
+  if(catList.length===0&&!q){
+    cont.innerHTML=`<div class="az-empty"><div style="font-size:32px;margin-bottom:10px">📖</div><div style="font-weight:700;color:#555">Noch keine Einträge</div><div style="font-size:13px;margin-top:6px">Als Admin Kategorien und Einträge hinzufügen</div></div>`;
+    return;
+  }
+  let html='';
+  catList.forEach(([cid,cat])=>{
+    const catEntries=Object.entries(entries).filter(([,e])=>e.catId===cid);
+    const filtered=q?catEntries.filter(([,e])=>(e.title||'').toLowerCase().includes(q)||(e.content||'').toLowerCase().includes(q)):catEntries;
+    if(q&&filtered.length===0)return;
+    const isOpen=q||openCats.has(cid);
+    html+=`<div class="az-cat${isOpen?' open':''}" id="azcat_${cid}">
+      <div class="az-cat-hdr" onclick="toggleAZCat('${cid}')">
+        <div class="az-cat-title">${escHtml(cat.name||'')}</div>
+        <span style="font-size:11px;color:#bbb;font-weight:600">${filtered.length}</span>
+        <span class="az-cat-arrow">▾</span>
+        ${isAdmin?`<button onclick="event.stopPropagation();renameWikiCat('${cid}')" style="background:none;border:none;font-size:11px;color:#aaa;cursor:pointer;padding:2px 6px">✏️</button><button onclick="event.stopPropagation();deleteWikiCat('${cid}')" style="background:none;border:none;font-size:11px;color:#e57373;cursor:pointer;padding:2px 4px">×</button>`:''}
+      </div>
+      <div class="az-cat-body">`;
+    filtered.sort((a,b)=>(a[1].title||'').localeCompare(b[1].title||'')).forEach(([eid,entry])=>{
+      html+=`<div class="az-entry" onclick="viewAZEntry('${eid}')">
+        <div class="az-entry-title">${escHtml(entry.title||'')}</div>
+        <div class="az-entry-icons">${entry.video?'▶':''}${entry.content?'':''}
+        </div>
+      </div>`;
+    });
+    html+=`<button class="az-add-entry-btn" onclick="openAddWikiEntry('${cid}')">+ Eintrag hinzufügen</button>
+      </div></div>`;
+  });
+  if(q&&!html)html=`<div class="az-empty">Keine Ergebnisse für „${escHtml(q)}"</div>`;
+  cont.innerHTML=html;
+}
+
+function toggleAZCat(cid){
+  if(openCats.has(cid))openCats.delete(cid); else openCats.add(cid);
+  const el=document.getElementById('azcat_'+cid);
+  if(el)el.classList.toggle('open');
+}
+
+function searchAZ(val){renderAZ(val);}
+
+function viewAZEntry(eid){
+  const entry=(wikiEntries[loc]||{})[eid]; if(!entry)return;
+  azViewId=eid;
+  document.getElementById('az-view-title').textContent=entry.title||'';
+  document.getElementById('az-view-content').textContent=entry.content||'';
+  const vw=document.getElementById('az-view-video-wrap');
+  const vp=document.getElementById('az-view-video');
+  if(entry.video){vw.style.display='';vp.src=entry.video;}else{vw.style.display='none';vp.src='';}
+  const adm=document.getElementById('az-view-admin');
+  if(adm)adm.style.display=isAdmin?'':'none';
+  openModal('m-az-view');
+}
+
+function openAddWikiEntry(catId){
+  editWikiId=null; editWikiCatId=catId; azVideoData=null;
+  document.getElementById('az-edit-title').textContent='Eintrag hinzufügen';
+  document.getElementById('az-entry-title-input').value='';
+  document.getElementById('az-entry-content-input').value='';
+  document.getElementById('az-video-preview').style.display='none';
+  document.getElementById('az-video-file').value='';
+  openModal('m-az-edit');
+  setTimeout(()=>document.getElementById('az-entry-title-input').focus(),100);
+}
+
+function openEditWikiEntry(eid){
+  const entry=(wikiEntries[loc]||{})[eid]; if(!entry)return;
+  editWikiId=eid; editWikiCatId=entry.catId; azVideoData=entry.video||null;
+  document.getElementById('az-edit-title').textContent='Eintrag bearbeiten';
+  document.getElementById('az-entry-title-input').value=entry.title||'';
+  document.getElementById('az-entry-content-input').value=entry.content||'';
+  const vp=document.getElementById('az-edit-video-preview');
+  const vpw=document.getElementById('az-video-preview');
+  if(entry.video){vp.src=entry.video;vpw.style.display='';}else{vpw.style.display='none';}
+  closeModal('m-az-view');
+  openModal('m-az-edit');
+}
+
+function previewAZVideo(input){
+  const file=input.files[0]; if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    azVideoData=e.target.result;
+    document.getElementById('az-edit-video-preview').src=azVideoData;
+    document.getElementById('az-video-preview').style.display='';
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeAZVideo(){azVideoData=null;document.getElementById('az-video-preview').style.display='';document.getElementById('az-edit-video-preview').src='';}
+
+function saveWikiEntry(){
+  const title=document.getElementById('az-entry-title-input').value.trim();
+  if(!title){toast('Bitte Titel eingeben');return;}
+  const content=document.getElementById('az-entry-content-input').value.trim();
+  const data={title,content:content||'',catId:editWikiCatId,video:azVideoData||null,updatedAt:Date.now()};
+  if(editWikiId){
+    if(db)db.ref('/wikiEntries/'+loc+'/'+editWikiId).update(data);
+  } else {
+    if(db)db.ref('/wikiEntries/'+loc).push(data);
+  }
+  closeModal('m-az-edit'); toast('Gespeichert ✓');
+}
+
+function deleteWikiEntry(eid){
+  if(!confirm('Eintrag löschen?'))return;
+  if(db)db.ref('/wikiEntries/'+loc+'/'+eid).remove();
+  closeModal('m-az-view'); toast('Gelöscht');
+}
+
+function openAddWikiCat(){
+  document.getElementById('az-cat-name-input').value='';
+  openModal('m-az-addcat');
+  setTimeout(()=>document.getElementById('az-cat-name-input').focus(),100);
+}
+
+function saveWikiCat(){
+  const name=document.getElementById('az-cat-name-input').value.trim();
+  if(!name){toast('Bitte Name eingeben');return;}
+  if(db)db.ref('/wikiCats/'+loc).push({name,order:Date.now()});
+  closeModal('m-az-addcat'); toast('Kategorie erstellt ✓');
+}
+
+function renameWikiCat(cid){
+  const cat=(wikiCats[loc]||{})[cid]; if(!cat)return;
+  const name=prompt('Kategorie umbenennen:',cat.name||''); if(!name||!name.trim())return;
+  if(db)db.ref('/wikiCats/'+loc+'/'+cid+'/name').set(name.trim());
+}
+
+function deleteWikiCat(cid){
+  const entries=Object.values(wikiEntries[loc]||{}).filter(e=>e.catId===cid);
+  if(entries.length&&!confirm(`Kategorie mit ${entries.length} Einträgen löschen?`))return;
+  if(db){
+    db.ref('/wikiCats/'+loc+'/'+cid).remove();
+    Object.entries(wikiEntries[loc]||{}).filter(([,e])=>e.catId===cid).forEach(([eid])=>db.ref('/wikiEntries/'+loc+'/'+eid).remove());
+  }
+  toast('Kategorie gelöscht');
 }
 
 // ── ORDER SCREEN ──────────────────────────────────────────────────
