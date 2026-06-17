@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260617-031';
+      var V='20260617-032';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')!==V){
         u.searchParams.set('v',V);
@@ -5521,7 +5521,12 @@ function renderFahrtDetail(){
                   ${item.menge&&item.menge>1?`<span style="background:#f0f4ff;color:#1565c0;border-radius:4px;padding:1px 6px;font-size:11px;margin-right:5px;font-weight:800">${item.menge}×</span>`:''}${escHtml(item.name)}
                 </div>
                 ${item.comment?`<div style="font-size:11px;color:#888;margin-top:2px;font-style:italic">${escHtml(item.comment)}</div>`:''}
-                ${item.rueckfahrt?`<div style="font-size:11px;color:#1565c0;font-weight:700;margin-top:2px">↩ Rückfahrt geplant</div>`:''}
+                ${canEdit
+                  ?`<label style="display:flex;align-items:center;gap:5px;margin-top:4px;cursor:pointer" onclick="event.stopPropagation()">
+                      <input type="checkbox" ${item.rueckfahrt?'checked':''} onchange="toggleRueckfahrt('${fid}','${ikey}',this.checked)" style="width:13px;height:13px;accent-color:#1565c0">
+                      <span style="font-size:11px;color:#555;font-weight:600">Rückfahrt nötig</span>
+                    </label>`
+                  :(item.rueckfahrt?`<div style="font-size:11px;color:#1565c0;font-weight:700;margin-top:2px">↩ Rückfahrt geplant</div>`:'')}
               </div>
             </div>
             <div class="task-btns">
