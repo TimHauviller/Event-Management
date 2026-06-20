@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260617-052';
+      var V='20260620-053';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')===V) return;
       // Fetch with cache:reload primes the CDN, then redirect (no document.write — mobile-safe)
@@ -2711,10 +2711,12 @@ function deleteEvent(eid){
 let _catToggleLock = false; // prevents category from closing right after a check
 
 function toggleCheck(id){
+  // Prevent accidental saves in vorlage mode (no real event)
+  if(vorlageMode || !eventId) return;
   const val=!evChecked[id];
-  // Block check if photo is required but missing
-  if(val && photoRequired[id] && !evTaskPhotos[id] && !photos[id]){
-    toast('Bitte zuerst ein Foto hochladen');
+  // Block check if staff photo is required but not yet uploaded
+  if(val && photoRequired[id] && !evTaskPhotos[id]){
+    toast('Bitte zuerst ein Mitarbeiterfoto hochladen');
     const btn=document.querySelector('#task-'+id+' .ico-btn.req');
     if(btn){btn.classList.add('shake');setTimeout(()=>btn.classList.remove('shake'),600);}
     return;
@@ -2734,6 +2736,10 @@ function toggleCheck(id){
 }
 
 function togglePhotoRequired(id){
+  if(!vorlageMode){
+    toast('Foto-Pflicht nur in der Vorlage ändern');
+    return;
+  }
   if(photoRequired[id]){
     delete photoRequired[id];
     if(db) db.ref('/photoRequired/'+id).remove(); else saveLocal();
