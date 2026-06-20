@@ -9,23 +9,18 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260617-050';
+      var V='20260617-051';
       var u=new URL(window.location.href);
-      if(u.searchParams.get('v')===V) return; // already correct
-      // Bypass CDN cache with fetch(cache:'reload') → document.write fresh HTML
+      if(u.searchParams.get('v')===V) return;
+      // Fetch with cache:reload primes the CDN, then redirect (no document.write — mobile-safe)
       fetch(location.pathname,{cache:'reload'})
-        .then(function(r){return r.text();})
-        .then(function(html){
-          if(html.indexOf("var V='20260617-050'")>=0){
-            history.replaceState({},'','?v='+V);
-            document.open(); document.write(html); document.close();
-          } else {
-            // CDN still stale – simple redirect as fallback
-            u.searchParams.set('v',V); window.location.replace(u.toString());
-          }
+        .then(function(){
+          u.searchParams.set('v',V);
+          window.location.replace(u.toString());
         })
-        .catch(function(){
-          u.searchParams.set('v',V); window.location.replace(u.toString());
+        ['catch'](function(){
+          u.searchParams.set('v',V);
+          window.location.replace(u.toString());
         });
     })();
   </script>
