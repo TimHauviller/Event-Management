@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260617-051';
+      var V='20260617-052';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')===V) return;
       // Fetch with cache:reload primes the CDN, then redirect (no document.write — mobile-safe)
@@ -2051,12 +2051,13 @@ function isEventsVisible() {
 function checkAndArchiveExpiredEvents(l) {
   if(!db) return;
   const now = new Date(); now.setHours(0,0,0,0); // start of today
+  const TWO_DAYS = 2*24*60*60*1000;
   const events = allEvents[l]||{};
   Object.entries(events).forEach(([eid, ev]) => {
     if(!ev.date) return;
     const evDay = new Date(ev.date+'T00:00:00');
-    if(evDay < now) {
-      // Move to archive
+    // Archive 2 days after event (e.g. event on 20th → archived on 22nd)
+    if(evDay.getTime() + TWO_DAYS <= now.getTime()) {
       const archived = Object.assign({}, ev, {archivedAt: Date.now()});
       db.ref('/archive/'+l+'/'+eid).set(archived);
       db.ref('/events/'+l+'/'+eid).remove();
@@ -5792,7 +5793,7 @@ function renderFahrten(){
   const fahrten=Object.entries(logistikFahrten).sort((a,b)=>{
     const ad=a[1].date||'', bd=b[1].date||'';
     if(!ad&&bd)return -1; if(ad&&!bd)return 1;
-    return bd.localeCompare(ad);
+    return ad.localeCompare(bd); // ascending: nearest date at top
   });
   if(fahrten.length===0){
     content.innerHTML=`<div style="text-align:center;padding:50px 20px;color:#bbb">
