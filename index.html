@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260624-096';
+      var V='20260624-097';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -6206,7 +6206,7 @@ function renderFahrtDetail(){
         const grpTotal=group.tItems.length+group.tTasks.length;
         const pfadTimePrefix=groupTime?`<span style="font-size:16px;font-weight:800;color:#1e3a6e">${escHtml(groupTime)} Uhr &ndash; </span>`:'';
         const pfadNrLabel=`<span style="font-size:16px;font-weight:800;color:#1e3a6e">Fahrt ${pfadNr}</span>`;
-        html+=`<div class="cat open" id="fcat_${escHtml(rk)}" style="margin:8px 14px 0;border-radius:10px">
+        html+=`<div class="cat" id="fcat_${escHtml(rk)}" style="margin:8px 14px 0;border-radius:10px">
           <div class="cat-hdr" style="border-left-color:#1e3a6e;padding:10px 14px" onclick="this.closest('.cat').classList.toggle('open')">
             <div class="cat-title" style="display:flex;flex-direction:column;gap:5px;line-height:1.2">
               <div>${pfadTimePrefix}${pfadNrLabel}</div>
@@ -6303,11 +6303,13 @@ function renderFahrtDetail(){
         }
         // Tasks within this route group
         if(group.tTasks.length>0){
-          html+=`<div style="margin:4px 15px 0;padding:6px 0 2px;border-top:1px solid #f0f2f5;display:flex;align-items:center;gap:6px">
-            <span style="font-size:10px;font-weight:800;color:#1565c0;text-transform:uppercase;letter-spacing:.5px">Aufgaben vor Ort</span>
+          html+=`<div style="padding:8px 15px 7px;border-top:1px solid #f0f2f5;background:#eef1fb;display:flex;align-items:center;gap:7px">
+            <span style="font-size:12px;font-weight:900;color:#1e3a6e;text-transform:uppercase;letter-spacing:.8px">Aufgaben vor Ort</span>
+            <span style="font-size:10px;font-weight:700;color:#7b9fd4">bei</span>
+            ${locBadge(group.to)}
           </div>`;
           group.tTasks.forEach(([ikey,item])=>{
-            html+=`<div class="task${item.checked?' done':''}" style="padding:9px 15px;background:#f8fbff">
+            html+=`<div class="task${item.checked?' done':''}" style="padding:9px 15px;background:#eef1fb">
               <div class="chk${item.checked?' on':''}" onclick="toggleFahrtTask('${fid}','${ikey}')"></div>
               <div class="task-txt" style="min-width:0">
                 <div class="task-de">${escHtml(item.name)}</div>
@@ -6327,7 +6329,9 @@ function renderFahrtDetail(){
         html+=`</div></div>`;
       });
     }
+    const openGroupIds=new Set([...itemsEl.querySelectorAll('.cat.open')].map(el=>el.id));
     itemsEl.innerHTML=html;
+    openGroupIds.forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('open');});
     // Update progress bar (all items + tasks)
     const allIt=Object.values(f.items||{});
     const chkCnt=allIt.filter(i=>i.checked).length;
