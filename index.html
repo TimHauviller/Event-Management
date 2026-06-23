@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260623-086';
+      var V='20260623-087';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -6178,13 +6178,14 @@ function renderFahrtDetail(){
         const groupTime=rTimes[rk]||'';
         const grpChecked=[...group.tItems,...group.tTasks].filter(([,i])=>i.checked).length;
         const grpTotal=group.tItems.length+group.tTasks.length;
-        const frName=locNames[group.from]||group.from;
-        const toName=locNames[group.to]||group.to;
-        const routePart=' – '+escHtml(frName)+' nach '+escHtml(toName);
-        const pfadLabel=(groupTime?`${escHtml(groupTime)} Uhr – `:'')+'Fahrt '+pfadNr+routePart;
+        const pfadTimePrefix=groupTime?`<span style="font-size:11px;color:#1565c0;font-weight:700">${escHtml(groupTime)} Uhr &ndash; </span>`:'';
+        const pfadNrLabel=`<span style="font-size:16px;font-weight:800;color:#1e3a6e">Fahrt ${pfadNr}</span>`;
         html+=`<div class="cat open" id="fcat_${escHtml(rk)}" style="margin:8px 14px 0;border-radius:10px">
           <div class="cat-hdr" style="border-left-color:#1e3a6e;padding:10px 14px" onclick="this.closest('.cat').classList.toggle('open')">
-            <div class="cat-title" style="font-size:16px;font-weight:800;color:#1e3a6e;line-height:1.2">${pfadLabel}</div>
+            <div class="cat-title" style="display:flex;flex-direction:column;gap:5px;line-height:1.2">
+              <div>${pfadTimePrefix}${pfadNrLabel}</div>
+              <div>${locRoute(group.from,group.to,true)}</div>
+            </div>
             <span class="cat-count">${grpChecked}/${grpTotal}</span>
             <span class="cat-arrow">▾</span>
           </div>
@@ -6914,6 +6915,7 @@ function openAddFahrtTask(fid,rk,routeFrom,routeTo){
   _addFahrtRouteTo=routeTo||null;
   document.getElementById('afi-task-text').value='';
   document.getElementById('afi-task-time').value='';
+  document.getElementById('afi-task-note').value='';
   const routeInfoEl=document.getElementById('afi-task-route-info');
   const atSectionEl=document.getElementById('afi-task-at-section');
   if(rk&&routeFrom&&routeTo){
@@ -6938,12 +6940,13 @@ function saveAddFahrtTask(){
   const text=document.getElementById('afi-task-text').value.trim();
   if(!text){toast('Bitte Aufgabe eingeben');return;}
   const time=(document.getElementById('afi-task-time').value||'').trim();
+  const note=((document.getElementById('afi-task-note')||{}).value||'').trim();
   let newItem;
   if(_addFahrtRouteKey){
-    newItem={isTask:true,name:text,checked:false,routeKey:_addFahrtRouteKey,routeFrom:_addFahrtRouteFrom||'?',routeTo:_addFahrtRouteTo||'?',...(time?{time}:{})};
+    newItem={isTask:true,name:text,checked:false,routeKey:_addFahrtRouteKey,routeFrom:_addFahrtRouteFrom||'?',routeTo:_addFahrtRouteTo||'?',...(time?{time}:{}),...(note?{comment:note}:{})};
   } else {
     const at=getLocValue('afi-task-at');
-    newItem={isTask:true,name:text,at,checked:false,...(time?{time}:{})};
+    newItem={isTask:true,name:text,at,checked:false,...(time?{time}:{}),...(note?{comment:note}:{})};
   }
   if(db)db.ref('/logistikFahrten/'+_addFahrtId+'/items').push(newItem);
   closeModal('m-afi-task');
@@ -7890,6 +7893,8 @@ function saveInventoryItem(){
     </div>
     <label class="tform-lbl">Uhrzeit (optional)</label>
     <input type="time" id="afi-task-time" class="tform-input" style="font-family:inherit">
+    <label class="tform-lbl">Notiz (optional)</label>
+    <textarea class="tform-input" id="afi-task-note" rows="2" placeholder="Zusätzliche Infos..." style="font-family:inherit;resize:vertical"></textarea>
     <button class="mbtn" onclick="saveAddFahrtTask()">Hinzufügen ✓</button>
     <button class="mbtn grey" onclick="closeModal('m-afi-task')">Abbrechen</button>
   </div>
