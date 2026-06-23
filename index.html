@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260624-099';
+      var V='20260624-100';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -6151,6 +6151,11 @@ function renderFahrtDetail(){
       sortedGroups.forEach(([rk2,grp])=>{
         grp.tItems.filter(([,i])=>i.action!=='ausladen').forEach(e=>allEinItems.push(e));
       });
+      // Collect ALL ausladen item names globally (so "Hinzugefügt" shows across all groups)
+      const allAusNames=new Set();
+      sortedGroups.forEach(([,grp])=>{
+        grp.tItems.filter(([,i])=>i.action==='ausladen').forEach(([,i])=>allAusNames.add(i.name));
+      });
       // Build combined sorted entries: route groups + individual standalone tasks, sorted by time
       const allEntries=[
         ...sortedGroups.map(([rk,group])=>({type:'group',rk,group})),
@@ -6277,7 +6282,7 @@ function renderFahrtDetail(){
           </div>`;
           tAus.forEach(([ikey,item])=>_renderTItem(ikey,item,'#fff5f5'));
           if(canEdit&&allEinItems.length>0){
-            const ausNames=new Set(tAus.map(([,i])=>i.name));
+            const ausNames=allAusNames;
             html+=`<div style="padding:4px 15px 8px">
               <div style="font-size:9px;color:#bbb;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Aus Einladen auswählen</div>`;
             allEinItems.forEach(([ikey,item])=>{
