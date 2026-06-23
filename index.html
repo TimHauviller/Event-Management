@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260623-090';
+      var V='20260623-091';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -6131,7 +6131,11 @@ function renderFahrtDetail(){
         }
       });
       const rTimes=f.routeTimes||{};
+      const routeOrder=f.routeOrder||{};
       const sortedGroups=Object.entries(groups).sort(([ka],[kb])=>{
+        const oa=routeOrder[ka],ob=routeOrder[kb];
+        if(oa!==undefined&&ob!==undefined)return oa-ob;
+        if(oa!==undefined)return -1; if(ob!==undefined)return 1;
         const ta=rTimes[ka]||'',tb=rTimes[kb]||'';
         if(!ta&&tb)return 1; if(ta&&!tb)return -1;
         return ta.localeCompare(tb);
@@ -6147,8 +6151,18 @@ function renderFahrtDetail(){
         ...standaloneTaskList.map(([ikey,item])=>({type:'task',ikey,item}))
       ];
       allEntries.sort((a,b)=>{
-        const ta=a.type==='group'?(rTimes[a.rk]||''):(a.item.time||'');
-        const tb=b.type==='group'?(rTimes[b.rk]||''):(b.item.time||'');
+        const getSortKey=e=>{
+          if(e.type==='group'){
+            const ro=routeOrder[e.rk];
+            if(ro!==undefined)return{pri:0,sec:ro,time:rTimes[e.rk]||''};
+            return{pri:1,sec:0,time:rTimes[e.rk]||''};
+          }
+          return{pri:1,sec:0,time:e.item.time||''};
+        };
+        const ka=getSortKey(a),kb=getSortKey(b);
+        if(ka.pri!==kb.pri)return ka.pri-kb.pri;
+        if(ka.pri===0&&ka.sec!==kb.sec)return ka.sec-kb.sec;
+        const ta=ka.time,tb=kb.time;
         if(!ta&&tb)return 1; if(ta&&!tb)return -1;
         return ta.localeCompare(tb);
       });
@@ -6164,8 +6178,8 @@ function renderFahrtDetail(){
                 <div style="${item.checked?'opacity:.45':''}">${tPrefix}<span style="font-size:16px;font-weight:800;color:#1e3a6e">${escHtml(item.name)}</span></div>
                 ${item.comment?`<div style="font-size:12px;color:#888;margin-top:4px">${escHtml(item.comment)}</div>`:''}
               </div>
-              <div class="chk${item.checked?' on':''}" onclick="toggleFahrtTask('${fid}','${ikey}')"></div>
               ${canEdit?`<button onclick="openTaskActions('${fid}','${ikey}')" style="background:none;border:none;color:#bbb;font-size:18px;cursor:pointer;padding:2px 4px;font-weight:700;line-height:1">···</button>`:''}
+              <div class="chk${item.checked?' on':''}" onclick="toggleFahrtTask('${fid}','${ikey}')"></div>
             </div>
           </div>`;
           return;
@@ -6184,6 +6198,10 @@ function renderFahrtDetail(){
               <div>${pfadTimePrefix}${pfadNrLabel}</div>
               <div>${locRoute(group.from,group.to,true)}</div>
             </div>
+            ${canEdit?`<div style="display:flex;flex-direction:column;gap:2px;margin-right:2px" onclick="event.stopPropagation()">
+              <button onclick="moveFahrtGroup('${fid}','${escHtml(rk)}','up')" style="background:none;border:none;color:#bbb;font-size:13px;cursor:pointer;padding:0 4px;line-height:1;font-family:inherit" title="Nach oben">↑</button>
+              <button onclick="moveFahrtGroup('${fid}','${escHtml(rk)}','down')" style="background:none;border:none;color:#bbb;font-size:13px;cursor:pointer;padding:0 4px;line-height:1;font-family:inherit" title="Nach unten">↓</button>
+            </div>`:''}
             <span class="cat-count">${grpChecked}/${grpTotal}</span>
             <span class="cat-arrow">▾</span>
           </div>
@@ -6805,6 +6823,36 @@ function addFahrtInventoryItem(fid,iid){
   const commentEl=document.getElementById('afi-inv-comment');
   if(commentEl)commentEl.value='';
   toast(escHtml(item.name)+' hinzugefügt ✓');
+}
+
+function moveFahrtGroup(fid,rk,dir){
+  const f=logistikFahrten[fid]; if(!f)return;
+  const rTimes=f.routeTimes||{};
+  const existingOrder=f.routeOrder||{};
+  // Collect all route keys
+  const rkSet=new Set();
+  Object.values(f.items||{}).forEach(i=>{
+    if(!i.isTask)rkSet.add(rtKey(i.from||f.from||'?',i.to||f.to||'?'));
+    else if(i.routeKey)rkSet.add(i.routeKey);
+  });
+  // Sort using same logic as renderFahrtDetail
+  const sorted=[...rkSet].sort((ka,kb)=>{
+    const oa=existingOrder[ka],ob=existingOrder[kb];
+    if(oa!==undefined&&ob!==undefined)return oa-ob;
+    if(oa!==undefined)return -1; if(ob!==undefined)return 1;
+    const ta=rTimes[ka]||'',tb=rTimes[kb]||'';
+    if(!ta&&tb)return 1; if(ta&&!tb)return -1;
+    return ta.localeCompare(tb);
+  });
+  const idx=sorted.indexOf(rk); if(idx===-1)return;
+  const swapIdx=dir==='up'?idx-1:idx+1;
+  if(swapIdx<0||swapIdx>=sorted.length)return;
+  // Assign indices, then swap
+  const newOrder={};
+  sorted.forEach((k,i)=>newOrder[k]=i);
+  newOrder[rk]=swapIdx;
+  newOrder[sorted[swapIdx]]=idx;
+  if(db)db.ref('/logistikFahrten/'+fid+'/routeOrder').set(newOrder);
 }
 
 function addAusladenFromEinladen(fid,einladenItemKey,fromLoc,toLoc){
