@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260623-082';
+      var V='20260623-083';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -6032,7 +6032,7 @@ function openFahrt(fid){
   const f=logistikFahrten[fid]; if(!f)return;
   const nr=getFahrtNr(fid);
   const title=document.getElementById('lg-fahrt-title');
-  if(title)title.textContent=(f.isRueckfahrt?'Rückfahrt':(nr?'Fahrt '+nr:'Logistikfahrt'))+(f.employee?' · '+f.employee:'');
+  if(title)title.textContent=(f.isRueckfahrt?'Rückfahrt':'Logistikfahrt')+(f.employee?' · '+f.employee:'');
   const delBtn=document.getElementById('lg-fahrt-del-btn');
   if(delBtn){delBtn.style.display=isAdmin?'':'none';delBtn.onclick=()=>deleteFahrt(fid);}
   showScreen('logistik-fahrt-screen');
@@ -6137,6 +6137,7 @@ function renderFahrtDetail(){
         if(!ta&&tb)return 1; if(ta&&!tb)return -1;
         return ta.localeCompare(tb);
       });
+      let pfadNr=0;
       sortedGroups.forEach(([rk,group])=>{
         if(rk==='__standalone__'){
           // Standalone tasks (not linked to any route)
@@ -6167,18 +6168,14 @@ function renderFahrtDetail(){
           return;
         }
         // Route group
-        const frName=locDisplayName(group.from);
-        const toName=locDisplayName(group.to);
+        pfadNr++;
         const groupTime=rTimes[rk]||'';
         const grpChecked=[...group.tItems,...group.tTasks].filter(([,i])=>i.checked).length;
         const grpTotal=group.tItems.length+group.tTasks.length;
-        const destCol=LG_LOC_COLOR[group.to]||'#1e3a6e';
+        const pfadLabel=(groupTime?`${escHtml(groupTime)} Uhr – `:'')+'Pfad '+pfadNr;
         html+=`<div class="cat open" id="fcat_${escHtml(rk)}" style="margin:8px 14px 0;border-radius:10px">
           <div class="cat-hdr" style="border-left-color:#1e3a6e;padding:10px 14px" onclick="this.closest('.cat').classList.toggle('open')">
-            <div class="cat-title" style="display:flex;flex-direction:column;gap:2px;font-size:12px">
-              ${groupTime?`<div style="font-size:16px;font-weight:800;color:#1e3a6e;line-height:1.1">${escHtml(groupTime)} Uhr</div>`:''}
-              <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">${locRoute(group.from,group.to)}</div>
-            </div>
+            <div class="cat-title" style="font-size:16px;font-weight:800;color:#1e3a6e;line-height:1.2">${pfadLabel}</div>
             <span class="cat-count">${grpChecked}/${grpTotal}</span>
             <span class="cat-arrow">▾</span>
           </div>
