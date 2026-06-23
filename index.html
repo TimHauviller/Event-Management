@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260623-065';
+      var V='20260623-066';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')===V) return;
       // Fetch with cache:reload primes the CDN, then redirect (no document.write — mobile-safe)
@@ -2976,7 +2976,7 @@ function showUndoBtn(){
     btn.id='undo-btn';
     btn.className='btn-r grey';
     btn.style.cssText='background:#607d8b;font-size:12px;';
-    btn.textContent='↩ Rückgängig';
+    btn.textContent='Rückgängig';
     btn.onclick=undoLast;
     const bar=document.getElementById('admin-bar');
     if(bar) bar.querySelector('.admin-bar-section').appendChild(btn);
@@ -5890,7 +5890,7 @@ function renderFahrten(){
         <div class="event-date-year">${yr}</div>
       </div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:14px;font-weight:800;color:#1c1c2e;margin-bottom:3px">${f.isRueckfahrt?`<span style="color:#1565c0">↩ Rückfahrt${f.rueckfahrtDateType==='spaetestens'?' <span style="font-size:10px;background:#e3f0ff;color:#1565c0;border-radius:6px;padding:1px 6px;font-weight:700">bis spätestens</span>':''}</span>`:'Logistikfahrt'}${f.employee?` · ${escHtml(f.employee)}`:''}</div>
+        <div style="font-size:14px;font-weight:800;color:#1c1c2e;margin-bottom:3px">${f.isRueckfahrt?`<span style="color:#1565c0">Rückfahrt${f.rueckfahrtDateType==='spaetestens'?' <span style="font-size:10px;background:#e3f0ff;color:#1565c0;border-radius:6px;padding:1px 6px;font-weight:700">bis spätestens</span>':''}</span>`:'Logistikfahrt'}${f.employee?` · ${escHtml(f.employee)}`:''}</div>
         <div style="font-size:12px;color:#888">${items.length} Artikel &middot; ${isDone?'<span style="color:#2e7d32;font-weight:700">Abgeschlossen</span>':`${checked} abgehakt`}</div>
         ${noDate?'<div style="font-size:11px;color:#ea4335;font-weight:700;margin-top:2px">Datum fehlt</div>':''}
       </div>
@@ -5905,7 +5905,7 @@ function openFahrt(fid){
   currentFahrtId=fid;
   const f=logistikFahrten[fid]; if(!f)return;
   const title=document.getElementById('lg-fahrt-title');
-  if(title)title.textContent=(f.isRueckfahrt?'↩ Rückfahrt':'Logistikfahrt')+(f.employee?' · '+f.employee:'');
+  if(title)title.textContent=(f.isRueckfahrt?'Rückfahrt':'Logistikfahrt')+(f.employee?' · '+f.employee:'');
   const delBtn=document.getElementById('lg-fahrt-del-btn');
   if(delBtn){delBtn.style.display=isAdmin?'':'none';delBtn.onclick=()=>deleteFahrt(fid);}
   showScreen('logistik-fahrt-screen');
@@ -5930,8 +5930,9 @@ function renderFahrtDetail(){
   const date=f.date?new Date(f.date+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}):'?';
   const isDone=f.status==='abgeschlossen';
 
-  // Info bar
+  // Info bar — skip re-render for 2s after a time write to prevent disrupting active inputs
   const info=document.getElementById('lg-fahrt-info');
+  const _skipInfo=info&&Date.now()<_fahrtInfoLock;
   const noDate=!f.date;
   const canEdit=isAdmin||_fahrtEditMode;
   // Build driver options from Logistik users (roleLG=true)
@@ -5939,7 +5940,7 @@ function renderFahrtDetail(){
   if(f.employee&&!lgDrivers.find(u=>u.name===f.employee))lgDrivers.unshift({name:f.employee});
   const driverOpts=lgDrivers.map(u=>`<option value="${escHtml(u.name||u.uid||'')}" ${(u.name||u.uid||'')===(f.employee||'')?'selected':''}>${escHtml(u.name||u.uid||'')}</option>`).join('');
   const timeLabel = f.startTime ? (f.endTime?`${f.startTime} – ${f.endTime}`:`ab ${f.startTime} Uhr`) : 'Ganztägig';
-  if(info)info.innerHTML=`
+  if(info&&!_skipInfo)info.innerHTML=`
     <div style="flex:1;text-align:center;padding:4px 0">
       <div style="font-size:10px;color:#aaa;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Datum</div>
       ${canEdit?`<input type="date" value="${f.date||''}" onchange="updateFahrtDate('${fid}',this.value)" style="border:none;outline:none;font-weight:800;font-size:13px;color:${noDate?'#ea4335':'#1c1c2e'};background:transparent;text-align:center;font-family:inherit;width:100%;margin-top:2px">`
@@ -6086,7 +6087,7 @@ function renderFahrtDetail(){
                         <input type="checkbox" ${item.rueckfahrt?'checked':''} onchange="toggleRueckfahrt('${fid}','${ikey}',this.checked)" style="width:13px;height:13px;accent-color:#1565c0">
                         <span style="font-size:11px;color:#555;font-weight:600">Rückfahrt nötig</span>
                       </label>`
-                    :(item.rueckfahrt?`<div style="font-size:10px;color:#1565c0;font-weight:700;margin-top:2px">${item.rueckfahrtDate?(item.rueckfahrtDateType==='spaetestens'?'spätestens bis ':'Rückfahrt am ')+new Date(item.rueckfahrtDate+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}):'↩ kehrt zurück'}</div>`:'')}
+                    :(item.rueckfahrt?`<div style="font-size:10px;color:#1565c0;font-weight:700;margin-top:2px">${item.rueckfahrtDate?(item.rueckfahrtDateType==='spaetestens'?'spätestens bis ':'Rückfahrt am ')+new Date(item.rueckfahrtDate+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}):'kehrt zurück'}</div>`:'')}
                 </div>
               </div>
               <div class="task-btns">
@@ -6668,10 +6669,13 @@ function updateFahrtAllDay(fid,isAllDay){
     if(isAllDay){db.ref('/logistikFahrten/'+fid+'/startTime').remove();db.ref('/logistikFahrten/'+fid+'/endTime').remove();}
   }
 }
+let _fahrtInfoLock=0; // timestamp — suppress info re-render for 2s after a time write
 function updateFahrtTime(fid,time){
+  _fahrtInfoLock=Date.now()+2000;
   if(db){db.ref('/logistikFahrten/'+fid+'/startTime').set(time);db.ref('/logistikFahrten/'+fid+'/allDay').set(false);}
 }
 function updateFahrtEndTime(fid,time){
+  _fahrtInfoLock=Date.now()+2000;
   if(!db)return;
   if(time)db.ref('/logistikFahrten/'+fid+'/endTime').set(time);
   else db.ref('/logistikFahrten/'+fid+'/endTime').remove();
@@ -6693,6 +6697,7 @@ function rtKey(from,to){
   return (from||'?').replace(/[^a-zA-Z0-9]/g,'_')+'__'+(to||'?').replace(/[^a-zA-Z0-9]/g,'_');
 }
 function updateRouteTime(fid,rk,time){
+  _fahrtInfoLock=Date.now()+2000;
   if(!db)return;
   const ref=db.ref('/logistikFahrten/'+fid+'/routeTimes/'+rk);
   if(time)ref.set(time);else ref.remove();
@@ -7619,7 +7624,7 @@ function saveInventoryItem(){
 <!-- RÜCKFAHRT SETUP MODAL -->
 <div class="overlay" id="m-rueck-setup">
   <div class="modal">
-    <h2>↩ Neue Rückfahrt</h2>
+    <h2>Neue Rückfahrt</h2>
     <p style="font-size:13px;color:#888;margin-bottom:16px">Bitte Datum und Fahrer für die automatisch angelegte Rückfahrt ergänzen.</p>
     <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:6px">Datum</label>
     <input type="date" id="rueck-date" style="width:100%;border:1.5px solid #e0e0e0;border-radius:12px;padding:13px 14px;font-size:16px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit;box-sizing:border-box;margin-bottom:14px">
@@ -7633,7 +7638,7 @@ function saveInventoryItem(){
 <!-- RÜCKFAHRT DATUM MODAL -->
 <div class="overlay" id="m-rueck-item-date">
   <div class="modal">
-    <h2>↩ Rückfahrt einplanen</h2>
+    <h2>Rückfahrt einplanen</h2>
     <p style="font-size:13px;color:#888;margin-bottom:16px">Wann wird dieser Artikel zurückgefahren?</p>
     <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:6px">Datum</label>
     <input type="date" id="rueck-item-date" style="width:100%;border:1.5px solid #e0e0e0;border-radius:12px;padding:13px 14px;font-size:16px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit;box-sizing:border-box;margin-bottom:16px">
