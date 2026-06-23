@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260624-097';
+      var V='20260624-098';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -6189,7 +6189,7 @@ function renderFahrtDetail(){
                 <div style="${item.checked?'opacity:.45':''}">${tPrefix}<span style="font-size:16px;font-weight:800;color:#1e3a6e">${escHtml(item.name)}</span></div>
                 ${item.comment?`<div style="font-size:12px;color:#888;margin-top:4px">${escHtml(item.comment)}</div>`:''}
               </div>
-              ${canEdit?`<div style="display:flex;flex-direction:column;gap:2px" onclick="event.stopPropagation()">
+              ${canEdit&&!item.time?`<div style="display:flex;flex-direction:column;gap:2px" onclick="event.stopPropagation()">
                 <button onclick="moveStandaloneTask('${fid}','${ikey}','up')" style="background:none;border:none;color:#bbb;font-size:13px;cursor:pointer;padding:0 4px;line-height:1;font-family:inherit" title="Nach oben">↑</button>
                 <button onclick="moveStandaloneTask('${fid}','${ikey}','down')" style="background:none;border:none;color:#bbb;font-size:13px;cursor:pointer;padding:0 4px;line-height:1;font-family:inherit" title="Nach unten">↓</button>
               </div>`:''}
@@ -6265,17 +6265,7 @@ function renderFahrtDetail(){
           <button onclick="openAddFahrtItem('${fid}','inventory','${act}','${escHtml(group.from)}','${escHtml(group.to)}')" style="flex:1;background:#f8f9fa;border:1px dashed #ddd;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;color:#555;cursor:pointer;font-family:inherit">+ Inventar</button>
           <button onclick="openAddFahrtItem('${fid}','custom','${act}','${escHtml(group.from)}','${escHtml(group.to)}')" style="flex:1;background:#f8f9fa;border:1px dashed #ddd;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;color:#555;cursor:pointer;font-family:inherit">+ Artikel</button>
         </div>`;
-        // Einladen section
-        if(tEin.length>0||canEdit){
-          html+=`<div style="padding:8px 15px 7px;border-top:1px solid #f0f2f5;background:#f0faf2;display:flex;align-items:center;gap:7px">
-            <span style="font-size:12px;font-weight:900;color:#1b5e20;text-transform:uppercase;letter-spacing:.8px">Einladen</span>
-            <span style="font-size:10px;font-weight:700;color:#4caf50">in</span>
-            ${locBadge(group.to)}
-          </div>`;
-          tEin.forEach(([ikey,item])=>_renderTItem(ikey,item,'#f0faf2'));
-          if(canEdit)html+=_sectionAddBtns('einladen');
-        }
-        // Ausladen section
+        // Ausladen section (first — unload before loading)
         if(tAus.length>0||(canEdit&&allEinItems.length>0)){
           html+=`<div style="padding:8px 15px 7px;border-top:1px solid #f0f2f5;background:#fff5f5;display:flex;align-items:center;gap:7px">
             <span style="font-size:12px;font-weight:900;color:#b71c1c;text-transform:uppercase;letter-spacing:.8px">Ausladen</span>
@@ -6300,6 +6290,16 @@ function renderFahrtDetail(){
             });
             html+=`</div>`;
           }
+        }
+        // Einladen section (after ausladen)
+        if(tEin.length>0||canEdit){
+          html+=`<div style="padding:8px 15px 7px;border-top:1px solid #f0f2f5;background:#f0faf2;display:flex;align-items:center;gap:7px">
+            <span style="font-size:12px;font-weight:900;color:#1b5e20;text-transform:uppercase;letter-spacing:.8px">Einladen</span>
+            <span style="font-size:10px;font-weight:700;color:#4caf50">in</span>
+            ${locBadge(group.to)}
+          </div>`;
+          tEin.forEach(([ikey,item])=>_renderTItem(ikey,item,'#f0faf2'));
+          if(canEdit)html+=_sectionAddBtns('einladen');
         }
         // Tasks within this route group
         if(group.tTasks.length>0){
