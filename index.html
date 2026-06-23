@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260623-075';
+      var V='20260623-076';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')===V) return;
       // Fetch with cache:reload primes the CDN, then redirect (no document.write — mobile-safe)
@@ -5974,13 +5974,10 @@ function renderFahrten(){
         const routePairs=new Set();
         items.forEach(it=>{const fr=it.from||f.from;const to=it.to||f.to;if(fr&&to)routePairs.add(fr+'→'+to);});
         const routeHtml=[...routePairs].map(rk=>{const[fr,to]=rk.split('→');return locRoute(fr,to);}).join('<span style="color:#ccc;margin:0 3px;font-size:11px">·</span>');
-        const accentColor=isDone?'#2e7d32':'#1e3a6e';
-        const bgLabel=isDone?'#e8f5e9':'#e8eeff';
-        const fahrtLabel=f.isRueckfahrt?'Rückfahrt':('Fahrt '+(entry.nr||'?'));
         html+=`<div onclick="openFahrt('${fid}')" style="padding:11px 16px;border-bottom:1px solid #f0f2f5;display:flex;align-items:center;gap:10px;cursor:pointer;${isDone?'opacity:.6':''}">
           <div style="flex:1;min-width:0">
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
-              <span style="font-size:12px;font-weight:800;color:${accentColor};background:${bgLabel};border-radius:6px;padding:2px 8px">${escHtml(fahrtLabel)}</span>
+              ${f.isRueckfahrt?`<span style="font-size:12px;font-weight:800;color:#555;background:#f0f0f0;border-radius:6px;padding:2px 8px">Rückfahrt</span>`:''}
               ${f.startTime?`<span style="font-size:12px;color:#1565c0;font-weight:700">${escHtml(f.startTime)} Uhr</span>`:''}
               ${f.employee?`<span style="font-size:11px;color:#888">${escHtml(f.employee)}</span>`:''}
             </div>
