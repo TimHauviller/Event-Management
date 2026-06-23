@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260623-077';
+      var V='20260623-078';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')===V) return;
       // Fetch with cache:reload primes the CDN, then redirect (no document.write — mobile-safe)
@@ -6231,10 +6231,26 @@ function renderFahrtDetail(){
           if(canEdit)html+=_sectionAddBtns('einladen');
         }
         // Ausladen section
-        if(tAus.length>0||canEdit){
+        if(tAus.length>0||(canEdit&&tEin.length>0)){
           html+=`<div style="padding:6px 15px 2px;font-size:10px;font-weight:800;color:#c62828;text-transform:uppercase;letter-spacing:.5px;border-top:1px solid #f0f2f5">Ausladen</div>`;
           tAus.forEach(([ikey,item])=>_renderTItem(ikey,item));
-          if(canEdit)html+=_sectionAddBtns('ausladen');
+          if(canEdit&&tEin.length>0){
+            const ausNames=new Set(tAus.map(([,i])=>i.name));
+            html+=`<div style="padding:4px 15px 8px">
+              <div style="font-size:9px;color:#bbb;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Aus Einladen auswählen</div>`;
+            tEin.forEach(([ikey,item])=>{
+              const done=ausNames.has(item.name);
+              html+=`<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;margin-bottom:3px;background:#fafafa;border-radius:7px;border:1px solid #f0f0f0">
+                <span style="flex:1;font-size:12px;color:#333;font-weight:600">${escHtml(item.name)}</span>
+                ${item.menge>1?`<span style="font-size:11px;color:#aaa">${item.menge}×</span>`:''}
+                ${done?
+                  `<span style="font-size:10px;color:#2e7d32;font-weight:700">Hinzugefügt</span>`:
+                  `<button onclick="addAusladenFromEinladen('${fid}','${ikey}')" style="background:#c62828;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">+</button>`
+                }
+              </div>`;
+            });
+            html+=`</div>`;
+          }
         }
         // Tasks within this route group
         if(group.tTasks.length>0){
@@ -6767,6 +6783,13 @@ function addFahrtInventoryItem(fid,iid){
   const commentEl=document.getElementById('afi-inv-comment');
   if(commentEl)commentEl.value='';
   toast(escHtml(item.name)+' hinzugefügt ✓');
+}
+
+function addAusladenFromEinladen(fid,einladenItemKey){
+  const f=logistikFahrten[fid]; if(!f)return;
+  const src=f.items&&f.items[einladenItemKey]; if(!src)return;
+  const newItem={name:src.name,menge:src.menge||1,from:src.from||f.from||'AS',to:src.to||f.to||'LS',checked:false,isCustom:!!src.isCustom,inventoryItemId:src.inventoryItemId||null,action:'ausladen',createdAt:Date.now()};
+  if(db)db.ref('/logistikFahrten/'+fid+'/items').push(newItem);
 }
 
 function addFahrtCustomItem(){
