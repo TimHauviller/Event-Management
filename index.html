@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260623-088';
+      var V='20260623-089';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -6121,18 +6121,17 @@ function renderFahrtDetail(){
         ensureGroup(rk,fr,to);
         groups[rk].tItems.push([ikey,item]);
       });
+      const standaloneTaskList=[];
       taskItems.forEach(([ikey,item])=>{
         if(item.routeKey){
           ensureGroup(item.routeKey,item.routeFrom||'?',item.routeTo||'?');
           groups[item.routeKey].tTasks.push([ikey,item]);
         } else {
-          ensureGroup('__standalone__','','');
-          groups['__standalone__'].tTasks.push([ikey,item]);
+          standaloneTaskList.push([ikey,item]);
         }
       });
       const rTimes=f.routeTimes||{};
       const sortedGroups=Object.entries(groups).sort(([ka],[kb])=>{
-        if(ka==='__standalone__')return 1; if(kb==='__standalone__')return -1;
         const ta=rTimes[ka]||'',tb=rTimes[kb]||'';
         if(!ta&&tb)return 1; if(ta&&!tb)return -1;
         return ta.localeCompare(tb);
@@ -6140,39 +6139,38 @@ function renderFahrtDetail(){
       // Collect ALL einladen items across all route groups (for cross-Fahrt Ausladen selection)
       const allEinItems=[];
       sortedGroups.forEach(([rk2,grp])=>{
-        if(rk2==='__standalone__')return;
         grp.tItems.filter(([,i])=>i.action!=='ausladen').forEach(e=>allEinItems.push(e));
       });
+      // Build combined sorted entries: route groups + individual standalone tasks, sorted by time
+      const allEntries=[
+        ...sortedGroups.map(([rk,group])=>({type:'group',rk,group})),
+        ...standaloneTaskList.map(([ikey,item])=>({type:'task',ikey,item}))
+      ];
+      allEntries.sort((a,b)=>{
+        const ta=a.type==='group'?(rTimes[a.rk]||''):(a.item.time||'');
+        const tb=b.type==='group'?(rTimes[b.rk]||''):(b.item.time||'');
+        if(!ta&&tb)return 1; if(ta&&!tb)return -1;
+        return ta.localeCompare(tb);
+      });
       let pfadNr=0;
-      sortedGroups.forEach(([rk,group])=>{
-        if(rk==='__standalone__'){
-          // Standalone tasks (not linked to any route)
-          const tkChecked=group.tTasks.filter(([,i])=>i.checked).length;
-          html+=`<div class="cat open" id="fcat_standalone" style="margin:8px 14px 0;border-radius:10px">
-            <div class="cat-hdr" style="border-left-color:#1e3a6e;padding:10px 14px" onclick="this.closest('.cat').classList.toggle('open')">
-              <div class="cat-title"><span style="background:#1565c0;color:#fff;font-size:10px;font-weight:800;padding:2px 10px;border-radius:10px">Aufgaben</span></div>
-              <span class="cat-count">${tkChecked}/${group.tTasks.length}</span>
-              <span class="cat-arrow">▾</span>
-            </div>
-            <div class="cat-body">`;
-          group.tTasks.forEach(([ikey,item])=>{
-            html+=`<div class="task${item.checked?' done':''}" style="padding:10px 15px">
+      allEntries.forEach(entry=>{
+        if(entry.type==='task'){
+          // Standalone task — renders like a category header with checkbox
+          const {ikey,item}=entry;
+          const tPrefix=item.time?`<span style="font-size:16px;font-weight:800;color:#1e3a6e">${escHtml(item.time)} Uhr &ndash; </span>`:'';
+          html+=`<div style="margin:8px 14px 0;border-radius:10px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow:hidden">
+            <div style="border-left:4px solid #1e3a6e;padding:12px 14px;display:flex;align-items:center;gap:10px">
+              <div style="flex:1;min-width:0">
+                <div style="${item.checked?'opacity:.45':''}">${tPrefix}<span style="font-size:16px;font-weight:800;color:#1e3a6e">${escHtml(item.name)}</span></div>
+                ${item.comment?`<div style="font-size:12px;color:#888;margin-top:4px">${escHtml(item.comment)}</div>`:''}
+              </div>
               <div class="chk${item.checked?' on':''}" onclick="toggleFahrtTask('${fid}','${ikey}')"></div>
-              <div class="task-txt" style="min-width:0">
-                <div class="task-de">${escHtml(item.name)}</div>
-                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:3px">
-                  ${item.at?`<span style="font-size:10px;color:#888;font-weight:700">bei: ${escHtml(locDisplayName(item.at))}</span>`:''}
-                  ${item.time?`<span style="font-size:10px;color:#1565c0;font-weight:700">${escHtml(item.time)} Uhr</span>`:''}
-                </div>
-              </div>
-              <div class="task-btns">
-                <button onclick="openTaskActions('${fid}','${ikey}')" style="background:none;border:none;color:#bbb;font-size:18px;cursor:pointer;padding:2px 4px;font-weight:700;line-height:1">···</button>
-              </div>
-            </div>`;
-          });
-          html+=`</div></div>`;
+              ${canEdit?`<button onclick="openTaskActions('${fid}','${ikey}')" style="background:none;border:none;color:#bbb;font-size:18px;cursor:pointer;padding:2px 4px;font-weight:700;line-height:1">···</button>`:''}
+            </div>
+          </div>`;
           return;
         }
+        const {rk,group}=entry;
         // Route group
         pfadNr++;
         const groupTime=rTimes[rk]||'';
