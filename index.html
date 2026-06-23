@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260623-058';
+      var V='20260623-059';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')===V) return;
       // Fetch with cache:reload primes the CDN, then redirect (no document.write — mobile-safe)
@@ -5748,7 +5748,7 @@ const LG_LOC_COLOR = {AS:'#2d7a4f', EG:'#1a1712', LS:'#1a8b93'};
 const LG_LOC_SHORT = {AS:'amSee', EG:'Gieß.', LS:'Lakeside'};
 
 function locBadge(loc, large=false){
-  const col = LG_LOC_COLOR[loc] || '#888';
+  const col = LG_LOC_COLOR[loc] || '#1e3a6e';
   const label = LG_LOC[loc] || loc || '?';
   const fs = large ? '12px' : '10px';
   const pad = large ? '4px 10px' : '3px 7px';
@@ -6038,13 +6038,12 @@ function renderFahrtDetail(){
         const groupTime=rTimes[rk]||'';
         const grpChecked=[...group.tItems,...group.tTasks].filter(([,i])=>i.checked).length;
         const grpTotal=group.tItems.length+group.tTasks.length;
+        const destCol=LG_LOC_COLOR[group.to]||'#1e3a6e';
         html+=`<div class="cat open" id="fcat_${escHtml(rk)}" style="margin:8px 14px 0;border-radius:10px">
-          <div class="cat-hdr" style="border-left-color:#1e3a6e;padding:10px 14px" onclick="this.closest('.cat').classList.toggle('open')">
+          <div class="cat-hdr" style="border-left-color:${destCol};padding:10px 14px" onclick="this.closest('.cat').classList.toggle('open')">
             <div style="flex:1;min-width:0">
               <div class="cat-title" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-size:12px">
-                <span style="background:#1e3a6e;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px">${escHtml(frName)}</span>
-                <span style="color:#bbb;font-weight:700;font-size:11px">→</span>
-                <span style="background:#1e3a6e;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px">${escHtml(toName)}</span>
+                ${locRoute(group.from,group.to)}
                 ${groupTime?`<span style="background:#e3f0ff;color:#1565c0;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px">${escHtml(groupTime)} Uhr</span>`:''}
               </div>
               ${canEdit?`<div onclick="event.stopPropagation()" style="margin-top:6px;display:flex;align-items:center;gap:6px">
@@ -6694,11 +6693,9 @@ function openAddFahrtTask(fid,rk,routeFrom,routeTo){
   if(rk&&routeFrom&&routeTo){
     const frN=locDisplayName(routeFrom);
     const toN=locDisplayName(routeTo);
-    if(routeInfoEl)routeInfoEl.innerHTML=`<div style="background:#e8f0fe;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;color:#1e3a6e;margin-bottom:14px">
-      <span style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:2px">Aufgabe für Route</span>
-      <span style="background:#1e3a6e;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:8px">${escHtml(frN)}</span>
-      <span style="color:#888;font-weight:700;margin:0 4px">→</span>
-      <span style="background:#1e3a6e;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:8px">${escHtml(toN)}</span>
+    if(routeInfoEl)routeInfoEl.innerHTML=`<div style="background:#f0f4ff;border-radius:8px;padding:8px 12px;margin-bottom:14px">
+      <span style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px">Aufgabe für Route</span>
+      ${locRoute(routeFrom,routeTo)}
     </div>`;
     if(routeInfoEl)routeInfoEl.style.display='block';
     if(atSectionEl)atSectionEl.style.display='none';
