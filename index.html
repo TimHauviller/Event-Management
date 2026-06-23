@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260624-100';
+      var V='20260624-101';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -6197,7 +6197,7 @@ function renderFahrtDetail(){
                 <div style="${item.checked?'opacity:.45':''}">${tPrefix}<span style="font-size:16px;font-weight:800;color:#1e3a6e">${escHtml(item.name)}</span></div>
                 ${item.comment?`<div style="font-size:12px;color:#888;margin-top:4px">${escHtml(item.comment)}</div>`:''}
               </div>
-              ${canEdit&&!item.time?`<div style="display:flex;flex-direction:column;gap:2px" onclick="event.stopPropagation()">
+              ${canEdit?`<div style="display:flex;flex-direction:column;gap:2px" onclick="event.stopPropagation()">
                 <button onclick="moveAnyEntry('${fid}','${ikey}','up')" style="background:none;border:none;color:#bbb;font-size:13px;cursor:pointer;padding:0 4px;line-height:1;font-family:inherit" title="Nach oben">↑</button>
                 <button onclick="moveAnyEntry('${fid}','${ikey}','down')" style="background:none;border:none;color:#bbb;font-size:13px;cursor:pointer;padding:0 4px;line-height:1;font-family:inherit" title="Nach unten">↓</button>
               </div>`:''}
@@ -6955,7 +6955,7 @@ function moveAnyEntry(fid,key,dir){
   const taskOrder=f.taskOrder||{};
   const entryOrder=f.entryOrder||{};
   // All moveable entries: groups + timeless standalone tasks
-  const timelessTasks=Object.entries(items).filter(([,i])=>i.isTask&&!i.routeKey&&!i.time);
+  const timelessTasks=Object.entries(items).filter(([,i])=>i.isTask&&!i.routeKey);
   const all=[
     ...[...rkSet].map(rk=>({type:'group',rk})),
     ...timelessTasks.map(([ikey,item])=>({type:'task',ikey,item}))
