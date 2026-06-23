@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260623-062';
+      var V='20260623-063';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')===V) return;
       // Fetch with cache:reload primes the CDN, then redirect (no document.write — mobile-safe)
@@ -5952,10 +5952,11 @@ function renderFahrtDetail(){
         <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:10px;color:#888;font-weight:700">
           <input type="checkbox" id="fhdr-allday-${fid}" ${f.allDay!==false&&!f.startTime?'checked':''} onchange="updateFahrtAllDay('${fid}',this.checked);document.getElementById('fhdr-times-${fid}').style.display=this.checked?'none':'flex'" style="width:13px;height:13px;accent-color:#1565c0">ganztägig
         </label>
-        <div id="fhdr-times-${fid}" style="display:${f.allDay===false||f.startTime?'flex':'none'};align-items:center;gap:4px">
-          <input type="time" value="${f.startTime||''}" onchange="updateFahrtTime('${fid}',this.value)" placeholder="Von" style="border:1px solid #ddd;border-radius:6px;padding:2px 4px;font-size:11px;font-weight:700;color:#1c1c2e;font-family:inherit;width:72px">
+        <div id="fhdr-times-${fid}" style="display:${f.allDay===false||f.startTime?'flex':'none'};align-items:center;gap:3px;flex-wrap:wrap;justify-content:center">
+          <input type="time" id="fhdr-start-${fid}" value="${f.startTime||''}" style="border:1px solid #ddd;border-radius:6px;padding:2px 4px;font-size:11px;font-weight:700;color:#1c1c2e;font-family:inherit;width:72px">
           <span style="color:#bbb;font-size:11px;font-weight:700">–</span>
-          <input type="time" value="${f.endTime||''}" onchange="updateFahrtEndTime('${fid}',this.value)" placeholder="Bis" style="border:1px solid #ddd;border-radius:6px;padding:2px 4px;font-size:11px;font-weight:700;color:#1c1c2e;font-family:inherit;width:72px">
+          <input type="time" id="fhdr-end-${fid}" value="${f.endTime||''}" style="border:1px solid #ddd;border-radius:6px;padding:2px 4px;font-size:11px;font-weight:700;color:#1c1c2e;font-family:inherit;width:72px">
+          <button onclick="saveFahrtTimes('${fid}')" style="background:#1565c0;color:#fff;border:none;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">OK</button>
         </div>
       </div>`
       :`<div style="font-weight:700;font-size:12px;color:#555;margin-top:2px">${escHtml(timeLabel)}</div>`}
@@ -6055,7 +6056,8 @@ function renderFahrtDetail(){
           <div class="cat-body">
           ${canEdit?`<div style="padding:8px 15px 6px;border-bottom:1px solid #f0f2f5;display:flex;align-items:center;gap:8px">
             <span style="font-size:10px;color:#aaa;font-weight:700;white-space:nowrap;text-transform:uppercase;letter-spacing:.4px">Abfahrt:</span>
-            <input type="time" value="${escHtml(groupTime)}" onchange="updateRouteTime('${fid}','${escHtml(rk)}',this.value)" style="border:1px solid #ddd;border-radius:8px;padding:5px 8px;font-size:12px;color:#1565c0;font-weight:700;background:#f8fbff;font-family:inherit;flex:1;max-width:120px">
+            <input type="time" id="rt-inp-${escHtml(rk)}" value="${escHtml(groupTime)}" style="border:1px solid #ddd;border-radius:8px;padding:5px 8px;font-size:12px;color:#1565c0;font-weight:700;background:#f8fbff;font-family:inherit;flex:1;max-width:110px">
+            <button onclick="saveRouteTimeFn('${fid}','${escHtml(rk)}','rt-inp-${escHtml(rk)}')" style="background:#1565c0;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">OK</button>
             ${groupTime?`<button onclick="updateRouteTime('${fid}','${escHtml(rk)}','')" style="background:none;border:none;color:#bbb;font-size:16px;cursor:pointer;padding:0 4px;line-height:1">×</button>`:''}
           </div>`:''}`;
         // Transport items
@@ -6675,6 +6677,19 @@ function updateFahrtEndTime(fid,time){
   if(!db)return;
   if(time)db.ref('/logistikFahrten/'+fid+'/endTime').set(time);
   else db.ref('/logistikFahrten/'+fid+'/endTime').remove();
+}
+function saveFahrtTimes(fid){
+  const s=(document.getElementById('fhdr-start-'+fid)||{}).value||'';
+  const e=(document.getElementById('fhdr-end-'+fid)||{}).value||'';
+  if(!s){toast('Bitte mindestens eine Startzeit eingeben');return;}
+  updateFahrtTime(fid,s);
+  updateFahrtEndTime(fid,e);
+  toast('Uhrzeit gespeichert ✓');
+}
+function saveRouteTimeFn(fid,rk,inputId){
+  const val=(document.getElementById(inputId)||{}).value||'';
+  updateRouteTime(fid,rk,val);
+  toast(val?val+' Uhr gespeichert ✓':'Uhrzeit entfernt');
 }
 function rtKey(from,to){
   return (from||'?').replace(/[^a-zA-Z0-9]/g,'_')+'__'+(to||'?').replace(/[^a-zA-Z0-9]/g,'_');
