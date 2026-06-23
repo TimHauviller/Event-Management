@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260620-057';
+      var V='20260623-058';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')===V) return;
       // Fetch with cache:reload primes the CDN, then redirect (no document.write — mobile-safe)
@@ -5967,7 +5967,7 @@ function renderFahrtDetail(){
     </div>
   `;
 
-  // Items grouped by route; tasks in separate section
+  // Items grouped by route (sorted by route time); tasks shown inside their route group
   const itemsEl=document.getElementById('lg-fahrt-items');
   const items=Object.entries(f.items||{});
   const transportItems=items.filter(([,i])=>!i.isTask);
@@ -5977,34 +5977,92 @@ function renderFahrtDetail(){
     if(transportItems.length===0&&taskItems.length===0){
       html='<div style="text-align:center;color:#ccc;font-size:13px;padding:24px">Noch keine Einträge — unten hinzufügen</div>';
     } else {
-      // Group transport items by from→to
-      if(transportItems.length>0){
-        const routeGroups={};
-        transportItems.forEach(([ikey,item])=>{
-          const fr=item.from||f.from||'?';
-          const to=item.to||f.to||'?';
-          const rk=fr+'→'+to;
-          if(!routeGroups[rk])routeGroups[rk]={from:fr,to:to,items:[]};
-          routeGroups[rk].items.push([ikey,item]);
-        });
-        Object.entries(routeGroups).forEach(([rk,group])=>{
-          const frName=locDisplayName(group.from);
-          const toName=locDisplayName(group.to);
-          const grpChecked=group.items.filter(([,i])=>i.checked).length;
-          const grpTotal=group.items.length;
-          const rkId='fcat_'+rk.replace(/[^a-zA-Z0-9]/g,'_');
-          html+=`<div class="cat open" id="${rkId}" style="margin:8px 14px 0;border-radius:10px">
-            <div class="cat-hdr" style="border-left-color:#1e3a6e;padding:10px 14px" onclick="this.closest('.cat').classList.toggle('open')">
+      // Build combined groups
+      const groups={};
+      const ensureGroup=(rk,from,to)=>{if(!groups[rk])groups[rk]={from,to,rk,tItems:[],tTasks:[]};};
+      transportItems.forEach(([ikey,item])=>{
+        const fr=item.from||f.from||'?';
+        const to=item.to||f.to||'?';
+        const rk=rtKey(fr,to);
+        ensureGroup(rk,fr,to);
+        groups[rk].tItems.push([ikey,item]);
+      });
+      taskItems.forEach(([ikey,item])=>{
+        if(item.routeKey){
+          ensureGroup(item.routeKey,item.routeFrom||'?',item.routeTo||'?');
+          groups[item.routeKey].tTasks.push([ikey,item]);
+        } else {
+          ensureGroup('__standalone__','','');
+          groups['__standalone__'].tTasks.push([ikey,item]);
+        }
+      });
+      const rTimes=f.routeTimes||{};
+      const sortedGroups=Object.entries(groups).sort(([ka],[kb])=>{
+        if(ka==='__standalone__')return 1; if(kb==='__standalone__')return -1;
+        const ta=rTimes[ka]||'',tb=rTimes[kb]||'';
+        if(!ta&&tb)return 1; if(ta&&!tb)return -1;
+        return ta.localeCompare(tb);
+      });
+      sortedGroups.forEach(([rk,group])=>{
+        if(rk==='__standalone__'){
+          // Standalone tasks (not linked to any route)
+          const tkChecked=group.tTasks.filter(([,i])=>i.checked).length;
+          html+=`<div class="cat open" id="fcat_standalone" style="margin:8px 14px 0;border-radius:10px">
+            <div class="cat-hdr" style="border-left-color:#1565c0;padding:10px 14px" onclick="this.closest('.cat').classList.toggle('open')">
+              <div class="cat-title"><span style="background:#1565c0;color:#fff;font-size:10px;font-weight:800;padding:2px 10px;border-radius:10px">Aufgaben</span></div>
+              <span class="cat-count">${tkChecked}/${group.tTasks.length}</span>
+              <span class="cat-arrow">▾</span>
+            </div>
+            <div class="cat-body">`;
+          group.tTasks.forEach(([ikey,item])=>{
+            html+=`<div class="task${item.checked?' done':''}" style="padding:10px 15px">
+              <div class="chk${item.checked?' on':''}" onclick="toggleFahrtTask('${fid}','${ikey}')"></div>
+              <div class="task-txt" style="min-width:0">
+                <div class="task-de">${escHtml(item.name)}</div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:3px">
+                  ${item.at?`<span style="font-size:10px;color:#888;font-weight:700">bei: ${escHtml(locDisplayName(item.at))}</span>`:''}
+                  ${item.time?`<span style="font-size:10px;color:#1565c0;font-weight:700">${escHtml(item.time)} Uhr</span>`:''}
+                </div>
+              </div>
+              <div class="task-btns">
+                ${canEdit?`<button onclick="deleteFahrtItem('${fid}','${ikey}')" style="background:none;border:none;color:#ea4335;font-size:16px;cursor:pointer;padding:2px 4px">×</button>`:''}
+              </div>
+            </div>`;
+          });
+          html+=`</div></div>`;
+          return;
+        }
+        // Route group
+        const frName=locDisplayName(group.from);
+        const toName=locDisplayName(group.to);
+        const groupTime=rTimes[rk]||'';
+        const grpChecked=[...group.tItems,...group.tTasks].filter(([,i])=>i.checked).length;
+        const grpTotal=group.tItems.length+group.tTasks.length;
+        html+=`<div class="cat open" id="fcat_${escHtml(rk)}" style="margin:8px 14px 0;border-radius:10px">
+          <div class="cat-hdr" style="border-left-color:#1e3a6e;padding:10px 14px" onclick="this.closest('.cat').classList.toggle('open')">
+            <div style="flex:1;min-width:0">
               <div class="cat-title" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-size:12px">
                 <span style="background:#1e3a6e;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px">${escHtml(frName)}</span>
                 <span style="color:#bbb;font-weight:700;font-size:11px">→</span>
                 <span style="background:#1e3a6e;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px">${escHtml(toName)}</span>
+                ${groupTime?`<span style="background:#e3f0ff;color:#1565c0;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px">${escHtml(groupTime)} Uhr</span>`:''}
               </div>
-              <span class="cat-count">${grpChecked}/${grpTotal}</span>
-              <span class="cat-arrow">▾</span>
+              ${canEdit?`<div onclick="event.stopPropagation()" style="margin-top:6px;display:flex;align-items:center;gap:6px">
+                <span style="font-size:10px;color:#aaa;font-weight:700;white-space:nowrap">Abfahrt:</span>
+                <input type="time" value="${escHtml(groupTime)}" onchange="updateRouteTime('${fid}','${escHtml(rk)}',this.value)" style="border:1px solid #e0e0e0;border-radius:6px;padding:2px 6px;font-size:11px;color:#1565c0;font-weight:700;background:#f8fbff;font-family:inherit;width:90px">
+                ${groupTime?`<button onclick="event.stopPropagation();updateRouteTime('${fid}','${escHtml(rk)}','')" style="background:none;border:none;color:#bbb;font-size:16px;cursor:pointer;padding:0 4px;line-height:1">×</button>`:''}
+              </div>`:''}
             </div>
-            <div class="cat-body">`;
-          group.items.forEach(([ikey,item])=>{
+            <span class="cat-count">${grpChecked}/${grpTotal}</span>
+            <span class="cat-arrow">▾</span>
+          </div>
+          <div class="cat-body">`;
+        // Transport items
+        if(group.tItems.length>0){
+          if(group.tTasks.length>0){
+            html+=`<div style="padding:5px 15px 2px;font-size:10px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:.5px">Transport</div>`;
+          }
+          group.tItems.forEach(([ikey,item])=>{
             const invPhoto=item.inventoryItemId?inventoryPhotos[item.inventoryItemId]:null;
             const displayPhoto=item.photo||invPhoto;
             const staffPhoto=item.staffPhoto||null;
@@ -6019,7 +6077,7 @@ function renderFahrtDetail(){
                   <div class="task-de">
                     ${escHtml(item.name)}${item.menge&&item.menge>1?`<span style="color:#555;font-size:11px;font-weight:700;margin-left:6px">${item.menge}×</span>`:''}
                   </div>
-                  ${item.itemTime?`<div style="font-size:10px;color:#1565c0;font-weight:700;margin-top:2px">ab ${escHtml(item.itemTime)} Uhr</div>`:''}
+                  ${item.itemTime?`<div style="font-size:10px;color:#1565c0;font-weight:700;margin-top:2px">${escHtml(item.itemTime)} Uhr</div>`:''}
                   ${item.comment?`<div style="font-size:11px;color:#888;margin-top:2px;font-style:italic">${escHtml(item.comment)}</div>`:''}
                   ${item.staffComment?`<div style="font-size:11px;color:#ea4335;font-weight:700;margin-top:2px">${escHtml(item.staffComment)}</div>`:''}
                   ${canEdit
@@ -6036,38 +6094,33 @@ function renderFahrtDetail(){
               </div>
             </div>`;
           });
-          html+=`</div></div>`;
-        });
-      }
-      // Task items section
-      if(taskItems.length>0){
-        const tkChecked=taskItems.filter(([,i])=>i.checked).length;
-        html+=`<div class="cat open" id="fcat_tasks" style="margin:8px 14px 0;border-radius:10px">
-          <div class="cat-hdr" style="border-left-color:#1565c0;padding:10px 14px" onclick="this.closest('.cat').classList.toggle('open')">
-            <div class="cat-title" style="display:flex;align-items:center;gap:6px;font-size:12px">
-              <span style="background:#1565c0;color:#fff;font-size:10px;font-weight:800;padding:2px 10px;border-radius:10px">Aufgaben</span>
-            </div>
-            <span class="cat-count">${tkChecked}/${taskItems.length}</span>
-            <span class="cat-arrow">▾</span>
-          </div>
-          <div class="cat-body">`;
-        taskItems.forEach(([ikey,item])=>{
-          html+=`<div class="task${item.checked?' done':''}" style="padding:10px 15px">
-            <div class="chk${item.checked?' on':''}" onclick="toggleFahrtTask('${fid}','${ikey}')"></div>
-            <div class="task-txt" style="min-width:0">
-              <div class="task-de">${escHtml(item.name)}</div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:3px">
-                ${item.at?`<span style="font-size:10px;color:#888;font-weight:700">bei: ${escHtml(locDisplayName(item.at))}</span>`:''}
-                ${item.time?`<span style="font-size:10px;color:#1565c0;font-weight:700">ab ${escHtml(item.time)} Uhr</span>`:''}
-              </div>
-            </div>
-            <div class="task-btns">
-              ${canEdit?`<button onclick="deleteFahrtItem('${fid}','${ikey}')" style="background:none;border:none;color:#ea4335;font-size:16px;cursor:pointer;padding:2px 4px">×</button>`:''}
-            </div>
+        }
+        // Tasks within this route group
+        if(group.tTasks.length>0){
+          html+=`<div style="margin:4px 15px 0;padding:6px 0 2px;border-top:1px solid #f0f2f5;display:flex;align-items:center;gap:6px">
+            <span style="font-size:10px;font-weight:800;color:#1565c0;text-transform:uppercase;letter-spacing:.5px">Aufgaben vor Ort</span>
           </div>`;
-        });
+          group.tTasks.forEach(([ikey,item])=>{
+            html+=`<div class="task${item.checked?' done':''}" style="padding:9px 15px;background:#f8fbff">
+              <div class="chk${item.checked?' on':''}" onclick="toggleFahrtTask('${fid}','${ikey}')"></div>
+              <div class="task-txt" style="min-width:0">
+                <div class="task-de">${escHtml(item.name)}</div>
+                ${item.time?`<div style="font-size:10px;color:#1565c0;font-weight:700;margin-top:2px">${escHtml(item.time)} Uhr</div>`:''}
+              </div>
+              <div class="task-btns">
+                ${canEdit?`<button onclick="deleteFahrtItem('${fid}','${ikey}')" style="background:none;border:none;color:#ea4335;font-size:16px;cursor:pointer;padding:2px 4px">×</button>`:''}
+              </div>
+            </div>`;
+          });
+        }
+        // Add-task button within route group
+        if(canEdit){
+          html+=`<div style="padding:8px 15px 10px">
+            <button onclick="openAddFahrtTask('${fid}','${escHtml(rk)}','${escHtml(group.from)}','${escHtml(group.to)}')" style="background:#f0f6ff;border:1px dashed #b3cef0;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;color:#1565c0;cursor:pointer;font-family:inherit;width:100%;text-align:center">+ Aufgabe für diese Route</button>
+          </div>`;
+        }
         html+=`</div></div>`;
-      }
+      });
     }
     itemsEl.innerHTML=html;
     // Update progress bar (all items + tasks)
@@ -6508,7 +6561,7 @@ function deleteFahrt(fid){
   toast('Fahrt gelöscht');
 }
 
-let _addFahrtId=null;
+let _addFahrtId=null,_addFahrtRouteKey=null,_addFahrtRouteFrom=null,_addFahrtRouteTo=null;
 function openAddFahrtItem(fid,type){
   _addFahrtId=fid;
   if(type==='custom'){
@@ -6616,26 +6669,59 @@ function updateFahrtAllDay(fid,isAllDay){
 function updateFahrtTime(fid,time){
   if(db){db.ref('/logistikFahrten/'+fid+'/startTime').set(time);db.ref('/logistikFahrten/'+fid+'/allDay').set(false);}
 }
+function rtKey(from,to){
+  return (from||'?').replace(/[^a-zA-Z0-9]/g,'_')+'__'+(to||'?').replace(/[^a-zA-Z0-9]/g,'_');
+}
+function updateRouteTime(fid,rk,time){
+  if(!db)return;
+  const ref=db.ref('/logistikFahrten/'+fid+'/routeTimes/'+rk);
+  if(time)ref.set(time);else ref.remove();
+}
 function toggleFahrtTask(fid,ikey){
   const f=logistikFahrten[fid]; if(!f||f.status==='abgeschlossen')return;
   const item=(f.items||{})[ikey]; if(!item)return;
   if(db)db.ref('/logistikFahrten/'+fid+'/items/'+ikey+'/checked').set(!item.checked);
 }
-function openAddFahrtTask(fid){
+function openAddFahrtTask(fid,rk,routeFrom,routeTo){
   _addFahrtId=fid;
+  _addFahrtRouteKey=rk||null;
+  _addFahrtRouteFrom=routeFrom||null;
+  _addFahrtRouteTo=routeTo||null;
   document.getElementById('afi-task-text').value='';
   document.getElementById('afi-task-time').value='';
-  const sel=document.getElementById('afi-task-at');
-  if(sel){sel.value='AS';handleLocSelectChange('afi-task-at');}
+  const routeInfoEl=document.getElementById('afi-task-route-info');
+  const atSectionEl=document.getElementById('afi-task-at-section');
+  if(rk&&routeFrom&&routeTo){
+    const frN=locDisplayName(routeFrom);
+    const toN=locDisplayName(routeTo);
+    if(routeInfoEl)routeInfoEl.innerHTML=`<div style="background:#e8f0fe;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;color:#1e3a6e;margin-bottom:14px">
+      <span style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:2px">Aufgabe für Route</span>
+      <span style="background:#1e3a6e;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:8px">${escHtml(frN)}</span>
+      <span style="color:#888;font-weight:700;margin:0 4px">→</span>
+      <span style="background:#1e3a6e;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:8px">${escHtml(toN)}</span>
+    </div>`;
+    if(routeInfoEl)routeInfoEl.style.display='block';
+    if(atSectionEl)atSectionEl.style.display='none';
+  } else {
+    if(routeInfoEl)routeInfoEl.style.display='none';
+    if(atSectionEl)atSectionEl.style.display='block';
+    const sel=document.getElementById('afi-task-at');
+    if(sel){sel.value='AS';handleLocSelectChange('afi-task-at');}
+  }
   openModal('m-afi-task');
   setTimeout(()=>document.getElementById('afi-task-text').focus(),100);
 }
 function saveAddFahrtTask(){
   const text=document.getElementById('afi-task-text').value.trim();
   if(!text){toast('Bitte Aufgabe eingeben');return;}
-  const at=getLocValue('afi-task-at');
   const time=(document.getElementById('afi-task-time').value||'').trim();
-  const newItem={isTask:true, name:text, at, checked:false, ...(time?{time}:{})};
+  let newItem;
+  if(_addFahrtRouteKey){
+    newItem={isTask:true,name:text,checked:false,routeKey:_addFahrtRouteKey,routeFrom:_addFahrtRouteFrom||'?',routeTo:_addFahrtRouteTo||'?',...(time?{time}:{})};
+  } else {
+    const at=getLocValue('afi-task-at');
+    newItem={isTask:true,name:text,at,checked:false,...(time?{time}:{})};
+  }
   if(db)db.ref('/logistikFahrten/'+_addFahrtId+'/items').push(newItem);
   closeModal('m-afi-task');
   toast(text+' hinzugefügt ✓');
@@ -7431,17 +7517,20 @@ function saveInventoryItem(){
 <div class="overlay" id="m-afi-task">
   <div class="modal">
     <h2>+ Aufgabe hinzufügen</h2>
+    <div id="afi-task-route-info" style="display:none"></div>
     <label class="tform-lbl">Aufgabe</label>
     <input type="text" class="tform-input" id="afi-task-text" placeholder="z.B. Bühne aufbauen" style="font-family:inherit">
-    <label class="tform-lbl">Am Standort</label>
-    <div style="display:flex;flex-direction:column;margin-bottom:14px">
-      <select id="afi-task-at" style="border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit" onchange="handleLocSelectChange('afi-task-at')">
-        <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
-        <option value="__custom__">Eigene Adresse…</option>
-      </select>
-      <input type="text" id="afi-task-at-custom" placeholder="Name oder Adresse" style="display:none;margin-top:6px;border:1.5px solid #1565c0;border-radius:10px;padding:8px 10px;font-size:12px;font-family:inherit;box-sizing:border-box">
+    <div id="afi-task-at-section">
+      <label class="tform-lbl">Am Standort</label>
+      <div style="display:flex;flex-direction:column;margin-bottom:14px">
+        <select id="afi-task-at" style="border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit" onchange="handleLocSelectChange('afi-task-at')">
+          <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
+          <option value="__custom__">Eigene Adresse…</option>
+        </select>
+        <input type="text" id="afi-task-at-custom" placeholder="Name oder Adresse" style="display:none;margin-top:6px;border:1.5px solid #1565c0;border-radius:10px;padding:8px 10px;font-size:12px;font-family:inherit;box-sizing:border-box">
+      </div>
     </div>
-    <label class="tform-lbl">Früheste Uhrzeit (optional)</label>
+    <label class="tform-lbl">Uhrzeit (optional)</label>
     <input type="time" id="afi-task-time" class="tform-input" style="font-family:inherit">
     <button class="mbtn" onclick="saveAddFahrtTask()">Hinzufügen ✓</button>
     <button class="mbtn grey" onclick="closeModal('m-afi-task')">Abbrechen</button>
