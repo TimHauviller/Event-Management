@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260623-094';
+      var V='20260623-095';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -6182,7 +6182,6 @@ function renderFahrtDetail(){
           // Standalone task — renders like a category header with checkbox
           const {ikey,item}=entry;
           const tPrefix=item.time?`<span style="font-size:16px;font-weight:800;color:#1e3a6e">${escHtml(item.time)} Uhr &ndash; </span>`:'';
-          const isTimeless=!item.time;
           html+=`<div style="margin:8px 14px 0;border-radius:10px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow:hidden">
             <div style="border-left:4px solid #1e3a6e;padding:12px 14px;display:flex;align-items:center;gap:10px">
               <div class="chk${item.checked?' on':''}" onclick="toggleFahrtTask('${fid}','${ikey}')"></div>
@@ -6190,7 +6189,7 @@ function renderFahrtDetail(){
                 <div style="${item.checked?'opacity:.45':''}">${tPrefix}<span style="font-size:16px;font-weight:800;color:#1e3a6e">${escHtml(item.name)}</span></div>
                 ${item.comment?`<div style="font-size:12px;color:#888;margin-top:4px">${escHtml(item.comment)}</div>`:''}
               </div>
-              ${canEdit&&isTimeless?`<div style="display:flex;flex-direction:column;gap:2px" onclick="event.stopPropagation()">
+              ${canEdit?`<div style="display:flex;flex-direction:column;gap:2px" onclick="event.stopPropagation()">
                 <button onclick="moveStandaloneTask('${fid}','${ikey}','up')" style="background:none;border:none;color:#bbb;font-size:13px;cursor:pointer;padding:0 4px;line-height:1;font-family:inherit" title="Nach oben">↑</button>
                 <button onclick="moveStandaloneTask('${fid}','${ikey}','down')" style="background:none;border:none;color:#bbb;font-size:13px;cursor:pointer;padding:0 4px;line-height:1;font-family:inherit" title="Nach unten">↓</button>
               </div>`:''}
@@ -6273,7 +6272,7 @@ function renderFahrtDetail(){
             <span style="font-size:10px;font-weight:700;color:#4caf50">in</span>
             ${locBadge(group.to)}
           </div>`;
-          tEin.forEach(([ikey,item])=>_renderTItem(ikey,item,'#edf7ee'));
+          tEin.forEach(([ikey,item])=>_renderTItem(ikey,item,'#f0faf2'));
           if(canEdit)html+=_sectionAddBtns('einladen');
         }
         // Ausladen section
@@ -6283,7 +6282,7 @@ function renderFahrtDetail(){
             <span style="font-size:10px;font-weight:700;color:#ef9a9a">in</span>
             ${locBadge(group.to)}
           </div>`;
-          tAus.forEach(([ikey,item])=>_renderTItem(ikey,item,'#fff0f0'));
+          tAus.forEach(([ikey,item])=>_renderTItem(ikey,item,'#fff5f5'));
           if(canEdit&&allEinItems.length>0){
             const ausNames=new Set(tAus.map(([,i])=>i.name));
             html+=`<div style="padding:4px 15px 8px">
@@ -6884,22 +6883,27 @@ function moveStandaloneTask(fid,ikey,dir){
   const f=logistikFahrten[fid]; if(!f)return;
   const items=f.items||{};
   const existingTaskOrder=f.taskOrder||{};
-  // Only timeless standalone tasks can be manually ordered
-  const timeless=Object.entries(items)
-    .filter(([,i])=>i.isTask&&!i.routeKey&&!i.time)
+  // All standalone tasks, sorted same as allEntries (timed first by time, timeless by order)
+  const all=Object.entries(items)
+    .filter(([,i])=>i.isTask&&!i.routeKey)
     .sort((a,b)=>{
+      const ta=a[1].time||'',tb=b[1].time||'';
+      if(ta||tb){
+        if(!ta&&tb)return 1; if(ta&&!tb)return -1;
+        if(ta!==tb)return ta.localeCompare(tb);
+      }
       const oa=existingTaskOrder[a[0]],ob=existingTaskOrder[b[0]];
       if(oa!==undefined&&ob!==undefined)return oa-ob;
       if(oa!==undefined)return -1; if(ob!==undefined)return 1;
       return 0;
     });
-  const idx=timeless.findIndex(([k])=>k===ikey); if(idx===-1)return;
+  const idx=all.findIndex(([k])=>k===ikey); if(idx===-1)return;
   const swapIdx=dir==='up'?idx-1:idx+1;
-  if(swapIdx<0||swapIdx>=timeless.length)return;
+  if(swapIdx<0||swapIdx>=all.length)return;
   const newOrder={};
-  timeless.forEach(([k],i)=>newOrder[k]=i);
+  all.forEach(([k],i)=>newOrder[k]=i);
   newOrder[ikey]=swapIdx;
-  newOrder[timeless[swapIdx][0]]=idx;
+  newOrder[all[swapIdx][0]]=idx;
   if(db)db.ref('/logistikFahrten/'+fid+'/taskOrder').set(newOrder);
 }
 
