@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260623-064';
+      var V='20260623-065';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')===V) return;
       // Fetch with cache:reload primes the CDN, then redirect (no document.write — mobile-safe)
@@ -5890,7 +5890,7 @@ function renderFahrten(){
         <div class="event-date-year">${yr}</div>
       </div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:14px;font-weight:800;color:#1c1c2e;margin-bottom:3px">${f.isRueckfahrt?'<span style="color:#1565c0">↩ Rückfahrt</span>':'Logistikfahrt'}${f.employee?` · ${escHtml(f.employee)}`:''}</div>
+        <div style="font-size:14px;font-weight:800;color:#1c1c2e;margin-bottom:3px">${f.isRueckfahrt?`<span style="color:#1565c0">↩ Rückfahrt${f.rueckfahrtDateType==='spaetestens'?' <span style="font-size:10px;background:#e3f0ff;color:#1565c0;border-radius:6px;padding:1px 6px;font-weight:700">bis spätestens</span>':''}</span>`:'Logistikfahrt'}${f.employee?` · ${escHtml(f.employee)}`:''}</div>
         <div style="font-size:12px;color:#888">${items.length} Artikel &middot; ${isDone?'<span style="color:#2e7d32;font-weight:700">Abgeschlossen</span>':`${checked} abgehakt`}</div>
         ${noDate?'<div style="font-size:11px;color:#ea4335;font-weight:700;margin-top:2px">Datum fehlt</div>':''}
       </div>
@@ -6086,7 +6086,7 @@ function renderFahrtDetail(){
                         <input type="checkbox" ${item.rueckfahrt?'checked':''} onchange="toggleRueckfahrt('${fid}','${ikey}',this.checked)" style="width:13px;height:13px;accent-color:#1565c0">
                         <span style="font-size:11px;color:#555;font-weight:600">Rückfahrt nötig</span>
                       </label>`
-                    :(item.rueckfahrt?`<div style="font-size:10px;color:#bbb;font-weight:400;margin-top:2px">kehrt zurück</div>`:'')}
+                    :(item.rueckfahrt?`<div style="font-size:10px;color:#1565c0;font-weight:700;margin-top:2px">${item.rueckfahrtDate?(item.rueckfahrtDateType==='spaetestens'?'spätestens bis ':'Rückfahrt am ')+new Date(item.rueckfahrtDate+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}):'↩ kehrt zurück'}</div>`:'')}
                 </div>
               </div>
               <div class="task-btns">
@@ -6745,8 +6745,53 @@ function saveAddFahrtTask(){
   toast(text+' hinzugefügt ✓');
 }
 
+let _rueckFid=null,_rueckIkey=null;
 function toggleRueckfahrt(fid,ikey,val){
-  if(db)db.ref('/logistikFahrten/'+fid+'/items/'+ikey+'/rueckfahrt').set(!!val);
+  if(val){
+    _rueckFid=fid; _rueckIkey=ikey;
+    document.getElementById('rueck-item-date').value='';
+    const amRad=document.getElementById('rueck-type-am');
+    if(amRad)amRad.checked=true;
+    openModal('m-rueck-item-date');
+  } else {
+    if(db){
+      db.ref('/logistikFahrten/'+fid+'/items/'+ikey+'/rueckfahrt').set(false);
+      db.ref('/logistikFahrten/'+fid+'/items/'+ikey+'/rueckfahrtDate').remove();
+      db.ref('/logistikFahrten/'+fid+'/items/'+ikey+'/rueckfahrtDateType').remove();
+    }
+  }
+}
+function confirmRueckItemDate(){
+  const date=document.getElementById('rueck-item-date').value;
+  if(!date){toast('Bitte Datum wählen');return;}
+  const typeEl=document.querySelector('input[name="rueck-item-type"]:checked');
+  const type=typeEl?typeEl.value:'am';
+  const fid=_rueckFid, ikey=_rueckIkey;
+  const f=logistikFahrten[fid]; if(!f||!db)return;
+  const item=(f.items||{})[ikey]; if(!item)return;
+  // Save flags on item
+  db.ref('/logistikFahrten/'+fid+'/items/'+ikey).update({rueckfahrt:true,rueckfahrtDate:date,rueckfahrtDateType:type});
+  // Find existing return Fahrt for same date+type
+  const existing=Object.entries(logistikFahrten).find(([rfid,rf])=>
+    rf.isRueckfahrt&&rf.date===date&&rf.rueckfahrtDateType===type
+  );
+  const reversedItem={
+    name:item.name, menge:item.menge||1,
+    from:item.to||'AS', to:item.from||'EG',
+    isCustom:!!item.isCustom, inventoryItemId:item.inventoryItemId||null,
+    checked:false, rueckfahrt:false
+  };
+  if(existing){
+    db.ref('/logistikFahrten/'+existing[0]+'/items').push(reversedItem);
+    toast('Zu bestehender Rückfahrt hinzugefügt ✓');
+  } else {
+    const newF={date,status:'offen',items:{},createdAt:Date.now(),
+      employee:f.employee||'',isRueckfahrt:true,rueckfahrtDateType:type,originalFahrtId:fid};
+    newF.items['item'+Date.now()]=reversedItem;
+    db.ref('/logistikFahrten').push(newF);
+    toast('Rückfahrt angelegt ✓');
+  }
+  closeModal('m-rueck-item-date');
 }
 
 function updateFahrtDate(fid,val){
@@ -7582,6 +7627,33 @@ function saveInventoryItem(){
     <select id="rueck-driver" style="width:100%;border:1.5px solid #e0e0e0;border-radius:12px;padding:13px 14px;font-size:15px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit;box-sizing:border-box;margin-bottom:18px"></select>
     <button class="mbtn" onclick="confirmRueckSetup()">Rückfahrt öffnen ✓</button>
     <button class="mbtn grey" onclick="closeModal('m-rueck-setup');openFahrt(_pendingRueckId)">Später ergänzen</button>
+  </div>
+</div>
+
+<!-- RÜCKFAHRT DATUM MODAL -->
+<div class="overlay" id="m-rueck-item-date">
+  <div class="modal">
+    <h2>↩ Rückfahrt einplanen</h2>
+    <p style="font-size:13px;color:#888;margin-bottom:16px">Wann wird dieser Artikel zurückgefahren?</p>
+    <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:6px">Datum</label>
+    <input type="date" id="rueck-item-date" style="width:100%;border:1.5px solid #e0e0e0;border-radius:12px;padding:13px 14px;font-size:16px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit;box-sizing:border-box;margin-bottom:16px">
+    <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:10px">Art der Rückfahrt</label>
+    <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1.5px solid #e0e0e0;border-radius:10px;cursor:pointer;margin-bottom:8px;font-size:13px;font-weight:700;color:#1c1c2e">
+      <input type="radio" name="rueck-item-type" id="rueck-type-am" value="am" checked style="width:16px;height:16px;accent-color:#1565c0">
+      <div>
+        <div>Fahrt genau an diesem Tag</div>
+        <div style="font-size:11px;font-weight:400;color:#888;margin-top:2px">Fester Termin</div>
+      </div>
+    </label>
+    <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1.5px solid #e0e0e0;border-radius:10px;cursor:pointer;margin-bottom:18px;font-size:13px;font-weight:700;color:#1c1c2e">
+      <input type="radio" name="rueck-item-type" id="rueck-type-spaet" value="spaetestens" style="width:16px;height:16px;accent-color:#1565c0">
+      <div>
+        <div>Spätestens bis zu diesem Datum</div>
+        <div style="font-size:11px;font-weight:400;color:#888;margin-top:2px">Flexibler Termin mit Deadline</div>
+      </div>
+    </label>
+    <button class="mbtn" onclick="confirmRueckItemDate()">Rückfahrt einplanen ✓</button>
+    <button class="mbtn grey" onclick="closeModal('m-rueck-item-date')">Abbrechen</button>
   </div>
 </div>
 
