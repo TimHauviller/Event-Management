@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260623-073';
+      var V='20260623-074';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')===V) return;
       // Fetch with cache:reload primes the CDN, then redirect (no document.write — mobile-safe)
@@ -5742,6 +5742,38 @@ function logistikFahrtAddBtn() {
   openLogistikLeaderPin();
 }
 
+function openNewLgAufgabe(){
+  if(!currentTaskUser){toast('Bitte zuerst einloggen');return;}
+  if(!currentTaskUser.isAdmin&&!logistikLeaderMode){toast('Nur Admins können Aufgaben anlegen');return;}
+  const dateEl=document.getElementById('lga-date');
+  if(dateEl)dateEl.value=new Date().toISOString().split('T')[0];
+  const nameEl=document.getElementById('lga-name');
+  if(nameEl)nameEl.value='';
+  const timeEl=document.getElementById('lga-time');
+  if(timeEl)timeEl.value='';
+  openModal('m-lg-aufgabe');
+  setTimeout(()=>nameEl&&nameEl.focus(),100);
+}
+function saveLgAufgabe(){
+  const name=(document.getElementById('lga-name').value||'').trim();
+  if(!name){toast('Bitte Beschreibung eingeben');return;}
+  const date=document.getElementById('lga-date').value||'';
+  const time=document.getElementById('lga-time').value||'';
+  const entry={type:'aufgabe',name,date,checked:false,createdAt:Date.now()};
+  if(time)entry.time=time;
+  if(db)db.ref('/logistikFahrten').push(entry).then(()=>toast('Aufgabe angelegt'));
+  closeModal('m-lg-aufgabe');
+}
+function toggleLgAufgabe(id){
+  const f=logistikFahrten[id]; if(!f)return;
+  if(db)db.ref('/logistikFahrten/'+id+'/checked').set(!f.checked);
+}
+function deleteLgAufgabe(id){
+  if(!confirm('Aufgabe löschen?'))return;
+  if(db)db.ref('/logistikFahrten/'+id).remove();
+  toast('Aufgabe gelöscht');
+}
+
 function toggleUserAdmin(uid,makeAdmin){
   if(db) db.ref('/taskUsers/'+uid+'/isAdmin').set(makeAdmin||null);
   if(currentTaskUser&&currentTaskUser.uid===uid){currentTaskUser.isAdmin=makeAdmin;localStorage.setItem('task_user',JSON.stringify(currentTaskUser));}
@@ -5829,7 +5861,7 @@ function _updateLgTabs(){
   const fab=document.getElementById('lg-fab');
   // Show FAB for admins and for logistik employees (they PIN-verify on tap)
   const isLgUser = currentTaskUser&&(currentTaskUser.roleLG||currentTaskUser.isAdmin);
-  if(fab)fab.style.display=(isLgUser&&logistikTab==='fahrten')?'':'none';
+  if(fab)fab.style.display=(isLgUser&&logistikTab==='fahrten')?'flex':'none';
 }
 
 function renderLogistik(){
@@ -5859,61 +5891,123 @@ function checkAndArchiveCompletedFahrten(){
 }
 
 // ── FAHRTEN ───────────────────────────────────────────────────────
+function getFahrtNr(fid){
+  const sorted=Object.entries(logistikFahrten)
+    .filter(([,f])=>f.type!=='aufgabe'&&!f.isRueckfahrt&&f.status!=='abgeschlossen')
+    .sort((a,b)=>{
+      const ad=a[1].date||'',bd=b[1].date||'';
+      if(ad!==bd){if(!ad&&bd)return-1;if(ad&&!bd)return 1;return ad.localeCompare(bd);}
+      const at=a[1].startTime||'',bt=b[1].startTime||'';
+      if(at!==bt){if(!at&&bt)return 1;if(at&&!bt)return-1;return at.localeCompare(bt);}
+      return(a[1].createdAt||0)-(b[1].createdAt||0);
+    });
+  const idx=sorted.findIndex(([id])=>id===fid);
+  return idx>=0?idx+1:null;
+}
+
 function renderFahrten(){
   const content=document.getElementById('lg-content'); if(!content)return;
-  // Exclude completed Fahrten — they are archived on navigate-back
-  const fahrten=Object.entries(logistikFahrten).filter(([,f])=>f.status!=='abgeschlossen').sort((a,b)=>{
-    const ad=a[1].date||'', bd=b[1].date||'';
-    if(!ad&&bd)return -1; if(ad&&!bd)return 1;
-    return ad.localeCompare(bd); // ascending: nearest date at top
+  const allEntries=Object.entries(logistikFahrten);
+  const aufgaben=allEntries.filter(([,f])=>f.type==='aufgabe');
+  const fahrten=allEntries.filter(([,f])=>f.type!=='aufgabe'&&f.status!=='abgeschlossen');
+
+  // Sort fahrten: date → startTime → createdAt
+  fahrten.sort((a,b)=>{
+    const ad=a[1].date||'',bd=b[1].date||'';
+    if(ad!==bd){if(!ad&&bd)return-1;if(ad&&!bd)return 1;return ad.localeCompare(bd);}
+    const at=a[1].startTime||'',bt=b[1].startTime||'';
+    if(at!==bt){if(!at&&bt)return 1;if(at&&!bt)return-1;return at.localeCompare(bt);}
+    return(a[1].createdAt||0)-(b[1].createdAt||0);
   });
-  if(fahrten.length===0){
+  // Assign sequential numbers to non-Rückfahrt fahrten
+  let fahrtNrCounter=0;
+  const fahrtNrMap={};
+  fahrten.forEach(([fid,f])=>{if(!f.isRueckfahrt){fahrtNrCounter++;fahrtNrMap[fid]=fahrtNrCounter;}});
+
+  // Sort aufgaben: date → time → createdAt
+  aufgaben.sort((a,b)=>{
+    const ad=a[1].date||'',bd=b[1].date||'';
+    if(ad!==bd){if(!ad&&bd)return-1;if(ad&&!bd)return 1;return ad.localeCompare(bd);}
+    const at=a[1].time||'',bt=b[1].time||'';
+    if(at!==bt){if(!at&&bt)return 1;if(at&&!bt)return-1;return at.localeCompare(bt);}
+    return(a[1].createdAt||0)-(b[1].createdAt||0);
+  });
+
+  if(fahrten.length===0&&aufgaben.length===0){
     content.innerHTML=`<div style="text-align:center;padding:50px 20px;color:#bbb">
-      <div style="font-size:16px;font-weight:700;color:#666">Noch keine Fahrten</div>
-      ${isAdmin?'<div style="font-size:13px;margin-top:6px">Mit dem + Button neue Fahrt anlegen</div>':''}
+      <div style="font-size:16px;font-weight:700;color:#666">Noch keine Fahrten oder Aufgaben</div>
+      ${isAdmin?'<div style="font-size:13px;margin-top:6px">Mit dem + Button neue Fahrt oder Aufgabe anlegen</div>':''}
     </div>`;
     return;
   }
-  let html='<div style="padding:14px;display:flex;flex-direction:column;gap:10px">';
-  fahrten.forEach(([fid,f])=>{
-    const items=Object.values(f.items||{});
-    const checked=items.filter(i=>i.checked).length;
-    const isDone=f.status==='abgeschlossen';
-    const noDate=!f.date;
-    // Date parts like event cards
-    let day='?', mo='', wd='', yr='';
-    if(f.date){
-      const d=new Date(f.date+'T12:00:00');
-      day=d.getDate();
-      mo=d.toLocaleDateString('de-DE',{month:'short'}).toUpperCase();
-      wd=d.toLocaleDateString('de-DE',{weekday:'short'}).toUpperCase();
-      yr=d.getFullYear();
+
+  // Merge all into a single chronological list (per date, then time)
+  const merged=[];
+  aufgaben.forEach(([aid,a])=>merged.push({kind:'aufgabe',id:aid,data:a,sortDate:a.date||'',sortTime:a.time||'',sortCreated:a.createdAt||0}));
+  fahrten.forEach(([fid,f])=>merged.push({kind:'fahrt',id:fid,data:f,sortDate:f.date||'',sortTime:f.startTime||'',sortCreated:f.createdAt||0,nr:fahrtNrMap[fid]}));
+  merged.sort((a,b)=>{
+    if(a.sortDate!==b.sortDate){
+      if(!a.sortDate&&b.sortDate)return-1;if(a.sortDate&&!b.sortDate)return 1;
+      return a.sortDate.localeCompare(b.sortDate);
     }
-    const accentColor=isDone?'#2e7d32':'#1e3a6e';
-    // Build unique routes from items
-    const routePairs=new Set();
-    items.forEach(it=>{
-      const fr=it.from||f.from; const to=it.to||f.to;
-      if(fr&&to)routePairs.add(fr+'→'+to);
-    });
-    const routeBadgesHtml=[...routePairs].map(rk=>{
-      const [fr,to]=rk.split('→');
-      return locRoute(fr,to);
-    }).join('<span style="color:#ccc;margin:0 4px">|</span>');
-    html+=`<div onclick="openFahrt('${fid}')" class="event-card" style="border-left-color:${accentColor}${isDone?';opacity:.7':''}">
-      <div class="event-date-col">
-        <div class="event-date-wd">${wd||'—'}</div>
-        <div class="event-date-day" style="color:${accentColor}">${noDate?'?':day}</div>
-        <div class="event-date-month">${mo}</div>
-        <div class="event-date-year">${yr}</div>
-      </div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:14px;font-weight:800;color:#1c1c2e;margin-bottom:3px">${f.isRueckfahrt?`<span style="color:#1565c0">Rückfahrt${f.rueckfahrtDateType==='spaetestens'?' <span style="font-size:10px;background:#e3f0ff;color:#1565c0;border-radius:6px;padding:1px 6px;font-weight:700">bis spätestens</span>':''}</span>`:'Logistikfahrt'}${f.employee?` · ${escHtml(f.employee)}`:''}</div>
-        <div style="font-size:12px;color:#888">${items.length} Artikel &middot; ${isDone?'<span style="color:#2e7d32;font-weight:700">Abgeschlossen</span>':`${checked} abgehakt`}</div>
-        ${noDate?'<div style="font-size:11px;color:#ea4335;font-weight:700;margin-top:2px">Datum fehlt</div>':''}
-      </div>
-      <div style="color:#ccc;font-size:18px">›</div>
-    </div>`;
+    if(a.sortTime!==b.sortTime){
+      if(!a.sortTime&&b.sortTime)return 1;if(a.sortTime&&!b.sortTime)return-1;
+      return a.sortTime.localeCompare(b.sortTime);
+    }
+    return a.sortCreated-b.sortCreated;
+  });
+
+  let html='<div style="padding:14px;display:flex;flex-direction:column;gap:8px">';
+  merged.forEach(entry=>{
+    if(entry.kind==='aufgabe'){
+      const a=entry.data, aid=entry.id;
+      const canAdmin=isAdmin||logistikLeaderMode;
+      html+=`<div class="task${a.checked?' done':''}" style="padding:12px 14px;background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.07);border-left:3px solid #1e3a6e${a.checked?';opacity:.6':''}">
+        <div class="chk${a.checked?' on':''}" onclick="toggleLgAufgabe('${aid}')"></div>
+        <div class="task-txt" style="min-width:0">
+          <div style="font-size:13px;font-weight:700;color:${a.checked?'#aaa':'#1c1c2e'}">${escHtml(a.name)}</div>
+          <div style="display:flex;gap:6px;align-items:center;margin-top:3px;flex-wrap:wrap">
+            ${a.time?`<span style="font-size:11px;color:#1565c0;font-weight:800">${escHtml(a.time)} Uhr</span>`:''}
+            ${a.date?`<span style="font-size:11px;color:#aaa">${new Date(a.date+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})}</span>`:''}
+            <span style="font-size:10px;background:#e8f0fe;color:#1565c0;border-radius:6px;padding:1px 6px;font-weight:700">Aufgabe</span>
+          </div>
+        </div>
+        ${canAdmin?`<button onclick="event.stopPropagation();deleteLgAufgabe('${aid}')" style="background:none;border:none;color:#ddd;font-size:20px;cursor:pointer;padding:2px 6px;line-height:1">×</button>`:''}
+      </div>`;
+    } else {
+      const f=entry.data, fid=entry.id;
+      const items=Object.values(f.items||{});
+      const checked=items.filter(i=>i.checked).length;
+      const isDone=f.status==='abgeschlossen';
+      const noDate=!f.date;
+      let day='?',mo='',wd='',yr='';
+      if(f.date){
+        const d=new Date(f.date+'T12:00:00');
+        day=d.getDate(); mo=d.toLocaleDateString('de-DE',{month:'short'}).toUpperCase();
+        wd=d.toLocaleDateString('de-DE',{weekday:'short'}).toUpperCase(); yr=d.getFullYear();
+      }
+      const accentColor=isDone?'#2e7d32':'#1e3a6e';
+      const routePairs=new Set();
+      items.forEach(it=>{const fr=it.from||f.from;const to=it.to||f.to;if(fr&&to)routePairs.add(fr+'→'+to);});
+      const routeBadgesHtml=[...routePairs].map(rk=>{const[fr,to]=rk.split('→');return locRoute(fr,to);}).join('<span style="color:#ccc;margin:0 4px">|</span>');
+      const fahrtLabel=f.isRueckfahrt?`<span style="color:#1565c0">Rückfahrt${f.rueckfahrtDateType==='spaetestens'?' <span style="font-size:10px;background:#e3f0ff;color:#1565c0;border-radius:6px;padding:1px 6px;font-weight:700">bis spät.</span>':''}</span>`:`Fahrt ${entry.nr||''}`;
+      html+=`<div onclick="openFahrt('${fid}')" class="event-card" style="border-left-color:${accentColor}${isDone?';opacity:.7':''}">
+        <div class="event-date-col">
+          <div class="event-date-wd">${wd||'—'}</div>
+          <div class="event-date-day" style="color:${accentColor}">${noDate?'?':day}</div>
+          <div class="event-date-month">${mo}</div>
+          <div class="event-date-year">${yr}</div>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:800;color:#1c1c2e;margin-bottom:2px">${fahrtLabel}${f.employee?` · ${escHtml(f.employee)}`:''}</div>
+          ${routeBadgesHtml?`<div style="display:flex;align-items:center;flex-wrap:wrap;gap:2px;margin:2px 0">${routeBadgesHtml}</div>`:''}
+          <div style="font-size:12px;color:#888">${items.length} Artikel &middot; ${isDone?'<span style="color:#2e7d32;font-weight:700">Abgeschlossen</span>':`${checked} abgehakt`}</div>
+          ${noDate?'<div style="font-size:11px;color:#ea4335;font-weight:700;margin-top:2px">Datum fehlt</div>':''}
+          ${f.startTime?`<div style="font-size:11px;color:#1565c0;font-weight:700;margin-top:1px">${escHtml(f.startTime)} Uhr</div>`:''}
+        </div>
+        <div style="color:#ccc;font-size:18px">›</div>
+      </div>`;
+    }
   });
   html+='</div>';
 
@@ -5958,8 +6052,9 @@ function renderFahrten(){
 function openFahrt(fid){
   currentFahrtId=fid;
   const f=logistikFahrten[fid]; if(!f)return;
+  const nr=getFahrtNr(fid);
   const title=document.getElementById('lg-fahrt-title');
-  if(title)title.textContent=(f.isRueckfahrt?'Rückfahrt':'Logistikfahrt')+(f.employee?' · '+f.employee:'');
+  if(title)title.textContent=(f.isRueckfahrt?'Rückfahrt':(nr?'Fahrt '+nr:'Logistikfahrt'))+(f.employee?' · '+f.employee:'');
   const delBtn=document.getElementById('lg-fahrt-del-btn');
   if(delBtn){delBtn.style.display=isAdmin?'':'none';delBtn.onclick=()=>deleteFahrt(fid);}
   showScreen('logistik-fahrt-screen');
@@ -6115,12 +6210,8 @@ function renderFahrtDetail(){
             <input type="time" value="${escHtml(groupTime)}" onchange="updateRouteTime('${fid}','${escHtml(rk)}',this.value)" style="border:1px solid #ddd;border-radius:8px;padding:5px 8px;font-size:12px;color:#1565c0;font-weight:700;background:#f8fbff;font-family:inherit;flex:1;max-width:120px">
             ${groupTime?`<button onclick="updateRouteTime('${fid}','${escHtml(rk)}','')" style="background:none;border:none;color:#bbb;font-size:16px;cursor:pointer;padding:0 4px;line-height:1">×</button>`:''}
           </div>`:''}`;
-        // Transport items
-        if(group.tItems.length>0){
-          if(group.tTasks.length>0){
-            html+=`<div style="padding:5px 15px 2px;font-size:10px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:.5px">Transport</div>`;
-          }
-          group.tItems.forEach(([ikey,item])=>{
+        // Transport items — split into Einladen / Ausladen
+        const _renderTItem=(ikey,item)=>{
             const invPhoto=item.inventoryItemId?inventoryPhotos[item.inventoryItemId]:null;
             const displayPhoto=item.photo||invPhoto;
             const staffPhoto=item.staffPhoto||null;
@@ -6151,7 +6242,25 @@ function renderFahrtDetail(){
                 ${canEdit?`<button onclick="deleteFahrtItem('${fid}','${ikey}')" style="background:none;border:none;color:#ea4335;font-size:16px;cursor:pointer;padding:2px 4px">×</button>`:''}
               </div>
             </div>`;
-          });
+        };
+        // Split into Einladen / Ausladen
+        const tEin=group.tItems.filter(([,i])=>i.action!=='ausladen');
+        const tAus=group.tItems.filter(([,i])=>i.action==='ausladen');
+        const _sectionAddBtns=(act)=>`<div style="padding:3px 15px 8px;display:flex;gap:6px">
+          <button onclick="openAddFahrtItem('${fid}','inventory','${act}','${escHtml(group.from)}','${escHtml(group.to)}')" style="flex:1;background:#f8f9fa;border:1px dashed #ddd;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;color:#555;cursor:pointer;font-family:inherit">+ Inventar</button>
+          <button onclick="openAddFahrtItem('${fid}','custom','${act}','${escHtml(group.from)}','${escHtml(group.to)}')" style="flex:1;background:#f8f9fa;border:1px dashed #ddd;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;color:#555;cursor:pointer;font-family:inherit">+ Artikel</button>
+        </div>`;
+        // Einladen section
+        if(tEin.length>0||canEdit){
+          html+=`<div style="padding:6px 15px 2px;font-size:10px;font-weight:800;color:#2e7d32;text-transform:uppercase;letter-spacing:.5px;border-top:1px solid #f0f2f5">Einladen</div>`;
+          tEin.forEach(([ikey,item])=>_renderTItem(ikey,item));
+          if(canEdit)html+=_sectionAddBtns('einladen');
+        }
+        // Ausladen section
+        if(tAus.length>0||canEdit){
+          html+=`<div style="padding:6px 15px 2px;font-size:10px;font-weight:800;color:#c62828;text-transform:uppercase;letter-spacing:.5px;border-top:1px solid #f0f2f5">Ausladen</div>`;
+          tAus.forEach(([ikey,item])=>_renderTItem(ikey,item));
+          if(canEdit)html+=_sectionAddBtns('ausladen');
         }
         // Tasks within this route group
         if(group.tTasks.length>0){
@@ -6171,10 +6280,9 @@ function renderFahrtDetail(){
             </div>`;
           });
         }
-        // Add-task button within route group
         if(canEdit){
-          html+=`<div style="padding:8px 15px 10px">
-            <button onclick="openAddFahrtTask('${fid}','${escHtml(rk)}','${escHtml(group.from)}','${escHtml(group.to)}')" style="background:#f0f6ff;border:1px dashed #b3cef0;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;color:#1565c0;cursor:pointer;font-family:inherit;width:100%;text-align:center">+ Aufgabe für diese Route</button>
+          html+=`<div style="padding:6px 15px 10px;border-top:1px solid #f0f2f5">
+            <button onclick="openAddFahrtTask('${fid}','${escHtml(rk)}','${escHtml(group.from)}','${escHtml(group.to)}')" style="background:#f0f6ff;border:1px dashed #b3cef0;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;color:#1565c0;cursor:pointer;font-family:inherit;width:100%;text-align:center">+ Aufgabe vor Ort</button>
           </div>`;
         }
         html+=`</div></div>`;
@@ -6198,8 +6306,8 @@ function renderFahrtDetail(){
     const _abtnS='flex:1;background:#f0f2f5;border:none;border-radius:10px;padding:10px 6px;font-size:12px;font-weight:700;color:#1e3a6e;cursor:pointer;font-family:inherit;text-align:center';
     addBtns.innerHTML=canEdit?`
       <div style="padding:0 14px 8px;display:flex;gap:6px">
-        <button onclick="openAddFahrtItem('${fid}','inventory')" style="${_abtnS}">+ Inventar</button>
-        <button onclick="openAddFahrtItem('${fid}','custom')" style="${_abtnS}">+ Artikel</button>
+        <button onclick="openAddFahrtItem('${fid}','inventory','einladen')" style="${_abtnS}">+ Inventar</button>
+        <button onclick="openAddFahrtItem('${fid}','custom','einladen')" style="${_abtnS}">+ Artikel</button>
         <button onclick="openAddFahrtTask('${fid}')" style="${_abtnS}">+ Aufgabe</button>
       </div>
     `:'';
@@ -6468,7 +6576,10 @@ function renderNewFahrtItems(){
           ${displayPhoto?`<img src="${displayPhoto}" style="width:40px;height:40px;object-fit:cover;border-radius:8px;flex-shrink:0">`:''}
           <div style="flex:1;min-width:0">
             <div style="font-weight:700;font-size:13px">${escHtml(it.name)}</div>
-            ${it.menge>1?`<div style="font-size:11px;color:#aaa">${it.menge}×</div>`:''}
+            <div style="display:flex;gap:6px;align-items:center;margin-top:2px">
+              ${it.menge>1?`<span style="font-size:11px;color:#aaa">${it.menge}×</span>`:''}
+              ${it.action==='ausladen'?`<span style="font-size:10px;background:#ffeaea;color:#c62828;border-radius:6px;padding:1px 6px;font-weight:700">Ausladen</span>`:`<span style="font-size:10px;background:#eafaf1;color:#2e7d32;border-radius:6px;padding:1px 6px;font-weight:700">Einladen</span>`}
+            </div>
           </div>
           <button onclick="_newFahrtItems.splice(${it.idx},1);renderNewFahrtItems()" style="background:none;border:none;color:#ea4335;font-size:18px;cursor:pointer;flex-shrink:0;padding:0 2px">×</button>
         </div>
@@ -6530,7 +6641,8 @@ function nfAddInvItem(iid, name){
   const from = getLocValue('nf-inv-from');
   const to   = getLocValue('nf-inv-to');
   if(from===to){toast('Von und Nach müssen verschieden sein');return;}
-  _newFahrtItems.push({name, menge, isCustom:false, inventoryItemId:iid, from, to});
+  const nfInvAction=document.querySelector('input[name="nf-inv-action"]:checked')?.value||'einladen';
+  _newFahrtItems.push({name, menge, isCustom:false, inventoryItemId:iid, from, to, action:nfInvAction});
   renderNewFahrtItems();
   closeModal('m-nf-inv-picker');
   toast(name+' hinzugefügt');
@@ -6543,7 +6655,8 @@ function nfAddCustomItem(){
   const to   = getLocValue('nf-custom-to');
   if(!name){toast('Bitte Bezeichnung eingeben');return;}
   if(from===to){toast('Von und Nach müssen verschieden sein');return;}
-  _newFahrtItems.push({name, menge, isCustom:true, from, to});
+  const nfCustomAction=document.querySelector('input[name="nf-custom-action"]:checked')?.value||'einladen';
+  _newFahrtItems.push({name, menge, isCustom:true, from, to, action:nfCustomAction});
   renderNewFahrtItems();
   closeModal('m-nf-custom-item');
   document.getElementById('nf-custom-name').value='';
@@ -6598,6 +6711,7 @@ function saveNewFahrt(){
         from:it.from||'AS', to:it.to||'LS',
         isCustom:!!it.isCustom, inventoryItemId:it.inventoryItemId||null,
         checked:false, rueckfahrt:!!it.rueckfahrt,
+        action:it.action||'einladen',
         ...(it.photo?{photo:it.photo}:{})
       };
     }
@@ -6620,14 +6734,26 @@ function deleteFahrt(fid){
   toast('Fahrt gelöscht');
 }
 
-let _addFahrtId=null,_addFahrtRouteKey=null,_addFahrtRouteFrom=null,_addFahrtRouteTo=null;
-function openAddFahrtItem(fid,type){
+let _addFahrtId=null,_addFahrtRouteKey=null,_addFahrtRouteFrom=null,_addFahrtRouteTo=null,_addFahrtAction='einladen';
+function openAddFahrtItem(fid,type,action,from,to){
   _addFahrtId=fid;
+  _addFahrtAction=action||'einladen';
+  _addFahrtRouteFrom=from||null;
+  _addFahrtRouteTo=to||null;
+  const actionLabel=_addFahrtAction==='ausladen'?'Ausladen':'Einladen';
   if(type==='custom'){
     document.getElementById('afi-name').value='';
     document.getElementById('afi-menge').value='1';
+    const titleEl=document.querySelector('#m-add-fahrt-item-custom h2');
+    if(titleEl)titleEl.textContent='+ '+actionLabel+' (Eigener Artikel)';
+    if(from){const s=document.getElementById('afi-from');if(s){s.value=from;handleLocSelectChange('afi-from');}}
+    if(to){const s=document.getElementById('afi-to');if(s){s.value=to;handleLocSelectChange('afi-to');}}
     openModal('m-add-fahrt-item-custom');
   } else {
+    const titleEl=document.querySelector('#m-add-fahrt-item-inv h2');
+    if(titleEl)titleEl.textContent='+ '+actionLabel+' (Inventar)';
+    if(from){const s=document.getElementById('afi-inv-from');if(s){s.value=from;handleLocSelectChange('afi-inv-from');}}
+    if(to){const s=document.getElementById('afi-inv-to');if(s){s.value=to;handleLocSelectChange('afi-inv-to');}}
     renderInventoryPicker(fid);
     openModal('m-add-fahrt-item-inv');
   }
@@ -6661,7 +6787,7 @@ function addFahrtInventoryItem(fid,iid){
   const to=getLocValue('afi-inv-to');
   const rueckfahrt=!!(document.getElementById('afi-inv-rueck')||{}).checked;
   const comment=((document.getElementById('afi-inv-comment')||{}).value||'').trim();
-  const newItem={name:item.name,menge,from,to,checked:false,isCustom:false,inventoryItemId:iid,rueckfahrt};
+  const newItem={name:item.name,menge,from,to,checked:false,isCustom:false,inventoryItemId:iid,rueckfahrt,action:_addFahrtAction||'einladen'};
   if(comment)newItem.comment=comment;
   if(db)db.ref('/logistikFahrten/'+fid+'/items').push(newItem);
   const commentEl=document.getElementById('afi-inv-comment');
@@ -6677,7 +6803,7 @@ function addFahrtCustomItem(){
   const rueckfahrt=!!(document.getElementById('afi-rueck')||{}).checked;
   const comment=((document.getElementById('afi-comment')||{}).value||'').trim();
   if(!name){toast('Bitte Bezeichnung eingeben');return;}
-  const newItem={name,menge,from,to,checked:false,isCustom:true,rueckfahrt};
+  const newItem={name,menge,from,to,checked:false,isCustom:true,rueckfahrt,action:_addFahrtAction||'einladen'};
   if(comment)newItem.comment=comment;
   if(_afiPhotoData)newItem.photo=_afiPhotoData;
   if(db)db.ref('/logistikFahrten/'+_addFahrtId+'/items').push(newItem);
@@ -7435,7 +7561,8 @@ function saveInventoryItem(){
     </div>
   </div>
   <div class="main" id="lg-content" style="padding-bottom:80px"></div>
-  <div id="lg-fab" style="display:none;position:fixed;bottom:24px;right:20px;z-index:200">
+  <div id="lg-fab" style="display:none;position:fixed;bottom:24px;right:20px;z-index:200;display:flex;flex-direction:column;align-items:flex-end;gap:8px">
+    <button onclick="openNewLgAufgabe()" style="background:#fff;color:#1e3a6e;border:1.5px solid #1e3a6e;border-radius:20px;padding:8px 16px;font-size:12px;font-weight:800;box-shadow:0 2px 8px rgba(0,0,0,.15);cursor:pointer;font-family:inherit;white-space:nowrap">+ Aufgabe</button>
     <button onclick="logistikFahrtAddBtn()" style="background:#1e3a6e;color:#fff;border:none;border-radius:50%;width:56px;height:56px;font-size:26px;box-shadow:0 4px 16px rgba(0,0,0,.3);cursor:pointer;line-height:1">+</button>
   </div>
 </div>
@@ -7531,6 +7658,21 @@ function saveInventoryItem(){
   </div>
 </div>
 
+<!-- STANDALONE LG AUFGABE MODAL -->
+<div class="overlay" id="m-lg-aufgabe">
+  <div class="modal">
+    <h2>Neue Aufgabe</h2>
+    <label class="tform-lbl">Beschreibung</label>
+    <input type="text" class="tform-input" id="lga-name" placeholder="z.B. Auto abholen" style="font-family:inherit">
+    <label class="tform-lbl">Datum</label>
+    <input type="date" class="tform-input" id="lga-date" style="font-family:inherit">
+    <label class="tform-lbl">Uhrzeit (optional)</label>
+    <input type="time" class="tform-input" id="lga-time" style="font-family:inherit">
+    <button class="mbtn" onclick="saveLgAufgabe()">Speichern</button>
+    <button class="mbtn grey" onclick="closeModal('m-lg-aufgabe')">Abbrechen</button>
+  </div>
+</div>
+
 <!-- NF INVENTORY PICKER MODAL -->
 <div class="overlay" id="m-nf-inv-picker">
   <div class="modal" style="max-height:85vh;display:flex;flex-direction:column">
@@ -7553,7 +7695,19 @@ function saveInventoryItem(){
         <input type="text" id="nf-inv-to-custom" placeholder="Name oder Adresse" style="display:none;margin-top:6px;border:1.5px solid #1565c0;border-radius:10px;padding:8px 10px;font-size:12px;font-family:inherit;box-sizing:border-box">
       </div>
     </div>
-    <div style="margin-bottom:12px"></div>
+    <div style="margin-bottom:8px">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:#888;margin-bottom:6px">Aktion</div>
+      <div style="display:flex;gap:8px">
+        <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:9px;border:1.5px solid #e0e0e0;border-radius:10px;cursor:pointer">
+          <input type="radio" name="nf-inv-action" value="einladen" checked style="accent-color:#2e7d32">
+          <span style="font-size:13px;font-weight:700;color:#2e7d32">Einladen</span>
+        </label>
+        <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:9px;border:1.5px solid #e0e0e0;border-radius:10px;cursor:pointer">
+          <input type="radio" name="nf-inv-action" value="ausladen" style="accent-color:#c62828">
+          <span style="font-size:13px;font-weight:700;color:#c62828">Ausladen</span>
+        </label>
+      </div>
+    </div>
     <div id="nf-inv-picker-list" style="overflow-y:auto;flex:1;margin-bottom:10px"></div>
     <button class="mbtn grey" onclick="closeModal('m-nf-inv-picker')">Schließen</button>
   </div>
@@ -7585,7 +7739,19 @@ function saveInventoryItem(){
         <input type="text" id="nf-custom-to-custom" placeholder="Name oder Adresse" style="display:none;margin-top:6px;border:1.5px solid #1565c0;border-radius:10px;padding:8px 10px;font-size:12px;font-family:inherit;box-sizing:border-box">
       </div>
     </div>
-    <div style="margin-bottom:14px"></div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:#888;margin-bottom:6px">Aktion</div>
+      <div style="display:flex;gap:8px">
+        <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:9px;border:1.5px solid #e0e0e0;border-radius:10px;cursor:pointer">
+          <input type="radio" name="nf-custom-action" value="einladen" checked style="accent-color:#2e7d32">
+          <span style="font-size:13px;font-weight:700;color:#2e7d32">Einladen</span>
+        </label>
+        <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:9px;border:1.5px solid #e0e0e0;border-radius:10px;cursor:pointer">
+          <input type="radio" name="nf-custom-action" value="ausladen" style="accent-color:#c62828">
+          <span style="font-size:13px;font-weight:700;color:#c62828">Ausladen</span>
+        </label>
+      </div>
+    </div>
     <button class="mbtn" onclick="nfAddCustomItem()">Hinzufügen</button>
     <button class="mbtn grey" onclick="closeModal('m-nf-custom-item')">Abbrechen</button>
   </div>
