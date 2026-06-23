@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260620-056';
+      var V='20260620-057';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')===V) return;
       // Fetch with cache:reload primes the CDN, then redirect (no document.write — mobile-safe)
@@ -6019,6 +6019,7 @@ function renderFahrtDetail(){
                   <div class="task-de">
                     ${escHtml(item.name)}${item.menge&&item.menge>1?`<span style="color:#555;font-size:11px;font-weight:700;margin-left:6px">${item.menge}×</span>`:''}
                   </div>
+                  ${item.itemTime?`<div style="font-size:10px;color:#1565c0;font-weight:700;margin-top:2px">ab ${escHtml(item.itemTime)} Uhr</div>`:''}
                   ${item.comment?`<div style="font-size:11px;color:#888;margin-top:2px;font-style:italic">${escHtml(item.comment)}</div>`:''}
                   ${item.staffComment?`<div style="font-size:11px;color:#ea4335;font-weight:700;margin-top:2px">${escHtml(item.staffComment)}</div>`:''}
                   ${canEdit
@@ -6035,9 +6036,6 @@ function renderFahrtDetail(){
               </div>
             </div>`;
           });
-          if(canEdit){
-            html+=`<div class="add-task-row" style="display:block;padding:8px 14px;border-top:1px solid #f5f5f5"><button class="add-task-inner-btn" onclick="openAddFahrtItem('${fid}','inventory')">+ Aus Inventar</button> <button class="add-task-inner-btn" onclick="openAddFahrtItem('${fid}','custom')">+ Eigener Artikel</button></div>`;
-          }
           html+=`</div></div>`;
         });
       }
@@ -6086,11 +6084,12 @@ function renderFahrtDetail(){
   // Add buttons — global (for empty fahrt or when no route exists yet)
   const addBtns=document.getElementById('lg-fahrt-add-btns');
   if(addBtns){
+    const _abtnS='flex:1;background:#f0f2f5;border:none;border-radius:10px;padding:10px 6px;font-size:12px;font-weight:700;color:#1e3a6e;cursor:pointer;font-family:inherit;text-align:center';
     addBtns.innerHTML=canEdit?`
-      <div style="padding:0 15px 8px;display:flex;gap:8px;flex-wrap:wrap">
-        <button onclick="openAddFahrtItem('${fid}','inventory')" style="flex:1;min-width:120px;background:#e8edf8;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:700;color:#1e3a6e;cursor:pointer">+ Aus Inventar</button>
-        <button onclick="openAddFahrtItem('${fid}','custom')" style="flex:1;min-width:120px;background:#f8f9fa;border:1.5px dashed #ddd;border-radius:10px;padding:11px;font-size:13px;font-weight:700;color:#555;cursor:pointer">+ Eigener Artikel</button>
-        <button onclick="openAddFahrtTask('${fid}')" style="flex:1;min-width:120px;background:#e8f0fe;border:1.5px solid #1565c0;border-radius:10px;padding:11px;font-size:13px;font-weight:700;color:#1565c0;cursor:pointer">+ Aufgabe</button>
+      <div style="padding:0 14px 8px;display:flex;gap:6px">
+        <button onclick="openAddFahrtItem('${fid}','inventory')" style="${_abtnS}">+ Inventar</button>
+        <button onclick="openAddFahrtItem('${fid}','custom')" style="${_abtnS}">+ Artikel</button>
+        <button onclick="openAddFahrtTask('${fid}')" style="${_abtnS}">+ Aufgabe</button>
       </div>
     `:'';
   }
@@ -6683,6 +6682,59 @@ function openItemActions(fid,ikey){
   openModal('m-item-actions');
 }
 
+function itemActionEdit(){
+  closeModal('m-item-actions');
+  const f=logistikFahrten[_iakFid]; if(!f)return;
+  const item=(f.items||{})[_iakKey]; if(!item)return;
+  // Populate edit modal
+  document.getElementById('efi-name').value=item.name||'';
+  document.getElementById('efi-menge').value=item.menge||1;
+  document.getElementById('efi-time').value=item.itemTime||'';
+  document.getElementById('efi-rueck').checked=!!item.rueckfahrt;
+  document.getElementById('efi-comment').value=item.comment||'';
+  // Route from
+  const fromSel=document.getElementById('efi-from');
+  const fromCustom=document.getElementById('efi-from-custom');
+  const knownFrom=['AS','EG','LS'].includes(item.from||'');
+  fromSel.value=knownFrom?(item.from||'AS'):'__custom__';
+  fromCustom.style.display=knownFrom?'none':'block';
+  fromCustom.value=knownFrom?'':(item.from||'');
+  // Route to
+  const toSel=document.getElementById('efi-to');
+  const toCustom=document.getElementById('efi-to-custom');
+  const knownTo=['AS','EG','LS'].includes(item.to||'');
+  toSel.value=knownTo?(item.to||'LS'):'__custom__';
+  toCustom.style.display=knownTo?'none':'block';
+  toCustom.value=knownTo?'':(item.to||'');
+  openModal('m-edit-fahrt-item');
+}
+function saveEditFahrtItem(){
+  const f=logistikFahrten[_iakFid]; if(!f)return;
+  const item=(f.items||{})[_iakKey]; if(!item)return;
+  const name=document.getElementById('efi-name').value.trim();
+  if(!name){toast('Bezeichnung eingeben');return;}
+  const menge=Math.max(1,parseInt(document.getElementById('efi-menge').value)||1);
+  const from=getLocValue('efi-from');
+  const to=getLocValue('efi-to');
+  if(from===to){toast('Von und Nach müssen verschieden sein');return;}
+  const time=(document.getElementById('efi-time').value||'').trim();
+  const rueckfahrt=document.getElementById('efi-rueck').checked;
+  const comment=document.getElementById('efi-comment').value.trim();
+  const updates={
+    [`/logistikFahrten/${_iakFid}/items/${_iakKey}/name`]:name,
+    [`/logistikFahrten/${_iakFid}/items/${_iakKey}/menge`]:menge,
+    [`/logistikFahrten/${_iakFid}/items/${_iakKey}/from`]:from,
+    [`/logistikFahrten/${_iakFid}/items/${_iakKey}/to`]:to,
+    [`/logistikFahrten/${_iakFid}/items/${_iakKey}/rueckfahrt`]:rueckfahrt,
+  };
+  if(time) updates[`/logistikFahrten/${_iakFid}/items/${_iakKey}/itemTime`]=time;
+  else if(item.itemTime) updates[`/logistikFahrten/${_iakFid}/items/${_iakKey}/itemTime`]=null;
+  if(comment) updates[`/logistikFahrten/${_iakFid}/items/${_iakKey}/comment`]=comment;
+  else if(item.comment) updates[`/logistikFahrten/${_iakFid}/items/${_iakKey}/comment`]=null;
+  if(db) db.ref('/').update(updates);
+  closeModal('m-edit-fahrt-item');
+  toast('Gespeichert ✓');
+}
 function itemActionComment(){
   closeModal('m-item-actions');
   const f=logistikFahrten[_iakFid]; if(!f)return;
@@ -7430,11 +7482,50 @@ function saveInventoryItem(){
 <!-- ITEM ACTIONS MODAL (···) -->
 <div class="overlay" id="m-item-actions">
   <div class="modal">
-    <h2>Mitarbeiter-Hinweis</h2>
-    <p style="font-size:12px;color:#888;margin-bottom:14px">Kommentar oder Foto werden rot hervorgehoben.</p>
-    <button class="mbtn" onclick="itemActionComment()">Kommentar hinzufügen</button>
-    <button class="mbtn" onclick="itemActionPhoto()">Foto hinzufügen</button>
+    <h2>Artikel bearbeiten</h2>
+    <button class="mbtn" onclick="itemActionEdit()">Bearbeiten</button>
+    <button class="mbtn" onclick="itemActionComment()">Mitarbeiter-Kommentar</button>
+    <button class="mbtn" onclick="itemActionPhoto()">Mitarbeiter-Foto</button>
     <button class="mbtn grey" onclick="closeModal('m-item-actions')">Schließen</button>
+  </div>
+</div>
+
+<!-- EDIT FAHRT ITEM MODAL -->
+<div class="overlay" id="m-edit-fahrt-item">
+  <div class="modal">
+    <h2>Artikel bearbeiten</h2>
+    <label class="tform-lbl">Bezeichnung</label>
+    <input type="text" class="tform-input" id="efi-name" style="font-family:inherit">
+    <label class="tform-lbl">Menge</label>
+    <input type="number" class="tform-input" id="efi-menge" min="1" style="font-family:inherit">
+    <label class="tform-lbl">Route</label>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <div style="flex:1;display:flex;flex-direction:column">
+        <select id="efi-from" style="border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit" onchange="handleLocSelectChange('efi-from')">
+          <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
+          <option value="__custom__">Eigene Adresse…</option>
+        </select>
+        <input type="text" id="efi-from-custom" placeholder="Name oder Adresse" style="display:none;margin-top:6px;border:1.5px solid #1565c0;border-radius:10px;padding:8px 10px;font-size:12px;font-family:inherit;box-sizing:border-box">
+      </div>
+      <span style="color:#888;font-weight:700;flex-shrink:0">→</span>
+      <div style="flex:1;display:flex;flex-direction:column">
+        <select id="efi-to" style="border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit" onchange="handleLocSelectChange('efi-to')">
+          <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS" selected>LAKESIDE</option>
+          <option value="__custom__">Eigene Adresse…</option>
+        </select>
+        <input type="text" id="efi-to-custom" placeholder="Name oder Adresse" style="display:none;margin-top:6px;border:1.5px solid #1565c0;border-radius:10px;padding:8px 10px;font-size:12px;font-family:inherit;box-sizing:border-box">
+      </div>
+    </div>
+    <label class="tform-lbl" style="margin-top:8px">Früheste Uhrzeit (optional)</label>
+    <input type="time" id="efi-time" class="tform-input" style="font-family:inherit">
+    <label style="display:flex;align-items:center;gap:8px;margin:10px 0 14px;cursor:pointer">
+      <input type="checkbox" id="efi-rueck" style="width:16px;height:16px;accent-color:#1565c0">
+      <span style="font-size:13px;font-weight:700;color:#555">Rückfahrt nötig</span>
+    </label>
+    <label class="tform-lbl">Admin-Kommentar (für Logistiker)</label>
+    <textarea id="efi-comment" class="tform-input" placeholder="z.B. Steht im Lager hinten links…" style="min-height:60px;resize:vertical;font-family:inherit;margin-bottom:10px"></textarea>
+    <button class="mbtn" onclick="saveEditFahrtItem()">Speichern ✓</button>
+    <button class="mbtn grey" onclick="closeModal('m-edit-fahrt-item')">Abbrechen</button>
   </div>
 </div>
 <input type="file" id="iak-photo-input" accept="image/*" capture="environment" style="display:none" onchange="_iakPhotoSelected(this)">
