@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260623-089';
+      var V='20260623-090';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -6235,13 +6235,21 @@ function renderFahrtDetail(){
         </div>`;
         // Einladen section
         if(tEin.length>0||canEdit){
-          html+=`<div style="padding:6px 15px 2px;font-size:10px;font-weight:800;color:#2e7d32;text-transform:uppercase;letter-spacing:.5px;border-top:1px solid #f0f2f5">Einladen</div>`;
+          html+=`<div style="padding:6px 15px 4px;border-top:1px solid #f0f2f5;display:flex;align-items:center;gap:7px">
+            <span style="font-size:10px;font-weight:800;color:#2e7d32;text-transform:uppercase;letter-spacing:.5px">Einladen</span>
+            <span style="font-size:9px;font-weight:700;color:#888">in</span>
+            ${locBadge(group.to)}
+          </div>`;
           tEin.forEach(([ikey,item])=>_renderTItem(ikey,item));
           if(canEdit)html+=_sectionAddBtns('einladen');
         }
         // Ausladen section
         if(tAus.length>0||(canEdit&&allEinItems.length>0)){
-          html+=`<div style="padding:6px 15px 2px;font-size:10px;font-weight:800;color:#c62828;text-transform:uppercase;letter-spacing:.5px;border-top:1px solid #f0f2f5">Ausladen</div>`;
+          html+=`<div style="padding:6px 15px 4px;border-top:1px solid #f0f2f5;display:flex;align-items:center;gap:7px">
+            <span style="font-size:10px;font-weight:800;color:#c62828;text-transform:uppercase;letter-spacing:.5px">Ausladen</span>
+            <span style="font-size:9px;font-weight:700;color:#888">in</span>
+            ${locBadge(group.to)}
+          </div>`;
           tAus.forEach(([ikey,item])=>_renderTItem(ikey,item));
           if(canEdit&&allEinItems.length>0){
             const ausNames=new Set(tAus.map(([,i])=>i.name));
