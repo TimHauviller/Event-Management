@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260623-076';
+      var V='20260623-077';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')===V) return;
       // Fetch with cache:reload primes the CDN, then redirect (no document.write — mobile-safe)
@@ -5907,11 +5907,12 @@ function getFahrtNr(fid){
 
 function renderFahrten(){
   const content=document.getElementById('lg-content'); if(!content)return;
+  const MO=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  const WD=['So','Mo','Di','Mi','Do','Fr','Sa'];
   const allEntries=Object.entries(logistikFahrten);
-  const aufgaben=allEntries.filter(([,f])=>f.type==='aufgabe');
-  const fahrten=allEntries.filter(([,f])=>f.type!=='aufgabe'&&f.status!=='abgeschlossen');
+  const active=allEntries.filter(([,f])=>f.type==='aufgabe'||(f.type!=='aufgabe'&&f.status!=='abgeschlossen'));
 
-  if(fahrten.length===0&&aufgaben.length===0){
+  if(active.length===0){
     content.innerHTML=`<div style="text-align:center;padding:50px 20px;color:#bbb">
       <div style="font-size:16px;font-weight:700;color:#666">Noch keine Fahrten oder Aufgaben</div>
       ${isAdmin?'<div style="font-size:13px;margin-top:6px">Mit dem + Button neue Fahrt oder Aufgabe anlegen</div>':''}
@@ -5919,76 +5920,68 @@ function renderFahrten(){
     return;
   }
 
-  // Group all entries by date key
-  const byDate={};
-  const addToDate=(dk,entry)=>{if(!byDate[dk])byDate[dk]=[];byDate[dk].push(entry);};
-  fahrten.forEach(([fid,f])=>addToDate(f.date||'__nodate__',{kind:'fahrt',id:fid,data:f,sortTime:f.startTime||'',sortCreated:f.createdAt||0}));
-  aufgaben.forEach(([aid,a])=>addToDate(a.date||'__nodate__',{kind:'aufgabe',id:aid,data:a,sortTime:a.time||'',sortCreated:a.createdAt||0}));
-
-  // Sort within each date by time → createdAt; number fahrten per date
-  Object.values(byDate).forEach(list=>{
-    list.sort((a,b)=>{
-      if(a.sortTime!==b.sortTime){if(!a.sortTime&&b.sortTime)return 1;if(a.sortTime&&!b.sortTime)return-1;return a.sortTime.localeCompare(b.sortTime);}
-      return a.sortCreated-b.sortCreated;
-    });
-    let nr=0;
-    list.forEach(e=>{if(e.kind==='fahrt'&&!e.data.isRueckfahrt){nr++;e.nr=nr;}});
-  });
-
-  // Sort dates ascending
-  const sortedDates=Object.keys(byDate).sort((a,b)=>{
-    if(a==='__nodate__')return-1; if(b==='__nodate__')return 1; return a.localeCompare(b);
+  // Sort all entries chronologically: date → time → createdAt
+  active.sort((a,b)=>{
+    const ad=a[1].date||'',bd=b[1].date||'';
+    if(ad!==bd){if(!ad&&bd)return-1;if(ad&&!bd)return 1;return ad.localeCompare(bd);}
+    const at=(a[1].type==='aufgabe'?a[1].time:a[1].startTime)||'';
+    const bt=(b[1].type==='aufgabe'?b[1].time:b[1].startTime)||'';
+    if(at!==bt){if(!at&&bt)return 1;if(at&&!bt)return-1;return at.localeCompare(bt);}
+    return(a[1].createdAt||0)-(b[1].createdAt||0);
   });
 
   const canAdmin=isAdmin||logistikLeaderMode;
-  let html='<div style="padding:14px;display:flex;flex-direction:column;gap:12px">';
-  sortedDates.forEach(dk=>{
-    const entries=byDate[dk];
-    let dateLabel='Ohne Datum';
-    if(dk!=='__nodate__'){
-      const d=new Date(dk+'T12:00:00');
-      const wd=d.toLocaleDateString('de-DE',{weekday:'long'});
-      dateLabel=wd.charAt(0).toUpperCase()+wd.slice(1)+', '+d.toLocaleDateString('de-DE',{day:'2-digit',month:'long',year:'numeric'});
-    }
-    html+=`<div style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,.08)">
-      <div style="background:#1e3a6e;color:#fff;padding:10px 16px;font-size:13px;font-weight:800">${escHtml(dateLabel)}</div>`;
-    entries.forEach(entry=>{
-      if(entry.kind==='aufgabe'){
-        const a=entry.data,aid=entry.id;
-        html+=`<div class="task${a.checked?' done':''}" style="padding:11px 16px;border-bottom:1px solid #f0f2f5${a.checked?';opacity:.55':''}">
-          <div class="chk${a.checked?' on':''}" onclick="toggleLgAufgabe('${aid}')"></div>
-          <div class="task-txt" style="min-width:0">
-            <div style="font-size:13px;font-weight:700;color:${a.checked?'#aaa':'#1c1c2e'}">${escHtml(a.name)}</div>
-            <div style="display:flex;gap:6px;align-items:center;margin-top:2px;flex-wrap:wrap">
-              ${a.time?`<span style="font-size:11px;color:#1565c0;font-weight:700">${escHtml(a.time)} Uhr</span>`:''}
+  let html='<div class="events-list" style="padding:14px">';
+
+  active.forEach(([eid,e])=>{
+    let day='—',mo='',wd='',yr='';
+    if(e.date){const d=new Date(e.date+'T12:00:00');day=d.getDate();mo=MO[d.getMonth()];yr=d.getFullYear();wd=WD[d.getDay()];}
+    if(e.type==='aufgabe'){
+      html+=`<div class="event-card${e.checked?' done':''}" style="border-left-color:#1e3a6e;${e.checked?'opacity:.55':''}">
+        <div class="event-date-col">
+          <div class="event-date-wd">${wd}</div>
+          <div class="event-date-day" style="color:#1e3a6e">${day}</div>
+          <div class="event-date-month">${mo}</div>
+          <div class="event-date-year">${yr}</div>
+        </div>
+        <div style="flex:1;min-width:0;display:flex;align-items:center;gap:10px">
+          <div class="chk${e.checked?' on':''}" onclick="toggleLgAufgabe('${eid}')"></div>
+          <div style="min-width:0;flex:1">
+            <div style="font-size:14px;font-weight:700;color:${e.checked?'#aaa':'#1c1c2e'}">${escHtml(e.name)}</div>
+            <div class="event-meta-row" style="margin-top:3px">
+              ${e.time?`<span style="font-size:11px;color:#1565c0;font-weight:700">${escHtml(e.time)} Uhr</span>`:''}
               <span style="font-size:10px;background:#e8f0fe;color:#1565c0;border-radius:6px;padding:1px 6px;font-weight:700">Aufgabe</span>
             </div>
           </div>
-          ${canAdmin?`<button onclick="event.stopPropagation();deleteLgAufgabe('${aid}')" style="background:none;border:none;color:#ddd;font-size:20px;cursor:pointer;padding:2px 6px;line-height:1">×</button>`:''}
-        </div>`;
-      } else {
-        const f=entry.data,fid=entry.id;
-        const items=Object.values(f.items||{});
-        const checked=items.filter(i=>i.checked).length;
-        const isDone=f.status==='abgeschlossen';
-        const routePairs=new Set();
-        items.forEach(it=>{const fr=it.from||f.from;const to=it.to||f.to;if(fr&&to)routePairs.add(fr+'→'+to);});
-        const routeHtml=[...routePairs].map(rk=>{const[fr,to]=rk.split('→');return locRoute(fr,to);}).join('<span style="color:#ccc;margin:0 3px;font-size:11px">·</span>');
-        html+=`<div onclick="openFahrt('${fid}')" style="padding:11px 16px;border-bottom:1px solid #f0f2f5;display:flex;align-items:center;gap:10px;cursor:pointer;${isDone?'opacity:.6':''}">
-          <div style="flex:1;min-width:0">
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
-              ${f.isRueckfahrt?`<span style="font-size:12px;font-weight:800;color:#555;background:#f0f0f0;border-radius:6px;padding:2px 8px">Rückfahrt</span>`:''}
-              ${f.startTime?`<span style="font-size:12px;color:#1565c0;font-weight:700">${escHtml(f.startTime)} Uhr</span>`:''}
-              ${f.employee?`<span style="font-size:11px;color:#888">${escHtml(f.employee)}</span>`:''}
-            </div>
-            ${routeHtml?`<div style="display:flex;align-items:center;flex-wrap:wrap;gap:2px;margin-bottom:3px">${routeHtml}</div>`:''}
-            <div style="font-size:11px;color:#aaa">${items.length} Artikel · ${isDone?'<span style="color:#2e7d32;font-weight:700">Abgeschlossen</span>':`${checked} abgehakt`}</div>
+          ${canAdmin?`<button onclick="event.stopPropagation();deleteLgAufgabe('${eid}')" style="background:none;border:none;color:#ddd;font-size:20px;cursor:pointer;padding:2px 6px;line-height:1;flex-shrink:0">×</button>`:''}
+        </div>
+      </div>`;
+    } else {
+      const items=Object.values(e.items||{});
+      const checked=items.filter(i=>i.checked).length;
+      const isDone=e.status==='abgeschlossen';
+      const routePairs=new Set();
+      items.forEach(it=>{const fr=it.from||e.from;const to=it.to||e.to;if(fr&&to)routePairs.add(fr+'→'+to);});
+      const routeHtml=[...routePairs].map(rk=>{const[fr,to]=rk.split('→');return locRoute(fr,to);}).join('<span style="color:#ccc;margin:0 3px;font-size:11px">·</span>');
+      html+=`<div class="event-card" onclick="openFahrt('${eid}')" style="border-left-color:#1e3a6e;${isDone?'opacity:.6':''}">
+        <div class="event-date-col">
+          <div class="event-date-wd">${wd}</div>
+          <div class="event-date-day" style="color:#1e3a6e">${day}</div>
+          <div class="event-date-month">${mo}</div>
+          <div class="event-date-year">${yr}</div>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div class="event-name" style="font-size:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            ${e.isRueckfahrt?`<span style="font-size:11px;background:#f0f0f0;color:#555;border-radius:5px;padding:1px 6px;font-weight:700">Rückfahrt</span>`:''}
+            ${e.startTime?`<span style="color:#1565c0;font-weight:700;font-size:12px">${escHtml(e.startTime)} Uhr</span>`:''}
+            ${e.employee?`<span style="color:#888;font-size:11px">${escHtml(e.employee)}</span>`:''}
           </div>
-          <div style="color:#ccc;font-size:18px;flex-shrink:0">›</div>
-        </div>`;
-      }
-    });
-    html+=`</div>`;
+          ${routeHtml?`<div class="event-meta-row" style="margin-top:4px">${routeHtml}</div>`:''}
+          <div style="font-size:11px;color:#aaa;margin-top:3px">${items.length} Artikel · ${isDone?'<span style="color:#2e7d32;font-weight:700">Abgeschlossen</span>':`${checked} abgehakt`}</div>
+        </div>
+        <div style="color:#ccc;font-size:18px;flex-shrink:0">›</div>
+      </div>`;
+    }
   });
   html+='</div>';
 
