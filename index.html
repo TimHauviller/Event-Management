@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260623-072';
+      var V='20260623-073';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')===V) return;
       // Fetch with cache:reload primes the CDN, then redirect (no document.write — mobile-safe)
@@ -6025,7 +6025,6 @@ function renderFahrtDetail(){
       </select>`
       :`<div style="${_valStyle};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(f.employee||'—')}</div>`}
     </div>
-    <button onclick="toggleFahrtEditMode()" style="position:absolute;top:6px;right:8px;background:none;border:1px solid ${canEdit?'#e65100':'#c8c8c8'};color:${canEdit?'#e65100':'#aaa'};font-size:10px;font-weight:700;cursor:pointer;padding:2px 7px;border-radius:6px;font-family:inherit;line-height:1.4">${canEdit?'Fertig':'Bearb.'}</button>
   `;
 
   // Items grouped by route (sorted by route time); tasks shown inside their route group
@@ -6700,12 +6699,18 @@ function uploadFahrtItemPhoto(fid,ikey,input){
 
 let _fahrtEditMode = false;
 
+const _pencilSvg=`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>`;
 function toggleFahrtEditMode(){
   _fahrtEditMode = !_fahrtEditMode;
   const btn = document.getElementById('lg-fahrt-edit-btn');
   if(btn){
-    btn.textContent = _fahrtEditMode ? 'Fertig' : 'Bearbeiten';
-    btn.style.background = _fahrtEditMode ? '#e65100' : 'rgba(255,255,255,.15)';
+    if(_fahrtEditMode){
+      btn.textContent='Fertig';
+      btn.style.cssText='background:#e65100;border:none;color:#fff;font-size:12px;font-weight:800;cursor:pointer;padding:5px 12px;border-radius:8px;font-family:inherit';
+    } else {
+      btn.innerHTML=_pencilSvg;
+      btn.style.cssText='background:rgba(255,255,255,.15);border:none;color:#fff;cursor:pointer;padding:6px 8px;border-radius:8px;line-height:0;display:flex;align-items:center;justify-content:center';
+    }
   }
   if(currentFahrtId) renderFahrtDetail();
 }
@@ -7460,7 +7465,7 @@ function saveInventoryItem(){
     <div class="order-hdr-top">
       <button class="back-btn" onclick="goToFahrten()">← Fahrten</button>
       <div class="order-hdr-title" id="lg-fahrt-title">Fahrt</div>
-      <button id="lg-fahrt-edit-btn" onclick="toggleFahrtEditMode()" style="background:rgba(255,255,255,.15);border:none;color:#fff;font-size:12px;font-weight:800;cursor:pointer;padding:6px 12px;border-radius:8px;font-family:inherit">Bearbeiten</button>
+      <button id="lg-fahrt-edit-btn" onclick="toggleFahrtEditMode()" style="background:rgba(255,255,255,.15);border:none;color:#fff;cursor:pointer;padding:6px 8px;border-radius:8px;line-height:0;display:flex;align-items:center;justify-content:center"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>
       <button id="lg-fahrt-del-btn" onclick="" style="display:none;background:none;border:none;color:rgba(255,255,255,.7);font-size:20px;cursor:pointer;padding:0 4px">×</button>
     </div>
     <div style="background:rgba(255,255,255,.18);height:3px;margin:2px 16px 0;border-radius:2px"><div id="lg-fahrt-prog-bar" style="height:3px;background:#fff;border-radius:2px;transition:width .4s;width:0%"></div></div>
