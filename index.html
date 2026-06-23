@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260623-081';
+      var V='20260623-082';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -5977,12 +5977,10 @@ function renderFahrten(){
           <div class="event-date-year">${yr}</div>
         </div>
         <div style="flex:1;min-width:0">
-          <div class="event-name" style="font-size:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-            ${e.isRueckfahrt?`<span style="font-size:11px;background:#f0f0f0;color:#555;border-radius:5px;padding:1px 6px;font-weight:700">Rückfahrt</span>`:''}
-            ${e.startTime?`<span style="color:#1565c0;font-weight:700;font-size:12px">${escHtml(e.startTime)} Uhr</span>`:''}
-            ${e.employee?`<span style="color:#888;font-size:11px">${escHtml(e.employee)}</span>`:''}
+          <div class="event-name" style="font-size:14px;font-weight:700;color:#1c1c2e">
+            ${e.isRueckfahrt?'Rückfahrt':'Logistikfahrt'}
           </div>
-          ${routeHtml?`<div class="event-meta-row" style="margin-top:4px">${routeHtml}</div>`:''}
+          ${e.employee?`<div style="font-size:12px;color:#888;margin-top:2px">${escHtml(e.employee)}</div>`:''}
           <div style="font-size:11px;color:#aaa;margin-top:3px">${items.length} Artikel · ${isDone?'<span style="color:#2e7d32;font-weight:700">Abgeschlossen</span>':`${checked} abgehakt`}</div>
         </div>
         <div style="color:#ccc;font-size:18px;flex-shrink:0">›</div>
@@ -6669,6 +6667,8 @@ function openNfCustomModal(){
 function openNfTaskModal(){
   document.getElementById('nf-task-text').value='';
   document.getElementById('nf-task-time').value='';
+  const noteEl=document.getElementById('nf-task-note');
+  if(noteEl)noteEl.value='';
   const sel=document.getElementById('nf-task-at');
   if(sel){sel.value='AS';handleLocSelectChange('nf-task-at');}
   openModal('m-nf-task');
@@ -6679,7 +6679,10 @@ function nfAddTask(){
   if(!text){toast('Bitte Aufgabe eingeben');return;}
   const at=getLocValue('nf-task-at');
   const time=(document.getElementById('nf-task-time').value||'').trim();
-  _newFahrtItems.push({isTask:true, name:text, at, time, from:at, to:at});
+  const note=((document.getElementById('nf-task-note')||{}).value||'').trim();
+  const item={isTask:true, name:text, at, time, from:at, to:at};
+  if(note)item.comment=note;
+  _newFahrtItems.push(item);
   renderNewFahrtItems();
   closeModal('m-nf-task');
   toast(text+' hinzugefügt');
@@ -7778,6 +7781,8 @@ function saveInventoryItem(){
     </div>
     <label class="tform-lbl">Früheste Uhrzeit (optional)</label>
     <input type="time" id="nf-task-time" class="tform-input" style="font-family:inherit">
+    <label class="tform-lbl">Notiz (optional)</label>
+    <textarea class="tform-input" id="nf-task-note" rows="2" placeholder="Zusätzliche Infos..." style="font-family:inherit;resize:vertical"></textarea>
     <button class="mbtn" onclick="nfAddTask()">Hinzufügen</button>
     <button class="mbtn grey" onclick="closeModal('m-nf-task')">Abbrechen</button>
   </div>
