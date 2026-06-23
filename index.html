@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260620-053';
+      var V='20260620-054';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')===V) return;
       // Fetch with cache:reload primes the CDN, then redirect (no document.write — mobile-safe)
@@ -5757,6 +5757,36 @@ function locBadge(loc, large=false){
 function locRoute(from, to, large=false){
   return `<span style="display:inline-flex;align-items:center;gap:5px">${locBadge(from,large)}<span style="color:#aaa;font-weight:700;font-size:${large?'13px':'11px'}">→</span>${locBadge(to,large)}</span>`;
 }
+// Custom location helpers
+function locDisplayName(code){return LG_LOC[code]||INV_LOC_NAMES[code]||code||'?';}
+function handleLocSelectChange(selectId){
+  const sel=document.getElementById(selectId);
+  const inp=document.getElementById(selectId+'-custom');
+  if(!sel||!inp)return;
+  inp.style.display=sel.value==='__custom__'?'block':'none';
+}
+function getLocValue(selectId){
+  const sel=document.getElementById(selectId); if(!sel)return 'AS';
+  if(sel.value==='__custom__'){
+    const inp=document.getElementById(selectId+'-custom');
+    return(inp&&inp.value.trim())||'Eigene Adresse';
+  }
+  return sel.value;
+}
+const _LOC_SEL_STYLE='flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit';
+const _LOC_CUST_STYLE='width:100%;border:1.5px solid #1565c0;border-radius:10px;padding:8px 10px;font-size:12px;color:#1c1c2e;background:#e8f0fe;outline:none;font-family:inherit;box-sizing:border-box;margin-top:6px;display:none';
+function _locSelHtml(id,defVal='AS'){
+  const isC=defVal&&!['AS','EG','LS'].includes(defVal);
+  return `<div style="flex:1;display:flex;flex-direction:column">
+    <select id="${id}" style="${_LOC_SEL_STYLE}" onchange="handleLocSelectChange('${id}')">
+      <option value="AS"${defVal==='AS'?' selected':''}>amSee Leipzig</option>
+      <option value="EG"${defVal==='EG'?' selected':''}>EVENTGIESSEREI</option>
+      <option value="LS"${defVal==='LS'?' selected':''}>LAKESIDE</option>
+      <option value="__custom__"${isC?' selected':''}>Eigene Adresse…</option>
+    </select>
+    <input type="text" id="${id}-custom" placeholder="Name oder Adresse" value="${isC?escHtml(defVal):''}" style="${_LOC_CUST_STYLE}${isC?';display:block':''}">
+  </div>`;
+}
 
 function isLogistikVisible(){return(document.getElementById('logistik-screen')||{style:{}}).style.display==='block';}
 function isFahrtVisible(){return(document.getElementById('logistik-fahrt-screen')||{style:{}}).style.display==='block';}
@@ -5885,11 +5915,23 @@ function renderFahrtDetail(){
   const lgDrivers=Object.values(taskUsers).filter(u=>u.roleLG||u.role==='logistik').sort((a,b)=>(a.name||'').localeCompare(b.name||''));
   if(f.employee&&!lgDrivers.find(u=>u.name===f.employee))lgDrivers.unshift({name:f.employee});
   const driverOpts=lgDrivers.map(u=>`<option value="${escHtml(u.name||u.uid||'')}" ${(u.name||u.uid||'')===(f.employee||'')?'selected':''}>${escHtml(u.name||u.uid||'')}</option>`).join('');
+  const timeLabel = f.allDay===false&&f.startTime ? `ab ${f.startTime} Uhr` : (f.startTime?`ab ${f.startTime} Uhr`:'Ganztägig');
   if(info)info.innerHTML=`
     <div style="flex:1;text-align:center;padding:4px 0">
       <div style="font-size:10px;color:#aaa;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Datum</div>
       ${canEdit?`<input type="date" value="${f.date||''}" onchange="updateFahrtDate('${fid}',this.value)" style="border:none;outline:none;font-weight:800;font-size:13px;color:${noDate?'#ea4335':'#1c1c2e'};background:transparent;text-align:center;font-family:inherit;width:100%;margin-top:2px">`
       :`<div style="font-weight:800;font-size:13px;color:${noDate?'#ea4335':'#1c1c2e'};margin-top:2px">${noDate?'Datum fehlt!':date}</div>`}
+    </div>
+    <div style="width:1px;background:#e8e8e8;align-self:stretch;margin:4px 0"></div>
+    <div style="flex:1;text-align:center;padding:4px 0">
+      <div style="font-size:10px;color:#aaa;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Uhrzeit</div>
+      ${canEdit?`<div style="display:flex;align-items:center;justify-content:center;gap:4px;margin-top:2px;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:10px;color:#888;font-weight:700">
+          <input type="checkbox" ${!f.startTime?'checked':''} onchange="updateFahrtAllDay('${fid}',this.checked)" style="width:13px;height:13px;accent-color:#1565c0">ganztägig
+        </label>
+        ${f.startTime?`<input type="time" value="${f.startTime}" onchange="updateFahrtTime('${fid}',this.value)" style="border:1px solid #ddd;border-radius:6px;padding:2px 5px;font-size:12px;font-weight:700;color:#1c1c2e;font-family:inherit;width:80px">`:``}
+      </div>`
+      :`<div style="font-weight:700;font-size:12px;color:#555;margin-top:2px">${escHtml(timeLabel)}</div>`}
     </div>
     <div style="width:1px;background:#e8e8e8;align-self:stretch;margin:4px 0"></div>
     <div style="flex:1;text-align:center;padding:4px 0">
@@ -5902,98 +5944,130 @@ function renderFahrtDetail(){
     </div>
   `;
 
-  // Items grouped by route
+  // Items grouped by route; tasks in separate section
   const itemsEl=document.getElementById('lg-fahrt-items');
   const items=Object.entries(f.items||{});
+  const transportItems=items.filter(([,i])=>!i.isTask);
+  const taskItems=items.filter(([,i])=>i.isTask);
   if(itemsEl){
-    if(items.length===0){
-      itemsEl.innerHTML='<div style="text-align:center;color:#ccc;font-size:13px;padding:24px">Noch keine Artikel — unten hinzufügen</div>';
+    let html='';
+    if(transportItems.length===0&&taskItems.length===0){
+      html='<div style="text-align:center;color:#ccc;font-size:13px;padding:24px">Noch keine Einträge — unten hinzufügen</div>';
     } else {
-      // Group by from→to (with fallback to top-level from/to for legacy data)
-      const routeGroups={};
-      items.forEach(([ikey,item])=>{
-        const fr=item.from||f.from||'?';
-        const to=item.to||f.to||'?';
-        const rk=fr+'→'+to;
-        if(!routeGroups[rk])routeGroups[rk]={from:fr,to:to,items:[]};
-        routeGroups[rk].items.push([ikey,item]);
-      });
-      let html='';
-      Object.entries(routeGroups).forEach(([rk,group])=>{
-        const frCol=LG_LOC_COLOR[group.from]||'#888';
-        const toCol=LG_LOC_COLOR[group.to]||'#888';
-        const frName=INV_LOC_NAMES[group.from]||group.from;
-        const toName=INV_LOC_NAMES[group.to]||group.to;
-        const grpChecked=group.items.filter(([,i])=>i.checked).length;
-        const grpTotal=group.items.length;
-        const rkId='fcat_'+rk.replace(/[^a-zA-Z0-9]/g,'_');
-        html+=`<div class="cat open" id="${rkId}" style="margin:8px 14px 0;border-radius:10px">
-          <div class="cat-hdr" style="border-left-color:#1e3a6e;padding:10px 14px" onclick="this.closest('.cat').classList.toggle('open')">
-            <div class="cat-title" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-size:12px">
-              <span style="background:#1e3a6e;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px">${escHtml(frName)}</span>
-              <span style="color:#bbb;font-weight:700;font-size:11px">→</span>
-              <span style="background:#1e3a6e;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px">${escHtml(toName)}</span>
+      // Group transport items by from→to
+      if(transportItems.length>0){
+        const routeGroups={};
+        transportItems.forEach(([ikey,item])=>{
+          const fr=item.from||f.from||'?';
+          const to=item.to||f.to||'?';
+          const rk=fr+'→'+to;
+          if(!routeGroups[rk])routeGroups[rk]={from:fr,to:to,items:[]};
+          routeGroups[rk].items.push([ikey,item]);
+        });
+        Object.entries(routeGroups).forEach(([rk,group])=>{
+          const frName=locDisplayName(group.from);
+          const toName=locDisplayName(group.to);
+          const grpChecked=group.items.filter(([,i])=>i.checked).length;
+          const grpTotal=group.items.length;
+          const rkId='fcat_'+rk.replace(/[^a-zA-Z0-9]/g,'_');
+          html+=`<div class="cat open" id="${rkId}" style="margin:8px 14px 0;border-radius:10px">
+            <div class="cat-hdr" style="border-left-color:#1e3a6e;padding:10px 14px" onclick="this.closest('.cat').classList.toggle('open')">
+              <div class="cat-title" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-size:12px">
+                <span style="background:#1e3a6e;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px">${escHtml(frName)}</span>
+                <span style="color:#bbb;font-weight:700;font-size:11px">→</span>
+                <span style="background:#1e3a6e;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px">${escHtml(toName)}</span>
+              </div>
+              <span class="cat-count">${grpChecked}/${grpTotal}</span>
+              <span class="cat-arrow">▾</span>
             </div>
-            <span class="cat-count">${grpChecked}/${grpTotal}</span>
+            <div class="cat-body">`;
+          group.items.forEach(([ikey,item])=>{
+            const invPhoto=item.inventoryItemId?inventoryPhotos[item.inventoryItemId]:null;
+            const displayPhoto=item.photo||invPhoto;
+            const staffPhoto=item.staffPhoto||null;
+            html+=`<div class="task${item.checked?' done':''}" style="padding:10px 15px">
+              <div class="chk${item.checked?' on':''}" onclick="toggleFahrtItem('${fid}','${ikey}')"></div>
+              <div class="task-txt" style="display:flex;align-items:center;gap:8px;min-width:0">
+                <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
+                  ${displayPhoto?`<img src="${displayPhoto}" onclick="event.stopPropagation();openPhotoViewer('${displayPhoto}')" style="width:32px;height:32px;object-fit:cover;border-radius:6px;cursor:zoom-in" title="Artikelfoto">`:''}
+                  ${staffPhoto?`<img src="${staffPhoto}" onclick="event.stopPropagation();openPhotoViewer('${staffPhoto}')" style="width:32px;height:32px;object-fit:cover;border-radius:6px;cursor:zoom-in;border:2px solid #ea4335" title="Mitarbeiter-Foto">`:''}
+                </div>
+                <div style="flex:1;min-width:0">
+                  <div class="task-de">
+                    ${escHtml(item.name)}${item.menge&&item.menge>1?`<span style="color:#555;font-size:11px;font-weight:700;margin-left:6px">${item.menge}×</span>`:''}
+                  </div>
+                  ${item.comment?`<div style="font-size:11px;color:#888;margin-top:2px;font-style:italic">${escHtml(item.comment)}</div>`:''}
+                  ${item.staffComment?`<div style="font-size:11px;color:#ea4335;font-weight:700;margin-top:2px">${escHtml(item.staffComment)}</div>`:''}
+                  ${canEdit
+                    ?`<label style="display:flex;align-items:center;gap:5px;margin-top:4px;cursor:pointer" onclick="event.stopPropagation()">
+                        <input type="checkbox" ${item.rueckfahrt?'checked':''} onchange="toggleRueckfahrt('${fid}','${ikey}',this.checked)" style="width:13px;height:13px;accent-color:#1565c0">
+                        <span style="font-size:11px;color:#555;font-weight:600">Rückfahrt nötig</span>
+                      </label>`
+                    :(item.rueckfahrt?`<div style="font-size:10px;color:#bbb;font-weight:400;margin-top:2px">kehrt zurück</div>`:'')}
+                </div>
+              </div>
+              <div class="task-btns">
+                <button onclick="openItemActions('${fid}','${ikey}')" style="background:none;border:none;color:#bbb;font-size:18px;cursor:pointer;padding:2px 4px;font-weight:700;line-height:1">···</button>
+                ${canEdit?`<button onclick="deleteFahrtItem('${fid}','${ikey}')" style="background:none;border:none;color:#ea4335;font-size:16px;cursor:pointer;padding:2px 4px">×</button>`:''}
+              </div>
+            </div>`;
+          });
+          if(canEdit){
+            html+=`<div class="add-task-row" style="display:block;padding:8px 14px;border-top:1px solid #f5f5f5"><button class="add-task-inner-btn" onclick="openAddFahrtItem('${fid}','inventory')">+ Aus Inventar</button> <button class="add-task-inner-btn" onclick="openAddFahrtItem('${fid}','custom')">+ Eigener Artikel</button></div>`;
+          }
+          html+=`</div></div>`;
+        });
+      }
+      // Task items section
+      if(taskItems.length>0){
+        const tkChecked=taskItems.filter(([,i])=>i.checked).length;
+        html+=`<div class="cat open" id="fcat_tasks" style="margin:8px 14px 0;border-radius:10px">
+          <div class="cat-hdr" style="border-left-color:#1565c0;padding:10px 14px" onclick="this.closest('.cat').classList.toggle('open')">
+            <div class="cat-title" style="display:flex;align-items:center;gap:6px;font-size:12px">
+              <span style="background:#1565c0;color:#fff;font-size:10px;font-weight:800;padding:2px 10px;border-radius:10px">Aufgaben</span>
+            </div>
+            <span class="cat-count">${tkChecked}/${taskItems.length}</span>
             <span class="cat-arrow">▾</span>
           </div>
           <div class="cat-body">`;
-        group.items.forEach(([ikey,item])=>{
-          const invPhoto=item.inventoryItemId?inventoryPhotos[item.inventoryItemId]:null;
-          const displayPhoto=item.photo||invPhoto;
-          const staffPhoto=item.staffPhoto||null;
+        taskItems.forEach(([ikey,item])=>{
           html+=`<div class="task${item.checked?' done':''}" style="padding:10px 15px">
-            <div class="chk${item.checked?' on':''}" onclick="toggleFahrtItem('${fid}','${ikey}')"></div>
-            <div class="task-txt" style="display:flex;align-items:center;gap:8px;min-width:0">
-              <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
-                ${displayPhoto?`<img src="${displayPhoto}" onclick="event.stopPropagation();openPhotoViewer('${displayPhoto}')" style="width:32px;height:32px;object-fit:cover;border-radius:6px;cursor:zoom-in" title="Artikelfoto">`:''}
-                ${staffPhoto?`<img src="${staffPhoto}" onclick="event.stopPropagation();openPhotoViewer('${staffPhoto}')" style="width:32px;height:32px;object-fit:cover;border-radius:6px;cursor:zoom-in;border:2px solid #ea4335" title="Mitarbeiter-Foto">`:''}
-              </div>
-              <div style="flex:1;min-width:0">
-                <div class="task-de">
-                  ${escHtml(item.name)}${item.menge&&item.menge>1?`<span style="color:#555;font-size:11px;font-weight:700;margin-left:6px">${item.menge}×</span>`:''}
-                </div>
-                ${item.comment?`<div style="font-size:11px;color:#888;margin-top:2px;font-style:italic">${escHtml(item.comment)}</div>`:''}
-                ${item.staffComment?`<div style="font-size:11px;color:#ea4335;font-weight:700;margin-top:2px">${escHtml(item.staffComment)}</div>`:''}
-                ${canEdit
-                  ?`<label style="display:flex;align-items:center;gap:5px;margin-top:4px;cursor:pointer" onclick="event.stopPropagation()">
-                      <input type="checkbox" ${item.rueckfahrt?'checked':''} onchange="toggleRueckfahrt('${fid}','${ikey}',this.checked)" style="width:13px;height:13px;accent-color:#1565c0">
-                      <span style="font-size:11px;color:#555;font-weight:600">Rückfahrt nötig</span>
-                    </label>`
-                  :(item.rueckfahrt?`<div style="font-size:10px;color:#bbb;font-weight:400;margin-top:2px">kehrt zurück</div>`:'')}
+            <div class="chk${item.checked?' on':''}" onclick="toggleFahrtTask('${fid}','${ikey}')"></div>
+            <div class="task-txt" style="min-width:0">
+              <div class="task-de">${escHtml(item.name)}</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:3px">
+                ${item.at?`<span style="font-size:10px;color:#888;font-weight:700">bei: ${escHtml(locDisplayName(item.at))}</span>`:''}
+                ${item.time?`<span style="font-size:10px;color:#1565c0;font-weight:700">ab ${escHtml(item.time)} Uhr</span>`:''}
               </div>
             </div>
             <div class="task-btns">
-              <button onclick="openItemActions('${fid}','${ikey}')" style="background:none;border:none;color:#bbb;font-size:18px;cursor:pointer;padding:2px 4px;font-weight:700;line-height:1">···</button>
               ${canEdit?`<button onclick="deleteFahrtItem('${fid}','${ikey}')" style="background:none;border:none;color:#ea4335;font-size:16px;cursor:pointer;padding:2px 4px">×</button>`:''}
             </div>
           </div>`;
         });
-        if(canEdit){
-          html+=`<div class="add-task-row" style="display:block;padding:8px 14px;border-top:1px solid #f5f5f5"><button class="add-task-inner-btn" onclick="openAddFahrtItem('${fid}','inventory')">+ Aus Inventar</button> <button class="add-task-inner-btn" onclick="openAddFahrtItem('${fid}','custom')">+ Eigener Artikel</button></div>`;
-        }
         html+=`</div></div>`;
-      });
-      itemsEl.innerHTML=html;
-      // Update progress bar
-      const allIt=Object.values(f.items||{});
-      const chkCnt=allIt.filter(i=>i.checked).length;
-      const totCnt=allIt.length;
-      const pct=totCnt>0?Math.round(chkCnt/totCnt*100):0;
-      const pb=document.getElementById('lg-fahrt-prog-bar');
-      const pt=document.getElementById('lg-fahrt-prog-text');
-      if(pb)pb.style.width=pct+'%';
-      if(pt)pt.textContent=chkCnt+' / '+totCnt+' erledigt'+(totCnt>0?' ('+pct+'%)':'');
+      }
     }
+    itemsEl.innerHTML=html;
+    // Update progress bar (all items + tasks)
+    const allIt=Object.values(f.items||{});
+    const chkCnt=allIt.filter(i=>i.checked).length;
+    const totCnt=allIt.length;
+    const pct=totCnt>0?Math.round(chkCnt/totCnt*100):0;
+    const pb=document.getElementById('lg-fahrt-prog-bar');
+    const pt=document.getElementById('lg-fahrt-prog-text');
+    if(pb)pb.style.width=pct+'%';
+    if(pt)pt.textContent=chkCnt+' / '+totCnt+' erledigt'+(totCnt>0?' ('+pct+'%)':'');
   }
 
   // Add buttons — global (for empty fahrt or when no route exists yet)
   const addBtns=document.getElementById('lg-fahrt-add-btns');
   if(addBtns){
     addBtns.innerHTML=canEdit?`
-      <div style="padding:0 15px 8px;display:flex;gap:8px">
-        <button onclick="openAddFahrtItem('${fid}','inventory')" style="flex:1;background:#e8edf8;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:700;color:#1e3a6e;cursor:pointer">+ Aus Inventar</button>
-        <button onclick="openAddFahrtItem('${fid}','custom')" style="flex:1;background:#f8f9fa;border:1.5px dashed #ddd;border-radius:10px;padding:11px;font-size:13px;font-weight:700;color:#555;cursor:pointer">+ Eigener Artikel</button>
+      <div style="padding:0 15px 8px;display:flex;gap:8px;flex-wrap:wrap">
+        <button onclick="openAddFahrtItem('${fid}','inventory')" style="flex:1;min-width:120px;background:#e8edf8;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:700;color:#1e3a6e;cursor:pointer">+ Aus Inventar</button>
+        <button onclick="openAddFahrtItem('${fid}','custom')" style="flex:1;min-width:120px;background:#f8f9fa;border:1.5px dashed #ddd;border-radius:10px;padding:11px;font-size:13px;font-weight:700;color:#555;cursor:pointer">+ Eigener Artikel</button>
+        <button onclick="openAddFahrtTask('${fid}')" style="flex:1;min-width:120px;background:#e8f0fe;border:1.5px solid #1565c0;border-radius:10px;padding:11px;font-size:13px;font-weight:700;color:#1565c0;cursor:pointer">+ Aufgabe</button>
       </div>
     `:'';
   }
@@ -6008,8 +6082,11 @@ function renderFahrtDetail(){
       </div>`;
     } else {
       const allChecked=items.length>0&&items.every(([,i])=>i.checked);
-      footer.innerHTML=`<button onclick="completeFahrt('${fid}')" ${allChecked?'':'disabled'} style="width:100%;background:${allChecked?'#2e7d32':'#ccc'};color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:800;cursor:${allChecked?'pointer':'default'}">
-        ${allChecked?'Fahrt abschließen':'Alle Artikel abhaken zum Abschließen'}
+      const hasItems=items.some(([,i])=>!i.isTask);
+      const hasTasks=items.some(([,i])=>i.isTask);
+      const label=allChecked?'Fahrt abschließen':(hasItems&&hasTasks?'Alle Artikel & Aufgaben abhaken':hasItems?'Alle Artikel abhaken':'Alle Aufgaben abhaken');
+      footer.innerHTML=`<button onclick="completeFahrt('${fid}')" ${allChecked?'':'disabled'} style="width:100%;background:${allChecked?'#2e7d32':'#ccc'};color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:800;cursor:${allChecked?'pointer':'default'};font-family:inherit">
+        ${label}
       </button>`;
     }
   }
@@ -6024,7 +6101,7 @@ function toggleFahrtItem(fid,ikey){
 function completeFahrt(fid){
   const f=logistikFahrten[fid]; if(!f)return;
   const items=Object.values(f.items||{});
-  if(!items.every(i=>i.checked)){toast('Bitte alle Artikel abhaken');return;}
+  if(!items.every(i=>i.checked)){toast('Bitte alle Artikel und Aufgaben abhaken');return;}
   if(!confirm('Fahrt abschließen? Der Inventarbestand wird automatisch angepasst.'))return;
   const updates={};
   items.forEach(item=>{
@@ -6219,19 +6296,38 @@ function renderNewFahrtItems(){
     list.innerHTML='<div style="color:#bbb;font-size:13px;text-align:center;padding:20px 0">Noch keine Artikel — unten hinzufügen</div>';
     return;
   }
-  // Group by from→to
+  // Group: tasks by "Aufgabe@at", items by "from→to"
   const groups={};
   _newFahrtItems.forEach((it,idx)=>{
-    const key=(it.from||'?')+'→'+(it.to||'?');
-    if(!groups[key])groups[key]={from:it.from,to:it.to,items:[]};
+    const key=it.isTask?('Aufgabe@'+(it.at||'?')):(it.from||'?')+'→'+(it.to||'?');
+    if(!groups[key])groups[key]={from:it.from,to:it.to,isTask:!!it.isTask,at:it.at,items:[]};
     groups[key].items.push({...it,idx});
   });
   let html='';
   Object.entries(groups).forEach(([rk,group])=>{
-    html+=`<div style="display:flex;align-items:center;gap:8px;background:#f8f9fa;border-radius:10px;padding:8px 12px;margin:8px 0 4px">
-      ${locRoute(group.from||'?',group.to||'?',true)}
-    </div>`;
+    if(group.isTask){
+      html+=`<div style="display:flex;align-items:center;gap:8px;background:#e8f0fe;border-radius:10px;padding:8px 12px;margin:8px 0 4px">
+        <span style="font-size:11px;font-weight:800;color:#1565c0;text-transform:uppercase;letter-spacing:.5px">Aufgaben bei: ${escHtml(locDisplayName(group.at||'?'))}</span>
+      </div>`;
+    } else {
+      html+=`<div style="display:flex;align-items:center;gap:8px;background:#f8f9fa;border-radius:10px;padding:8px 12px;margin:8px 0 4px">
+        ${locRoute(group.from||'?',group.to||'?',true)}
+      </div>`;
+    }
     group.items.forEach(it=>{
+      if(it.isTask){
+        html+=`<div style="background:#f0f7ff;border-radius:12px;padding:10px 12px;margin-bottom:6px;border-left:3px solid #1565c0">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:16px;flex-shrink:0">✓</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:700;font-size:13px;color:#1565c0">${escHtml(it.name)}</div>
+              ${it.time?`<div style="font-size:11px;color:#888;margin-top:2px">ab ${escHtml(it.time)} Uhr</div>`:''}
+            </div>
+            <button onclick="_newFahrtItems.splice(${it.idx},1);renderNewFahrtItems()" style="background:none;border:none;color:#ea4335;font-size:18px;cursor:pointer;flex-shrink:0;padding:0 2px">×</button>
+          </div>
+        </div>`;
+        return;
+      }
       const invPhoto=it.inventoryItemId?inventoryPhotos[it.inventoryItemId]:null;
       const displayPhoto=it.photo||invPhoto;
       html+=`<div style="background:#fff;border-radius:12px;padding:10px 12px;margin-bottom:6px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
@@ -6298,8 +6394,8 @@ function nfOpenInventoryPicker(){
 function nfAddInvItem(iid, name){
   const el = document.getElementById('nfip-'+iid);
   const menge = el ? Math.max(1, parseInt(el.value)||1) : 1;
-  const from = (document.getElementById('nf-inv-from')||{}).value || 'AS';
-  const to   = (document.getElementById('nf-inv-to')||{}).value || 'LS';
+  const from = getLocValue('nf-inv-from');
+  const to   = getLocValue('nf-inv-to');
   if(from===to){toast('Von und Nach müssen verschieden sein');return;}
   _newFahrtItems.push({name, menge, isCustom:false, inventoryItemId:iid, from, to});
   renderNewFahrtItems();
@@ -6310,8 +6406,8 @@ function nfAddInvItem(iid, name){
 function nfAddCustomItem(){
   const name = document.getElementById('nf-custom-name').value.trim();
   const menge = Math.max(1, parseInt(document.getElementById('nf-custom-menge').value)||1);
-  const from = (document.getElementById('nf-custom-from')||{}).value || 'AS';
-  const to   = (document.getElementById('nf-custom-to')||{}).value || 'LS';
+  const from = getLocValue('nf-custom-from');
+  const to   = getLocValue('nf-custom-to');
   if(!name){toast('Bitte Bezeichnung eingeben');return;}
   if(from===to){toast('Von und Nach müssen verschieden sein');return;}
   _newFahrtItems.push({name, menge, isCustom:true, from, to});
@@ -6328,27 +6424,49 @@ function openNfCustomModal(){
   openModal('m-nf-custom-item');
   setTimeout(()=>document.getElementById('nf-custom-name').focus(),100);
 }
+function openNfTaskModal(){
+  document.getElementById('nf-task-text').value='';
+  document.getElementById('nf-task-time').value='';
+  const sel=document.getElementById('nf-task-at');
+  if(sel){sel.value='AS';handleLocSelectChange('nf-task-at');}
+  openModal('m-nf-task');
+  setTimeout(()=>document.getElementById('nf-task-text').focus(),100);
+}
+function nfAddTask(){
+  const text=document.getElementById('nf-task-text').value.trim();
+  if(!text){toast('Bitte Aufgabe eingeben');return;}
+  const at=getLocValue('nf-task-at');
+  const time=(document.getElementById('nf-task-time').value||'').trim();
+  _newFahrtItems.push({isTask:true, name:text, at, time, from:at, to:at});
+  renderNewFahrtItems();
+  closeModal('m-nf-task');
+  toast(text+' hinzugefügt');
+}
 
 function saveNewFahrt(){
   const date = document.getElementById('nf-date').value;
   if(!date){toast('Bitte Datum wählen');return;}
-  if(!_newFahrtItems.length){toast('Bitte mindestens einen Artikel hinzufügen');return;}
+  const hasItems = _newFahrtItems.some(it=>!it.isTask);
+  const hasTasks = _newFahrtItems.some(it=>it.isTask);
+  if(!_newFahrtItems.length){toast('Bitte mindestens einen Artikel oder eine Aufgabe hinzufügen');return;}
   const driverSel = document.getElementById('nf-driver');
   const employee = (driverSel && driverSel.value) ? driverSel.value : (currentTaskUser ? currentTaskUser.name : '?');
-  const fahrt = {date, status:'offen', items:{}, createdAt:Date.now(), employee};
+  const allDay = document.getElementById('nf-allday')?.checked ?? true;
+  const startTime = allDay ? '' : (document.getElementById('nf-starttime')?.value||'');
+  const fahrt = {date, status:'offen', items:{}, createdAt:Date.now(), employee, allDay, ...(startTime?{startTime}:{})};
   _newFahrtItems.forEach((it,i)=>{
     const key = 'item'+Date.now()+i;
-    fahrt.items[key] = {
-      name: it.name,
-      menge: it.menge||1,
-      from: it.from||'AS',
-      to: it.to||'LS',
-      isCustom: !!it.isCustom,
-      inventoryItemId: it.inventoryItemId||null,
-      checked: false,
-      rueckfahrt: !!it.rueckfahrt,
-      ...(it.photo ? {photo:it.photo} : {})
-    };
+    if(it.isTask){
+      fahrt.items[key]={isTask:true, name:it.name, at:it.at||'AS', checked:false, ...(it.time?{time:it.time}:{})};
+    } else {
+      fahrt.items[key]={
+        name:it.name, menge:it.menge||1,
+        from:it.from||'AS', to:it.to||'LS',
+        isCustom:!!it.isCustom, inventoryItemId:it.inventoryItemId||null,
+        checked:false, rueckfahrt:!!it.rueckfahrt,
+        ...(it.photo?{photo:it.photo}:{})
+      };
+    }
   });
   if(db) db.ref('/logistikFahrten').push(fahrt).then(ref=>{
     toast('Fahrt angelegt');
@@ -6405,8 +6523,8 @@ function renderInventoryPicker(fid){
 function addFahrtInventoryItem(fid,iid){
   const menge=parseInt(document.getElementById('ip-'+iid).value)||1;
   const item=inventoryItems[iid]; if(!item)return;
-  const from=(document.getElementById('afi-inv-from')||{}).value||'AS';
-  const to=(document.getElementById('afi-inv-to')||{}).value||'LS';
+  const from=getLocValue('afi-inv-from');
+  const to=getLocValue('afi-inv-to');
   const rueckfahrt=!!(document.getElementById('afi-inv-rueck')||{}).checked;
   const comment=((document.getElementById('afi-inv-comment')||{}).value||'').trim();
   const newItem={name:item.name,menge,from,to,checked:false,isCustom:false,inventoryItemId:iid,rueckfahrt};
@@ -6420,8 +6538,8 @@ function addFahrtInventoryItem(fid,iid){
 function addFahrtCustomItem(){
   const name=document.getElementById('afi-name').value.trim();
   const menge=parseInt(document.getElementById('afi-menge').value)||1;
-  const from=(document.getElementById('afi-from')||{}).value||'AS';
-  const to=(document.getElementById('afi-to')||{}).value||'LS';
+  const from=getLocValue('afi-from');
+  const to=getLocValue('afi-to');
   const rueckfahrt=!!(document.getElementById('afi-rueck')||{}).checked;
   const comment=((document.getElementById('afi-comment')||{}).value||'').trim();
   if(!name){toast('Bitte Bezeichnung eingeben');return;}
@@ -6466,6 +6584,39 @@ function updateFahrtEmployee(fid,val){
   }
   if(db)db.ref('/logistikFahrten/'+fid+'/employee').set(val);
   toast('Fahrer aktualisiert');
+}
+function updateFahrtAllDay(fid,isAllDay){
+  if(db){
+    db.ref('/logistikFahrten/'+fid+'/allDay').set(isAllDay);
+    if(isAllDay)db.ref('/logistikFahrten/'+fid+'/startTime').remove();
+  }
+}
+function updateFahrtTime(fid,time){
+  if(db){db.ref('/logistikFahrten/'+fid+'/startTime').set(time);db.ref('/logistikFahrten/'+fid+'/allDay').set(false);}
+}
+function toggleFahrtTask(fid,ikey){
+  const f=logistikFahrten[fid]; if(!f||f.status==='abgeschlossen')return;
+  const item=(f.items||{})[ikey]; if(!item)return;
+  if(db)db.ref('/logistikFahrten/'+fid+'/items/'+ikey+'/checked').set(!item.checked);
+}
+function openAddFahrtTask(fid){
+  _addFahrtId=fid;
+  document.getElementById('afi-task-text').value='';
+  document.getElementById('afi-task-time').value='';
+  const sel=document.getElementById('afi-task-at');
+  if(sel){sel.value='AS';handleLocSelectChange('afi-task-at');}
+  openModal('m-afi-task');
+  setTimeout(()=>document.getElementById('afi-task-text').focus(),100);
+}
+function saveAddFahrtTask(){
+  const text=document.getElementById('afi-task-text').value.trim();
+  if(!text){toast('Bitte Aufgabe eingeben');return;}
+  const at=getLocValue('afi-task-at');
+  const time=(document.getElementById('afi-task-time').value||'').trim();
+  const newItem={isTask:true, name:text, at, checked:false, ...(time?{time}:{})};
+  if(db)db.ref('/logistikFahrten/'+_addFahrtId+'/items').push(newItem);
+  closeModal('m-afi-task');
+  toast(text+' hinzugefügt ✓');
 }
 
 function toggleRueckfahrt(fid,ikey,val){
@@ -7009,17 +7160,29 @@ function saveInventoryItem(){
       <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:6px">Datum</div>
       <input type="date" id="nf-date" style="width:100%;border:1.5px solid #e0e0e0;border-radius:12px;padding:13px 14px;font-size:16px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
     </div>
+    <!-- Time -->
+    <div style="margin-bottom:20px">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:8px">Startzeit</div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="checkbox" id="nf-allday" checked onchange="document.getElementById('nf-starttime').style.display=this.checked?'none':'block'" style="width:16px;height:16px;accent-color:#1565c0">
+          <span style="font-size:13px;font-weight:700;color:#555">Ganztägig</span>
+        </label>
+        <input type="time" id="nf-starttime" style="display:none;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px 12px;font-size:14px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
+      </div>
+    </div>
     <div style="margin-bottom:14px">
       <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:6px">Fahrer</div>
       <select id="nf-driver" style="width:100%;border:1.5px solid #e0e0e0;border-radius:12px;padding:13px 14px;font-size:15px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit"></select>
     </div>
     <!-- Items grouped by route -->
-    <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:8px">Artikel</div>
+    <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:8px">Artikel &amp; Aufgaben</div>
     <div id="nf-items-list"></div>
     <!-- Add buttons -->
     <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
       <button onclick="nfOpenInventoryPicker()" style="background:#e8f0fe;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;color:#1565c0;cursor:pointer;width:100%;font-family:inherit">+ Aus Inventar wählen</button>
       <button onclick="openNfCustomModal()" style="background:#f8f9fa;border:1.5px dashed #ddd;border-radius:12px;padding:13px;font-size:14px;font-weight:700;color:#555;cursor:pointer;width:100%;font-family:inherit">+ Eigener Artikel</button>
+      <button onclick="openNfTaskModal()" style="background:#e8f0fe;border:1.5px solid #1565c0;border-radius:12px;padding:13px;font-size:14px;font-weight:700;color:#1565c0;cursor:pointer;width:100%;font-family:inherit">+ Aufgabe hinzufügen</button>
     </div>
   </div>
   <div style="position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #eee;padding:12px 16px;max-width:480px;margin:0 auto">
@@ -7032,15 +7195,24 @@ function saveInventoryItem(){
   <div class="modal" style="max-height:85vh;display:flex;flex-direction:column">
     <h2>Inventarartikel hinzufügen</h2>
     <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:#888;margin-bottom:6px">Route</div>
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-      <select id="nf-inv-from" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px 10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
-        <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
-      </select>
-      <span style="color:#888;font-weight:700">→</span>
-      <select id="nf-inv-to" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px 10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
-        <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS" selected>LAKESIDE</option>
-      </select>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+      <div style="flex:1;display:flex;flex-direction:column">
+        <select id="nf-inv-from" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit" onchange="handleLocSelectChange('nf-inv-from')">
+          <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
+          <option value="__custom__">Eigene Adresse…</option>
+        </select>
+        <input type="text" id="nf-inv-from-custom" placeholder="Name oder Adresse" style="display:none;margin-top:6px;border:1.5px solid #1565c0;border-radius:10px;padding:8px 10px;font-size:12px;font-family:inherit;box-sizing:border-box">
+      </div>
+      <span style="color:#888;font-weight:700;flex-shrink:0">→</span>
+      <div style="flex:1;display:flex;flex-direction:column">
+        <select id="nf-inv-to" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit" onchange="handleLocSelectChange('nf-inv-to')">
+          <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS" selected>LAKESIDE</option>
+          <option value="__custom__">Eigene Adresse…</option>
+        </select>
+        <input type="text" id="nf-inv-to-custom" placeholder="Name oder Adresse" style="display:none;margin-top:6px;border:1.5px solid #1565c0;border-radius:10px;padding:8px 10px;font-size:12px;font-family:inherit;box-sizing:border-box">
+      </div>
     </div>
+    <div style="margin-bottom:12px"></div>
     <div id="nf-inv-picker-list" style="overflow-y:auto;flex:1;margin-bottom:10px"></div>
     <button class="mbtn grey" onclick="closeModal('m-nf-inv-picker')">Schließen</button>
   </div>
@@ -7055,17 +7227,47 @@ function saveInventoryItem(){
     <label class="tform-lbl">Menge</label>
     <input type="number" class="tform-input" id="nf-custom-menge" value="1" min="1" style="font-family:inherit">
     <label class="tform-lbl">Route</label>
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
-      <select id="nf-custom-from" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
-        <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
-      </select>
-      <span style="color:#888;font-weight:700">→</span>
-      <select id="nf-custom-to" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
-        <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS" selected>LAKESIDE</option>
-      </select>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <div style="flex:1;display:flex;flex-direction:column">
+        <select id="nf-custom-from" style="border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit" onchange="handleLocSelectChange('nf-custom-from')">
+          <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
+          <option value="__custom__">Eigene Adresse…</option>
+        </select>
+        <input type="text" id="nf-custom-from-custom" placeholder="Name oder Adresse" style="display:none;margin-top:6px;border:1.5px solid #1565c0;border-radius:10px;padding:8px 10px;font-size:12px;font-family:inherit;box-sizing:border-box">
+      </div>
+      <span style="color:#888;font-weight:700;flex-shrink:0">→</span>
+      <div style="flex:1;display:flex;flex-direction:column">
+        <select id="nf-custom-to" style="border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit" onchange="handleLocSelectChange('nf-custom-to')">
+          <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS" selected>LAKESIDE</option>
+          <option value="__custom__">Eigene Adresse…</option>
+        </select>
+        <input type="text" id="nf-custom-to-custom" placeholder="Name oder Adresse" style="display:none;margin-top:6px;border:1.5px solid #1565c0;border-radius:10px;padding:8px 10px;font-size:12px;font-family:inherit;box-sizing:border-box">
+      </div>
     </div>
+    <div style="margin-bottom:14px"></div>
     <button class="mbtn" onclick="nfAddCustomItem()">Hinzufügen</button>
     <button class="mbtn grey" onclick="closeModal('m-nf-custom-item')">Abbrechen</button>
+  </div>
+</div>
+
+<!-- NF TASK MODAL -->
+<div class="overlay" id="m-nf-task">
+  <div class="modal">
+    <h2>Aufgabe hinzufügen</h2>
+    <label class="tform-lbl">Aufgabe</label>
+    <input type="text" class="tform-input" id="nf-task-text" placeholder="z.B. Bühne aufbauen" style="font-family:inherit">
+    <label class="tform-lbl">Am Standort</label>
+    <div style="display:flex;flex-direction:column;margin-bottom:14px">
+      <select id="nf-task-at" style="border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit" onchange="handleLocSelectChange('nf-task-at')">
+        <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
+        <option value="__custom__">Eigene Adresse…</option>
+      </select>
+      <input type="text" id="nf-task-at-custom" placeholder="Name oder Adresse" style="display:none;margin-top:6px;border:1.5px solid #1565c0;border-radius:10px;padding:8px 10px;font-size:12px;font-family:inherit;box-sizing:border-box">
+    </div>
+    <label class="tform-lbl">Früheste Uhrzeit (optional)</label>
+    <input type="time" id="nf-task-time" class="tform-input" style="font-family:inherit">
+    <button class="mbtn" onclick="nfAddTask()">Hinzufügen</button>
+    <button class="mbtn grey" onclick="closeModal('m-nf-task')">Abbrechen</button>
   </div>
 </div>
 
@@ -7074,15 +7276,24 @@ function saveInventoryItem(){
   <div class="modal" style="max-height:85vh;display:flex;flex-direction:column">
     <h2>Inventarartikel hinzufügen</h2>
     <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:#888;margin-bottom:6px">Route</div>
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-      <select id="afi-inv-from" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
-        <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
-      </select>
-      <span style="color:#888;font-weight:700">→</span>
-      <select id="afi-inv-to" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
-        <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS" selected>LAKESIDE</option>
-      </select>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+      <div style="flex:1;display:flex;flex-direction:column">
+        <select id="afi-inv-from" style="border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit" onchange="handleLocSelectChange('afi-inv-from')">
+          <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
+          <option value="__custom__">Eigene Adresse…</option>
+        </select>
+        <input type="text" id="afi-inv-from-custom" placeholder="Name oder Adresse" style="display:none;margin-top:6px;border:1.5px solid #1565c0;border-radius:10px;padding:8px 10px;font-size:12px;font-family:inherit;box-sizing:border-box">
+      </div>
+      <span style="color:#888;font-weight:700;flex-shrink:0">→</span>
+      <div style="flex:1;display:flex;flex-direction:column">
+        <select id="afi-inv-to" style="border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit" onchange="handleLocSelectChange('afi-inv-to')">
+          <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS" selected>LAKESIDE</option>
+          <option value="__custom__">Eigene Adresse…</option>
+        </select>
+        <input type="text" id="afi-inv-to-custom" placeholder="Name oder Adresse" style="display:none;margin-top:6px;border:1.5px solid #1565c0;border-radius:10px;padding:8px 10px;font-size:12px;font-family:inherit;box-sizing:border-box">
+      </div>
     </div>
+    <div style="margin-bottom:8px"></div>
     <div id="inv-picker-list" style="overflow-y:auto;flex:1;margin-bottom:10px"></div>
     <label style="display:flex;align-items:center;gap:8px;margin:10px 0 10px;cursor:pointer">
       <input type="checkbox" id="afi-inv-rueck" style="width:16px;height:16px;accent-color:#1565c0">
@@ -7103,15 +7314,24 @@ function saveInventoryItem(){
     <label class="tform-lbl">Menge</label>
     <input type="number" class="tform-input" id="afi-menge" value="1" min="1" style="font-family:inherit">
     <label class="tform-lbl">Route</label>
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
-      <select id="afi-from" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
-        <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
-      </select>
-      <span style="color:#888;font-weight:700">→</span>
-      <select id="afi-to" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
-        <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS" selected>LAKESIDE</option>
-      </select>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <div style="flex:1;display:flex;flex-direction:column">
+        <select id="afi-from" style="border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit" onchange="handleLocSelectChange('afi-from')">
+          <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
+          <option value="__custom__">Eigene Adresse…</option>
+        </select>
+        <input type="text" id="afi-from-custom" placeholder="Name oder Adresse" style="display:none;margin-top:6px;border:1.5px solid #1565c0;border-radius:10px;padding:8px 10px;font-size:12px;font-family:inherit;box-sizing:border-box">
+      </div>
+      <span style="color:#888;font-weight:700;flex-shrink:0">→</span>
+      <div style="flex:1;display:flex;flex-direction:column">
+        <select id="afi-to" style="border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit" onchange="handleLocSelectChange('afi-to')">
+          <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS" selected>LAKESIDE</option>
+          <option value="__custom__">Eigene Adresse…</option>
+        </select>
+        <input type="text" id="afi-to-custom" placeholder="Name oder Adresse" style="display:none;margin-top:6px;border:1.5px solid #1565c0;border-radius:10px;padding:8px 10px;font-size:12px;font-family:inherit;box-sizing:border-box">
+      </div>
     </div>
+    <div style="margin-bottom:14px"></div>
     <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;cursor:pointer">
       <input type="checkbox" id="afi-rueck" style="width:16px;height:16px;accent-color:#1565c0">
       <span style="font-size:13px;font-weight:700;color:#555">Rückfahrt nötig</span>
@@ -7125,6 +7345,27 @@ function saveInventoryItem(){
     </div>
     <button class="mbtn" onclick="addFahrtCustomItem()">Hinzufügen ✓</button>
     <button class="mbtn grey" onclick="closeModal('m-add-fahrt-item-custom')">Abbrechen</button>
+  </div>
+</div>
+
+<!-- ADD TASK TO FAHRT MODAL -->
+<div class="overlay" id="m-afi-task">
+  <div class="modal">
+    <h2>+ Aufgabe hinzufügen</h2>
+    <label class="tform-lbl">Aufgabe</label>
+    <input type="text" class="tform-input" id="afi-task-text" placeholder="z.B. Bühne aufbauen" style="font-family:inherit">
+    <label class="tform-lbl">Am Standort</label>
+    <div style="display:flex;flex-direction:column;margin-bottom:14px">
+      <select id="afi-task-at" style="border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit" onchange="handleLocSelectChange('afi-task-at')">
+        <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
+        <option value="__custom__">Eigene Adresse…</option>
+      </select>
+      <input type="text" id="afi-task-at-custom" placeholder="Name oder Adresse" style="display:none;margin-top:6px;border:1.5px solid #1565c0;border-radius:10px;padding:8px 10px;font-size:12px;font-family:inherit;box-sizing:border-box">
+    </div>
+    <label class="tform-lbl">Früheste Uhrzeit (optional)</label>
+    <input type="time" id="afi-task-time" class="tform-input" style="font-family:inherit">
+    <button class="mbtn" onclick="saveAddFahrtTask()">Hinzufügen ✓</button>
+    <button class="mbtn grey" onclick="closeModal('m-afi-task')">Abbrechen</button>
   </div>
 </div>
 
