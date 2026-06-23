@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260620-054';
+      var V='20260620-055';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')===V) return;
       // Fetch with cache:reload primes the CDN, then redirect (no document.write — mobile-safe)
@@ -1852,6 +1852,7 @@ function subscribeGlobal() {
   db.ref('/inventoryPhotos').on('value', s => { inventoryPhotos=s.val()||{}; if(isLogistikVisible()&&logistikTab==='inventar')renderInventarTab(); });
   db.ref('/logistikFahrten').on('value', s => {
     logistikFahrten=s.val()||{};
+    checkAndArchiveCompletedFahrten();
     if(isLogistikVisible()&&logistikTab==='fahrten')renderFahrten();
     if(currentFahrtId&&isFahrtVisible())renderFahrtDetail();
   });
@@ -5823,10 +5824,27 @@ function renderLogistik(){
   else renderInventarTab();
 }
 
+// ── FAHRTEN ARCHIV ────────────────────────────────────────────────
+function archiveFahrt(fid){
+  const f=logistikFahrten[fid]; if(!f)return;
+  const archived=Object.assign({},f,{archivedAt:Date.now()});
+  if(db){
+    db.ref('/archiveFahrten/'+fid).set(archived);
+    db.ref('/logistikFahrten/'+fid).remove();
+  }
+}
+function checkAndArchiveCompletedFahrten(){
+  if(!db)return;
+  Object.entries(logistikFahrten).forEach(([fid,f])=>{
+    if(f.status==='abgeschlossen') archiveFahrt(fid);
+  });
+}
+
 // ── FAHRTEN ───────────────────────────────────────────────────────
 function renderFahrten(){
   const content=document.getElementById('lg-content'); if(!content)return;
-  const fahrten=Object.entries(logistikFahrten).sort((a,b)=>{
+  // Exclude completed Fahrten — they are archived on navigate-back
+  const fahrten=Object.entries(logistikFahrten).filter(([,f])=>f.status!=='abgeschlossen').sort((a,b)=>{
     const ad=a[1].date||'', bd=b[1].date||'';
     if(!ad&&bd)return -1; if(ad&&!bd)return 1;
     return ad.localeCompare(bd); // ascending: nearest date at top
@@ -5895,6 +5913,11 @@ function openFahrt(fid){
 }
 
 function goToFahrten(){
+  // Archive the fahrt if it's completed (user has had a chance to export PDF)
+  if(currentFahrtId){
+    const f=logistikFahrten[currentFahrtId];
+    if(f&&f.status==='abgeschlossen') archiveFahrt(currentFahrtId);
+  }
   currentFahrtId=null;
   _fahrtEditMode=false;
   showScreen('logistik-screen');
