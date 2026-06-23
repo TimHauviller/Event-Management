@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260623-085';
+      var V='20260623-086';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -6178,7 +6178,10 @@ function renderFahrtDetail(){
         const groupTime=rTimes[rk]||'';
         const grpChecked=[...group.tItems,...group.tTasks].filter(([,i])=>i.checked).length;
         const grpTotal=group.tItems.length+group.tTasks.length;
-        const pfadLabel=(groupTime?`${escHtml(groupTime)} Uhr – `:'')+'Fahrt '+pfadNr;
+        const frName=locNames[group.from]||group.from;
+        const toName=locNames[group.to]||group.to;
+        const routePart=' – '+escHtml(frName)+' nach '+escHtml(toName);
+        const pfadLabel=(groupTime?`${escHtml(groupTime)} Uhr – `:'')+'Fahrt '+pfadNr+routePart;
         html+=`<div class="cat open" id="fcat_${escHtml(rk)}" style="margin:8px 14px 0;border-radius:10px">
           <div class="cat-hdr" style="border-left-color:#1e3a6e;padding:10px 14px" onclick="this.closest('.cat').classList.toggle('open')">
             <div class="cat-title" style="font-size:16px;font-weight:800;color:#1e3a6e;line-height:1.2">${pfadLabel}</div>
