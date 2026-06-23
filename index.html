@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260623-067';
+      var V='20260623-072';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')===V) return;
       // Fetch with cache:reload primes the CDN, then redirect (no document.write — mobile-safe)
@@ -137,7 +137,7 @@
     .btn-r.orange{background:#ff9800}.btn-r.red{background:#ea4335}.btn-r.grey{background:#607d8b}
     /* Categories */
     .cat{background:var(--card);border-radius:var(--r);margin-bottom:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.07)}
-    .cat-hdr{padding:13px 15px;display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;border-left:3px solid var(--accent,#3a8fd4)}
+    .cat-hdr{padding:13px 15px;display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;border-left:3px solid var(--accent,#3a8fd4);flex-wrap:wrap}
     .cat-hdr:active{background:#f5f5f5}
     .cat-title{font-size:14px;font-weight:700;flex:1;line-height:1.3}
     .cat-count{font-size:11px;color:var(--muted);white-space:nowrap}
@@ -1745,6 +1745,7 @@ let inventoryItems = {};
 let inventoryPhotos = {};
 let inventoryStock = {AS:{},EG:{},LS:{}};
 let logistikFahrten = {};
+let archiveFahrtenData = {};
 let currentFahrtId = null;
 let _pendingRueckId = null;
 let logistikTab = 'fahrten';
@@ -1850,12 +1851,17 @@ function subscribeGlobal() {
   // Logistik subscriptions
   db.ref('/inventoryItems').on('value', s => { inventoryItems=s.val()||{}; seedInventoryIfEmpty(); if(isLogistikVisible()&&logistikTab==='inventar')renderInventarTab(); });
   db.ref('/inventoryPhotos').on('value', s => { inventoryPhotos=s.val()||{}; if(isLogistikVisible()&&logistikTab==='inventar')renderInventarTab(); });
+  let _rfTimeout=null;
   db.ref('/logistikFahrten').on('value', s => {
     logistikFahrten=s.val()||{};
     checkAndArchiveCompletedFahrten();
     if(isLogistikVisible()&&logistikTab==='fahrten')renderFahrten();
-    if(currentFahrtId&&isFahrtVisible())renderFahrtDetail();
+    if(currentFahrtId&&isFahrtVisible()){
+      clearTimeout(_rfTimeout);
+      _rfTimeout=setTimeout(renderFahrtDetail,300);
+    }
   });
+  db.ref('/archiveFahrten').on('value', s => { archiveFahrtenData=s.val()||{}; if(isLogistikVisible()&&logistikTab==='fahrten')renderFahrten(); });
   ['AS','EG','LS'].forEach(l => {
     db.ref('/inventoryStock/'+l).on('value', s => { inventoryStock[l]=s.val()||{}; if(isLogistikVisible()&&logistikTab==='inventar')renderInventarTab(); });
   });
@@ -4088,6 +4094,14 @@ function setFeedbackText(field, val) {
     if(db) db.ref('/eventFeedback/'+loc+'/'+eventId+'/'+field).set(val); else saveLocal();
   }, 600);
 }
+let _fbTimeTimer = {};
+function setFeedbackTime(field, val) {
+  feedbackData[field]=val;
+  if(db) db.ref('/eventFeedback/'+loc+'/'+eventId+'/'+field).set(val); else saveLocal();
+  // Defer re-render so native time picker is not disrupted by DOM rebuild
+  clearTimeout(_fbTimeTimer[field]);
+  _fbTimeTimer[field]=setTimeout(renderFeedback, 1500);
+}
 
 function saveFeedbackNow() {
   if(db) db.ref('/eventFeedback/'+loc+'/'+eventId).set(feedbackData); else saveLocal();
@@ -4121,7 +4135,7 @@ function renderFeedback() {
   }
 
   function timeIn(field) {
-    return `<input type="time" value="${escHtml(d[field]||'')}" oninput="setFeedback('${field}',this.value)" style="width:100%;box-sizing:border-box;border:1.5px solid #ddd;border-radius:8px;padding:10px 13px;font-size:16px;font-family:inherit;outline:none;color:#333;margin-top:6px">`;
+    return `<input type="time" value="${escHtml(d[field]||'')}" onchange="setFeedbackTime('${field}',this.value)" style="width:100%;box-sizing:border-box;border:1.5px solid #ddd;border-radius:8px;padding:10px 13px;font-size:16px;font-family:inherit;outline:none;color:#333;margin-top:6px">`;
   }
 
   function yesno(field, placeholder) {
@@ -5833,10 +5847,14 @@ function archiveFahrt(fid){
     db.ref('/logistikFahrten/'+fid).remove();
   }
 }
+const _archivingFids=new Set();
 function checkAndArchiveCompletedFahrten(){
   if(!db)return;
   Object.entries(logistikFahrten).forEach(([fid,f])=>{
-    if(f.status==='abgeschlossen') archiveFahrt(fid);
+    if(f.status==='abgeschlossen'&&!_archivingFids.has(fid)){
+      _archivingFids.add(fid);
+      archiveFahrt(fid);
+    }
   });
 }
 
@@ -5898,6 +5916,42 @@ function renderFahrten(){
     </div>`;
   });
   html+='</div>';
+
+  // Archive section — collapsible, faded
+  const archived=Object.entries(archiveFahrtenData).sort((a,b)=>{
+    const ad=a[1].date||'', bd=b[1].date||'';
+    return bd.localeCompare(ad); // newest first
+  });
+  if(archived.length>0){
+    html+=`<div style="padding:0 14px 6px">
+      <button onclick="var s=document.getElementById('archiv-body');var open=s.style.display!=='none';s.style.display=open?'none':'block';this.textContent=open?'Archiv anzeigen (${archived.length})':'Archiv ausblenden'" style="background:none;border:none;color:#bbb;font-size:12px;font-weight:700;cursor:pointer;padding:6px 0;font-family:inherit;text-align:left;width:100%;letter-spacing:.3px">Archiv anzeigen (${archived.length})</button>
+      <div id="archiv-body" style="display:none">`;
+    archived.forEach(([fid,f])=>{
+      const items=Object.values(f.items||{});
+      let day='?',mo='',wd='',yr='';
+      if(f.date){
+        const d=new Date(f.date+'T12:00:00');
+        day=d.getDate();
+        mo=d.toLocaleDateString('de-DE',{month:'short'}).toUpperCase();
+        wd=d.toLocaleDateString('de-DE',{weekday:'short'}).toUpperCase();
+        yr=d.getFullYear();
+      }
+      html+=`<div class="event-card" style="border-left-color:#bbb;opacity:.55;cursor:default;pointer-events:none">
+        <div class="event-date-col">
+          <div class="event-date-wd">${wd||'—'}</div>
+          <div class="event-date-day" style="color:#999">${day}</div>
+          <div class="event-date-month">${mo}</div>
+          <div class="event-date-year">${yr}</div>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700;color:#888;margin-bottom:2px">${f.isRueckfahrt?'Rückfahrt':'Logistikfahrt'}${f.employee?' · '+escHtml(f.employee):''}</div>
+          <div style="font-size:11px;color:#aaa">${items.length} Artikel · Archiviert</div>
+        </div>
+      </div>`;
+    });
+    html+='</div></div>';
+  }
+
   content.innerHTML=html;
 }
 
@@ -5940,11 +5994,12 @@ function renderFahrtDetail(){
   if(f.employee&&!lgDrivers.find(u=>u.name===f.employee))lgDrivers.unshift({name:f.employee});
   const driverOpts=lgDrivers.map(u=>`<option value="${escHtml(u.name||u.uid||'')}" ${(u.name||u.uid||'')===(f.employee||'')?'selected':''}>${escHtml(u.name||u.uid||'')}</option>`).join('');
   const timeLabel = f.startTime ? (f.endTime?`${f.startTime} – ${f.endTime}`:`ab ${f.startTime} Uhr`) : 'Ganztägig';
+  const _valStyle='font-weight:700;font-size:13px;color:#555;margin-top:2px';
   if(info&&!_skipInfo)info.innerHTML=`
     <div style="flex:1;text-align:center;padding:4px 0">
       <div style="font-size:10px;color:#aaa;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Datum</div>
-      ${canEdit?`<input type="date" value="${f.date||''}" onchange="updateFahrtDate('${fid}',this.value)" style="border:none;outline:none;font-weight:800;font-size:13px;color:${noDate?'#ea4335':'#1c1c2e'};background:transparent;text-align:center;font-family:inherit;width:100%;margin-top:2px">`
-      :`<div style="font-weight:800;font-size:13px;color:${noDate?'#ea4335':'#1c1c2e'};margin-top:2px">${noDate?'Datum fehlt!':date}</div>`}
+      ${canEdit?`<input type="date" value="${f.date||''}" onchange="updateFahrtDate('${fid}',this.value)" style="border:none;outline:none;${_valStyle};background:transparent;text-align:center;font-family:inherit;width:100%">`
+      :`<div style="${_valStyle};color:${noDate?'#ea4335':'#555'}">${noDate?'fehlt':date}</div>`}
     </div>
     <div style="width:1px;background:#e8e8e8;align-self:stretch;margin:4px 0"></div>
     <div style="flex:1;text-align:center;padding:4px 0">
@@ -5959,25 +6014,27 @@ function renderFahrtDetail(){
           <input type="time" value="${f.endTime||''}" onchange="updateFahrtEndTime('${fid}',this.value)" style="border:1px solid #ddd;border-radius:6px;padding:2px 4px;font-size:11px;font-weight:700;color:#1c1c2e;font-family:inherit;width:72px">
         </div>
       </div>`
-      :`<div style="font-weight:700;font-size:12px;color:#555;margin-top:2px">${escHtml(timeLabel)}</div>`}
+      :`<div style="${_valStyle}">${escHtml(timeLabel)}</div>`}
     </div>
     <div style="width:1px;background:#e8e8e8;align-self:stretch;margin:4px 0"></div>
     <div style="flex:1;text-align:center;padding:4px 0">
       <div style="font-size:10px;color:#aaa;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Fahrer</div>
-      ${canEdit?`<select onchange="updateFahrtEmployee('${fid}',this.value)" style="border:none;outline:none;font-weight:700;font-size:12px;color:#555;background:transparent;text-align:center;font-family:inherit;width:100%;margin-top:2px;cursor:pointer">
+      ${canEdit?`<select onchange="updateFahrtEmployee('${fid}',this.value)" style="border:none;outline:none;${_valStyle};background:transparent;text-align:center;font-family:inherit;width:100%;margin-top:2px;cursor:pointer">
         <option value="">— auswählen —</option>${driverOpts}
         <option value="__custom__">Anderen eingeben…</option>
       </select>`
-      :`<div style="font-weight:700;font-size:12px;color:#555;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(f.employee||'?')}</div>`}
+      :`<div style="${_valStyle};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(f.employee||'—')}</div>`}
     </div>
+    <button onclick="toggleFahrtEditMode()" style="position:absolute;top:6px;right:8px;background:none;border:1px solid ${canEdit?'#e65100':'#c8c8c8'};color:${canEdit?'#e65100':'#aaa'};font-size:10px;font-weight:700;cursor:pointer;padding:2px 7px;border-radius:6px;font-family:inherit;line-height:1.4">${canEdit?'Fertig':'Bearb.'}</button>
   `;
 
   // Items grouped by route (sorted by route time); tasks shown inside their route group
   const itemsEl=document.getElementById('lg-fahrt-items');
+  const _skipItems=Date.now()<_fahrtInfoLock; // skip items re-render during time-write lock (prevents iOS onchange loop)
   const items=Object.entries(f.items||{});
   const transportItems=items.filter(([,i])=>!i.isTask);
   const taskItems=items.filter(([,i])=>i.isTask);
-  if(itemsEl){
+  if(itemsEl&&!_skipItems){
     let html='';
     if(transportItems.length===0&&taskItems.length===0){
       html='<div style="text-align:center;color:#ccc;font-size:13px;padding:24px">Noch keine Einträge — unten hinzufügen</div>';
@@ -6013,7 +6070,7 @@ function renderFahrtDetail(){
           // Standalone tasks (not linked to any route)
           const tkChecked=group.tTasks.filter(([,i])=>i.checked).length;
           html+=`<div class="cat open" id="fcat_standalone" style="margin:8px 14px 0;border-radius:10px">
-            <div class="cat-hdr" style="border-left-color:#1565c0;padding:10px 14px" onclick="this.closest('.cat').classList.toggle('open')">
+            <div class="cat-hdr" style="border-left-color:#1e3a6e;padding:10px 14px" onclick="this.closest('.cat').classList.toggle('open')">
               <div class="cat-title"><span style="background:#1565c0;color:#fff;font-size:10px;font-weight:800;padding:2px 10px;border-radius:10px">Aufgaben</span></div>
               <span class="cat-count">${tkChecked}/${group.tTasks.length}</span>
               <span class="cat-arrow">▾</span>
@@ -6045,10 +6102,10 @@ function renderFahrtDetail(){
         const grpTotal=group.tItems.length+group.tTasks.length;
         const destCol=LG_LOC_COLOR[group.to]||'#1e3a6e';
         html+=`<div class="cat open" id="fcat_${escHtml(rk)}" style="margin:8px 14px 0;border-radius:10px">
-          <div class="cat-hdr" style="border-left-color:${destCol};padding:10px 14px" onclick="this.closest('.cat').classList.toggle('open')">
-            <div class="cat-title" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-size:12px">
-              ${locRoute(group.from,group.to)}
-              ${groupTime?`<span style="background:#e3f0ff;color:#1565c0;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px">${escHtml(groupTime)} Uhr</span>`:''}
+          <div class="cat-hdr" style="border-left-color:#1e3a6e;padding:10px 14px" onclick="this.closest('.cat').classList.toggle('open')">
+            <div class="cat-title" style="display:flex;flex-direction:column;gap:2px;font-size:12px">
+              ${groupTime?`<div style="font-size:16px;font-weight:800;color:#1e3a6e;line-height:1.1">${escHtml(groupTime)} Uhr</div>`:''}
+              <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">${locRoute(group.from,group.to)}</div>
             </div>
             <span class="cat-count">${grpChecked}/${grpTotal}</span>
             <span class="cat-arrow">▾</span>
@@ -6087,7 +6144,7 @@ function renderFahrtDetail(){
                         <input type="checkbox" ${item.rueckfahrt?'checked':''} onchange="toggleRueckfahrt('${fid}','${ikey}',this.checked)" style="width:13px;height:13px;accent-color:#1565c0">
                         <span style="font-size:11px;color:#555;font-weight:600">Rückfahrt nötig</span>
                       </label>`
-                    :(item.rueckfahrt?`<div style="font-size:10px;color:#1565c0;font-weight:700;margin-top:2px">${item.rueckfahrtDate?(item.rueckfahrtDateType==='spaetestens'?'spätestens bis ':'Rückfahrt am ')+new Date(item.rueckfahrtDate+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}):'kehrt zurück'}</div>`:'')}
+                    :(item.rueckfahrt?`<div style="font-size:10px;color:#93bce3;font-weight:400;margin-top:2px">${item.rueckfahrtDate?(item.rueckfahrtDateType==='spaetestens'?'Rückf. spät. bis ':'Rückf. am ')+new Date(item.rueckfahrtDate+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}):'Rückfahrt'}</div>`:'')}
                 </div>
               </div>
               <div class="task-btns">
@@ -6755,6 +6812,10 @@ function toggleRueckfahrt(fid,ikey,val){
   if(val){
     _rueckFid=fid; _rueckIkey=ikey;
     document.getElementById('rueck-item-date').value='';
+    document.getElementById('rueck-item-starttime').value='';
+    document.getElementById('rueck-item-endtime').value='';
+    const alldayChk=document.getElementById('rueck-item-allday');
+    if(alldayChk){alldayChk.checked=true;document.getElementById('rueck-item-times').style.display='none';}
     const amRad=document.getElementById('rueck-type-am');
     if(amRad)amRad.checked=true;
     openModal('m-rueck-item-date');
@@ -6786,15 +6847,21 @@ function confirmRueckItemDate(){
     isCustom:!!item.isCustom, inventoryItemId:item.inventoryItemId||null,
     checked:false, rueckfahrt:false
   };
+  const allDay=document.getElementById('rueck-item-allday')?.checked!==false;
+  const startTime=document.getElementById('rueck-item-starttime')?.value||'';
+  const endTime=document.getElementById('rueck-item-endtime')?.value||'';
   if(existing){
     db.ref('/logistikFahrten/'+existing[0]+'/items').push(reversedItem);
-    toast('Zu bestehender Rückfahrt hinzugefügt ✓');
+    toast('Zu bestehender Rückfahrt hinzugefügt');
   } else {
     const newF={date,status:'offen',items:{},createdAt:Date.now(),
-      employee:f.employee||'',isRueckfahrt:true,rueckfahrtDateType:type,originalFahrtId:fid};
+      employee:f.employee||'',isRueckfahrt:true,rueckfahrtDateType:type,originalFahrtId:fid,
+      allDay:allDay?true:false};
+    if(!allDay&&startTime) newF.startTime=startTime;
+    if(!allDay&&endTime) newF.endTime=endTime;
     newF.items['item'+Date.now()]=reversedItem;
     db.ref('/logistikFahrten').push(newF);
-    toast('Rückfahrt angelegt ✓');
+    toast('Rückfahrt angelegt');
   }
   closeModal('m-rueck-item-date');
 }
@@ -7402,7 +7469,7 @@ function saveInventoryItem(){
     </div>
   </div>
   <div class="main" style="padding-bottom:80px">
-    <div id="lg-fahrt-info" style="background:#f8f9fa;padding:12px 16px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:0"></div>
+    <div id="lg-fahrt-info" style="background:#f8f9fa;padding:12px 16px 8px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:0;position:relative"></div>
     <div id="lg-fahrt-items"></div>
     <div id="lg-fahrt-add-btns" style="padding:0 14px 14px;display:flex;flex-direction:column;gap:8px"></div>
   </div>
@@ -7672,7 +7739,19 @@ function saveInventoryItem(){
     <h2>Rückfahrt einplanen</h2>
     <p style="font-size:13px;color:#888;margin-bottom:16px">Wann wird dieser Artikel zurückgefahren?</p>
     <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:6px">Datum</label>
-    <input type="date" id="rueck-item-date" style="width:100%;border:1.5px solid #e0e0e0;border-radius:12px;padding:13px 14px;font-size:16px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit;box-sizing:border-box;margin-bottom:16px">
+    <input type="date" id="rueck-item-date" style="width:100%;border:1.5px solid #e0e0e0;border-radius:12px;padding:13px 14px;font-size:16px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit;box-sizing:border-box;margin-bottom:14px">
+    <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:8px">Uhrzeit (optional)</label>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#888;font-weight:600">
+        <input type="checkbox" id="rueck-item-allday" checked onchange="document.getElementById('rueck-item-times').style.display=this.checked?'none':'flex'" style="width:14px;height:14px;accent-color:#1565c0">
+        ganztägig
+      </label>
+      <div id="rueck-item-times" style="display:none;align-items:center;gap:6px;flex:1">
+        <input type="time" id="rueck-item-starttime" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:8px 10px;font-size:14px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
+        <span style="color:#bbb;font-size:12px;font-weight:700">–</span>
+        <input type="time" id="rueck-item-endtime" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:8px 10px;font-size:14px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
+      </div>
+    </div>
     <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:10px">Art der Rückfahrt</label>
     <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1.5px solid #e0e0e0;border-radius:10px;cursor:pointer;margin-bottom:8px;font-size:13px;font-weight:700;color:#1c1c2e">
       <input type="radio" name="rueck-item-type" id="rueck-type-am" value="am" checked style="width:16px;height:16px;accent-color:#1565c0">
@@ -7688,7 +7767,7 @@ function saveInventoryItem(){
         <div style="font-size:11px;font-weight:400;color:#888;margin-top:2px">Flexibler Termin mit Deadline</div>
       </div>
     </label>
-    <button class="mbtn" onclick="confirmRueckItemDate()">Rückfahrt einplanen ✓</button>
+    <button class="mbtn" onclick="confirmRueckItemDate()">Rückfahrt einplanen</button>
     <button class="mbtn grey" onclick="closeModal('m-rueck-item-date')">Abbrechen</button>
   </div>
 </div>
