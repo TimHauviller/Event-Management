@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260623-095';
+      var V='20260624-096';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -6163,15 +6163,15 @@ function renderFahrtDetail(){
             return{pri:1,sec:0,time:rTimes[e.rk]||''};
           }
           const t=e.item.time||'';
-          if(t)return{pri:1,sec:0,time:t};
+          if(t)return{pri:1,sec:0,time:t,key:e.ikey};
           // Timeless tasks use manual order, placed after timed entries
           const to_=taskOrder[e.ikey];
-          return{pri:2,sec:to_!==undefined?to_:9999,time:''};
+          return{pri:2,sec:to_!==undefined?to_:9999,time:'',key:e.ikey};
         };
         const ka=getSortKey(a),kb=getSortKey(b);
         if(ka.pri!==kb.pri)return ka.pri-kb.pri;
         if(ka.pri===0&&ka.sec!==kb.sec)return ka.sec-kb.sec;
-        if(ka.pri===2)return ka.sec-kb.sec;
+        if(ka.pri===2){if(ka.sec!==kb.sec)return ka.sec-kb.sec;return ka.key<kb.key?-1:ka.key>kb.key?1:0;}
         const ta=ka.time,tb=kb.time;
         if(!ta&&tb)return 1; if(ta&&!tb)return -1;
         return ta.localeCompare(tb);
@@ -6785,6 +6785,19 @@ function openAddFahrtItem(fid,type,action,from,to){
   _addFahrtRouteTo=to||null;
   const actionLabel=_addFahrtAction==='ausladen'?'Ausladen':'Einladen';
   const hasRoute=!!(from&&to);
+  const showAuch=hasRoute&&_addFahrtAction==='einladen';
+  // Smart default for ausladen destination: next logical location after 'to'
+  const _defAusDest=to==='AS'?'LS':to==='EG'?'LS':to==='LS'?'AS':'LS';
+  const _resetAuchAusladen=(sectionId,checkId,destId,toSelId)=>{
+    const sec=document.getElementById(sectionId);
+    const chk=document.getElementById(checkId);
+    const dest=document.getElementById(destId);
+    const toSel=document.getElementById(toSelId);
+    if(sec)sec.style.display=showAuch?'block':'none';
+    if(chk)chk.checked=false;
+    if(dest)dest.style.display='none';
+    if(toSel)toSel.value=_defAusDest;
+  };
   if(type==='custom'){
     document.getElementById('afi-name').value='';
     document.getElementById('afi-menge').value='1';
@@ -6796,6 +6809,7 @@ function openAddFahrtItem(fid,type,action,from,to){
     if(ri){ri.style.display=hasRoute?'flex':'none';if(hasRoute)ri.innerHTML=`<span style="font-size:11px;color:#888;font-weight:700">Route: </span><span style="margin-left:4px">${locRoute(from,to,false)}</span>`;}
     if(!hasRoute&&from){const s=document.getElementById('afi-from');if(s){s.value=from;handleLocSelectChange('afi-from');}}
     if(!hasRoute&&to){const s=document.getElementById('afi-to');if(s){s.value=to;handleLocSelectChange('afi-to');}}
+    _resetAuchAusladen('afi-auch-ausladen','afi-auch-aus-check','afi-auch-aus-dest','afi-auch-aus-to');
     openModal('m-add-fahrt-item-custom');
   } else {
     const titleEl=document.querySelector('#m-add-fahrt-item-inv h2');
@@ -6806,6 +6820,7 @@ function openAddFahrtItem(fid,type,action,from,to){
     if(ri){ri.style.display=hasRoute?'flex':'none';if(hasRoute)ri.innerHTML=`<span style="font-size:11px;color:#888;font-weight:700">Route: </span><span style="margin-left:4px">${locRoute(from,to,false)}</span>`;}
     if(!hasRoute&&from){const s=document.getElementById('afi-inv-from');if(s){s.value=from;handleLocSelectChange('afi-inv-from');}}
     if(!hasRoute&&to){const s=document.getElementById('afi-inv-to');if(s){s.value=to;handleLocSelectChange('afi-inv-to');}}
+    _resetAuchAusladen('afi-inv-auch-ausladen','afi-inv-auch-aus-check','afi-inv-auch-aus-dest','afi-inv-auch-aus-to');
     renderInventoryPicker(fid);
     openModal('m-add-fahrt-item-inv');
   }
@@ -6842,6 +6857,14 @@ function addFahrtInventoryItem(fid,iid){
   const newItem={name:item.name,menge,from,to,checked:false,isCustom:false,inventoryItemId:iid,rueckfahrt,action:_addFahrtAction||'einladen'};
   if(comment)newItem.comment=comment;
   if(db)db.ref('/logistikFahrten/'+fid+'/items').push(newItem);
+  // "Direkt auch ausladen" option
+  const ausChk=document.getElementById('afi-inv-auch-aus-check');
+  if(ausChk&&ausChk.checked&&_addFahrtRouteTo){
+    const ausTo=(document.getElementById('afi-inv-auch-aus-to')||{}).value||'LS';
+    const ausItem={name:item.name,menge,from:_addFahrtRouteTo,to:ausTo,checked:false,isCustom:false,inventoryItemId:iid,action:'ausladen',createdAt:Date.now()};
+    if(comment)ausItem.comment=comment;
+    if(db)db.ref('/logistikFahrten/'+fid+'/items').push(ausItem);
+  }
   const commentEl=document.getElementById('afi-inv-comment');
   if(commentEl)commentEl.value='';
   toast(escHtml(item.name)+' hinzugefügt ✓');
@@ -6883,7 +6906,7 @@ function moveStandaloneTask(fid,ikey,dir){
   const f=logistikFahrten[fid]; if(!f)return;
   const items=f.items||{};
   const existingTaskOrder=f.taskOrder||{};
-  // All standalone tasks, sorted same as allEntries (timed first by time, timeless by order)
+  // All standalone tasks — stable sort: time first, then taskOrder, then key (stable tiebreaker)
   const all=Object.entries(items)
     .filter(([,i])=>i.isTask&&!i.routeKey)
     .sort((a,b)=>{
@@ -6893,10 +6916,11 @@ function moveStandaloneTask(fid,ikey,dir){
         if(ta!==tb)return ta.localeCompare(tb);
       }
       const oa=existingTaskOrder[a[0]],ob=existingTaskOrder[b[0]];
-      if(oa!==undefined&&ob!==undefined)return oa-ob;
-      if(oa!==undefined)return -1; if(ob!==undefined)return 1;
-      return 0;
+      const ova=oa!==undefined?oa:9999,ovb=ob!==undefined?ob:9999;
+      if(ova!==ovb)return ova-ovb;
+      return a[0]<b[0]?-1:a[0]>b[0]?1:0; // stable key tiebreaker
     });
+  if(all.length<2)return;
   const idx=all.findIndex(([k])=>k===ikey); if(idx===-1)return;
   const swapIdx=dir==='up'?idx-1:idx+1;
   if(swapIdx<0||swapIdx>=all.length)return;
@@ -6953,6 +6977,14 @@ function addFahrtCustomItem(){
   if(comment)newItem.comment=comment;
   if(_afiPhotoData)newItem.photo=_afiPhotoData;
   if(db)db.ref('/logistikFahrten/'+_addFahrtId+'/items').push(newItem);
+  // "Direkt auch ausladen" option
+  const ausChk2=document.getElementById('afi-auch-aus-check');
+  if(ausChk2&&ausChk2.checked&&_addFahrtRouteTo){
+    const ausTo2=(document.getElementById('afi-auch-aus-to')||{}).value||'LS';
+    const ausItem2={name,menge,from:_addFahrtRouteTo,to:ausTo2,checked:false,isCustom:true,action:'ausladen',createdAt:Date.now()};
+    if(comment)ausItem2.comment=comment;
+    if(db)db.ref('/logistikFahrten/'+_addFahrtId+'/items').push(ausItem2);
+  }
   _afiPhotoData=null;
   closeModal('m-add-fahrt-item-custom');
   toast(escHtml(name)+' hinzugefügt ✓');
@@ -7963,6 +7995,20 @@ function saveInventoryItem(){
     </label>
     <label class="tform-lbl">Kommentar (optional, für nächsten Artikel)</label>
     <textarea id="afi-inv-comment" class="tform-input" placeholder="Hinweis, Lagerort, Zustand…" style="min-height:50px;resize:vertical;font-family:inherit;margin-bottom:10px"></textarea>
+    <div id="afi-inv-auch-ausladen" style="display:none;border-top:1px solid #f0f2f5;padding-top:10px;margin-bottom:10px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:6px">
+        <input type="checkbox" id="afi-inv-auch-aus-check" style="width:16px;height:16px;accent-color:#c62828" onchange="document.getElementById('afi-inv-auch-aus-dest').style.display=this.checked?'block':'none'">
+        <span style="font-size:13px;font-weight:700;color:#b71c1c">Direkt auch ausladen</span>
+      </label>
+      <div id="afi-inv-auch-aus-dest" style="display:none;margin-top:4px">
+        <div style="font-size:11px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">Ausladen bei</div>
+        <select id="afi-inv-auch-aus-to" style="width:100%;border:1.5px solid #fbbcbc;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff8f8;outline:none;font-family:inherit">
+          <option value="AS">amSee Leipzig</option>
+          <option value="EG">EVENTGIESSEREI</option>
+          <option value="LS">LAKESIDE</option>
+        </select>
+      </div>
+    </div>
     <button class="mbtn grey" onclick="closeModal('m-add-fahrt-item-inv')">Schließen</button>
   </div>
 </div>
@@ -8007,6 +8053,20 @@ function saveInventoryItem(){
       <input type="file" id="afi-photo-input" accept="image/*" style="display:none" onchange="_afiPhotoSelected(this)">
       <button type="button" onclick="document.getElementById('afi-photo-input').click()" style="background:#f8f9fa;border:1.5px dashed #ddd;border-radius:8px;padding:8px 14px;font-size:12px;color:#666;cursor:pointer;font-family:inherit">+ Foto hinzufügen</button>
       <span id="afi-photo-name" style="font-size:11px;color:#888;margin-left:8px"></span>
+    </div>
+    <div id="afi-auch-ausladen" style="display:none;border-top:1px solid #f0f2f5;padding-top:10px;margin-bottom:10px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:6px">
+        <input type="checkbox" id="afi-auch-aus-check" style="width:16px;height:16px;accent-color:#c62828" onchange="document.getElementById('afi-auch-aus-dest').style.display=this.checked?'block':'none'">
+        <span style="font-size:13px;font-weight:700;color:#b71c1c">Direkt auch ausladen</span>
+      </label>
+      <div id="afi-auch-aus-dest" style="display:none;margin-top:4px">
+        <div style="font-size:11px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">Ausladen bei</div>
+        <select id="afi-auch-aus-to" style="width:100%;border:1.5px solid #fbbcbc;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff8f8;outline:none;font-family:inherit">
+          <option value="AS">amSee Leipzig</option>
+          <option value="EG">EVENTGIESSEREI</option>
+          <option value="LS">LAKESIDE</option>
+        </select>
+      </div>
     </div>
     <button class="mbtn" onclick="addFahrtCustomItem()">Hinzufügen ✓</button>
     <button class="mbtn grey" onclick="closeModal('m-add-fahrt-item-custom')">Abbrechen</button>
