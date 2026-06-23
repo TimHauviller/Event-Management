@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260623-066';
+      var V='20260623-067';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')===V) return;
       // Fetch with cache:reload primes the CDN, then redirect (no document.write — mobile-safe)
@@ -6030,7 +6030,7 @@ function renderFahrtDetail(){
                 </div>
               </div>
               <div class="task-btns">
-                ${canEdit?`<button onclick="deleteFahrtItem('${fid}','${ikey}')" style="background:none;border:none;color:#ea4335;font-size:16px;cursor:pointer;padding:2px 4px">×</button>`:''}
+                <button onclick="openTaskActions('${fid}','${ikey}')" style="background:none;border:none;color:#bbb;font-size:18px;cursor:pointer;padding:2px 4px;font-weight:700;line-height:1">···</button>
               </div>
             </div>`;
           });
@@ -6110,7 +6110,7 @@ function renderFahrtDetail(){
                 ${item.time?`<div style="font-size:10px;color:#1565c0;font-weight:700;margin-top:2px">${escHtml(item.time)} Uhr</div>`:''}
               </div>
               <div class="task-btns">
-                ${canEdit?`<button onclick="deleteFahrtItem('${fid}','${ikey}')" style="background:none;border:none;color:#ea4335;font-size:16px;cursor:pointer;padding:2px 4px">×</button>`:''}
+                <button onclick="openTaskActions('${fid}','${ikey}')" style="background:none;border:none;color:#bbb;font-size:18px;cursor:pointer;padding:2px 4px;font-weight:700;line-height:1">···</button>
               </div>
             </div>`;
           });
@@ -6834,6 +6834,37 @@ let _iakFid=null, _iakKey=null;
 function openItemActions(fid,ikey){
   _iakFid=fid; _iakKey=ikey;
   openModal('m-item-actions');
+}
+
+// Task actions (···)
+let _takFid=null, _takKey=null;
+function openTaskActions(fid,ikey){
+  _takFid=fid; _takKey=ikey;
+  openModal('m-task-actions');
+}
+function taskActionDelete(){
+  closeModal('m-task-actions');
+  if(db)db.ref('/logistikFahrten/'+_takFid+'/items/'+_takKey).remove();
+  toast('Aufgabe gelöscht');
+}
+function taskActionEdit(){
+  closeModal('m-task-actions');
+  const f=logistikFahrten[_takFid]; if(!f)return;
+  const item=(f.items||{})[_takKey]; if(!item)return;
+  document.getElementById('etak-text').value=item.name||'';
+  document.getElementById('etak-time').value=item.time||'';
+  openModal('m-edit-fahrt-task');
+}
+function saveEditFahrtTask(){
+  const name=document.getElementById('etak-text').value.trim();
+  if(!name){toast('Bitte Aufgabe eingeben');return;}
+  const time=(document.getElementById('etak-time').value||'').trim();
+  const updates={[`/logistikFahrten/${_takFid}/items/${_takKey}/name`]:name};
+  if(time) updates[`/logistikFahrten/${_takFid}/items/${_takKey}/time`]=time;
+  else updates[`/logistikFahrten/${_takFid}/items/${_takKey}/time`]=null;
+  if(db)db.ref('/').update(updates);
+  closeModal('m-edit-fahrt-task');
+  toast('Aufgabe gespeichert');
 }
 
 function itemActionEdit(){
@@ -7676,6 +7707,29 @@ function saveInventoryItem(){
     <button class="mbtn" onclick="itemActionComment()">Mitarbeiter-Kommentar</button>
     <button class="mbtn" onclick="itemActionPhoto()">Mitarbeiter-Foto</button>
     <button class="mbtn grey" onclick="closeModal('m-item-actions')">Schließen</button>
+  </div>
+</div>
+
+<!-- TASK ACTIONS MODAL (···) -->
+<div class="overlay" id="m-task-actions">
+  <div class="modal">
+    <h2>Aufgabe</h2>
+    <button class="mbtn" onclick="taskActionEdit()">Bearbeiten</button>
+    <button class="mbtn" style="background:#ea4335" onclick="taskActionDelete()">Aufgabe löschen</button>
+    <button class="mbtn grey" onclick="closeModal('m-task-actions')">Schließen</button>
+  </div>
+</div>
+
+<!-- EDIT FAHRT TASK MODAL -->
+<div class="overlay" id="m-edit-fahrt-task">
+  <div class="modal">
+    <h2>Aufgabe bearbeiten</h2>
+    <label class="tform-lbl">Aufgabe</label>
+    <input type="text" id="etak-text" class="tform-input" placeholder="Aufgabe beschreiben" style="font-family:inherit">
+    <label class="tform-lbl">Uhrzeit (optional)</label>
+    <input type="time" id="etak-time" class="tform-input" style="font-family:inherit">
+    <button class="mbtn" onclick="saveEditFahrtTask()">Speichern</button>
+    <button class="mbtn grey" onclick="closeModal('m-edit-fahrt-task')">Abbrechen</button>
   </div>
 </div>
 
