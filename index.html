@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260623-091';
+      var V='20260623-092';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -6174,12 +6174,12 @@ function renderFahrtDetail(){
           const tPrefix=item.time?`<span style="font-size:16px;font-weight:800;color:#1e3a6e">${escHtml(item.time)} Uhr &ndash; </span>`:'';
           html+=`<div style="margin:8px 14px 0;border-radius:10px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow:hidden">
             <div style="border-left:4px solid #1e3a6e;padding:12px 14px;display:flex;align-items:center;gap:10px">
+              <div class="chk${item.checked?' on':''}" onclick="toggleFahrtTask('${fid}','${ikey}')"></div>
               <div style="flex:1;min-width:0">
                 <div style="${item.checked?'opacity:.45':''}">${tPrefix}<span style="font-size:16px;font-weight:800;color:#1e3a6e">${escHtml(item.name)}</span></div>
                 ${item.comment?`<div style="font-size:12px;color:#888;margin-top:4px">${escHtml(item.comment)}</div>`:''}
               </div>
               ${canEdit?`<button onclick="openTaskActions('${fid}','${ikey}')" style="background:none;border:none;color:#bbb;font-size:18px;cursor:pointer;padding:2px 4px;font-weight:700;line-height:1">···</button>`:''}
-              <div class="chk${item.checked?' on':''}" onclick="toggleFahrtTask('${fid}','${ikey}')"></div>
             </div>
           </div>`;
           return;
