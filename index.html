@@ -9,10 +9,11 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260623-080';
+      var V='20260623-081';
       var u=new URL(window.location.href);
-      if(u.searchParams.get('v')===V) return;
-      // Fetch with cache:reload primes the CDN, then redirect (no document.write — mobile-safe)
+      // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
+      if(u.searchParams.has('v')) return;
+      // First visit: prime CDN cache, then redirect once with version stamp
       fetch(location.pathname,{cache:'reload'})
         .then(function(){
           u.searchParams.set('v',V);
