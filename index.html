@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260623-078';
+      var V='20260623-079';
       var u=new URL(window.location.href);
       if(u.searchParams.get('v')===V) return;
       // Fetch with cache:reload primes the CDN, then redirect (no document.write — mobile-safe)
@@ -5751,6 +5751,8 @@ function openNewLgAufgabe(){
   if(nameEl)nameEl.value='';
   const timeEl=document.getElementById('lga-time');
   if(timeEl)timeEl.value='';
+  const commentEl=document.getElementById('lga-comment');
+  if(commentEl)commentEl.value='';
   openModal('m-lg-aufgabe');
   setTimeout(()=>nameEl&&nameEl.focus(),100);
 }
@@ -5759,8 +5761,10 @@ function saveLgAufgabe(){
   if(!name){toast('Bitte Beschreibung eingeben');return;}
   const date=document.getElementById('lga-date').value||'';
   const time=document.getElementById('lga-time').value||'';
+  const comment=(document.getElementById('lga-comment').value||'').trim();
   const entry={type:'aufgabe',name,date,checked:false,createdAt:Date.now()};
   if(time)entry.time=time;
+  if(comment)entry.comment=comment;
   if(db)db.ref('/logistikFahrten').push(entry).then(()=>toast('Aufgabe angelegt'));
   closeModal('m-lg-aufgabe');
 }
@@ -5948,6 +5952,7 @@ function renderFahrten(){
           <div class="chk${e.checked?' on':''}" onclick="toggleLgAufgabe('${eid}')"></div>
           <div style="min-width:0;flex:1">
             <div style="font-size:14px;font-weight:700;color:${e.checked?'#aaa':'#1c1c2e'}">${escHtml(e.name)}</div>
+            ${e.comment?`<div style="font-size:12px;color:#888;margin-top:2px">${escHtml(e.comment)}</div>`:''}
             <div class="event-meta-row" style="margin-top:3px">
               ${e.time?`<span style="font-size:11px;color:#1565c0;font-weight:700">${escHtml(e.time)} Uhr</span>`:''}
               <span style="font-size:10px;background:#e8f0fe;color:#1565c0;border-radius:6px;padding:1px 6px;font-weight:700">Aufgabe</span>
@@ -7665,6 +7670,8 @@ function saveInventoryItem(){
     <input type="date" class="tform-input" id="lga-date" style="font-family:inherit">
     <label class="tform-lbl">Uhrzeit (optional)</label>
     <input type="time" class="tform-input" id="lga-time" style="font-family:inherit">
+    <label class="tform-lbl">Kommentar (optional)</label>
+    <textarea class="tform-input" id="lga-comment" rows="3" placeholder="Zusätzliche Infos..." style="font-family:inherit;resize:vertical"></textarea>
     <button class="mbtn" onclick="saveLgAufgabe()">Speichern</button>
     <button class="mbtn grey" onclick="closeModal('m-lg-aufgabe')">Abbrechen</button>
   </div>
