@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260623-092';
+      var V='20260623-093';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -6253,9 +6253,9 @@ function renderFahrtDetail(){
         </div>`;
         // Einladen section
         if(tEin.length>0||canEdit){
-          html+=`<div style="padding:6px 15px 4px;border-top:1px solid #f0f2f5;display:flex;align-items:center;gap:7px">
-            <span style="font-size:10px;font-weight:800;color:#2e7d32;text-transform:uppercase;letter-spacing:.5px">Einladen</span>
-            <span style="font-size:9px;font-weight:700;color:#888">in</span>
+          html+=`<div style="padding:8px 15px 7px;border-top:1px solid #f0f2f5;background:#f0faf2;display:flex;align-items:center;gap:7px">
+            <span style="font-size:12px;font-weight:900;color:#1b5e20;text-transform:uppercase;letter-spacing:.8px">Einladen</span>
+            <span style="font-size:10px;font-weight:700;color:#4caf50">in</span>
             ${locBadge(group.to)}
           </div>`;
           tEin.forEach(([ikey,item])=>_renderTItem(ikey,item));
@@ -6263,9 +6263,9 @@ function renderFahrtDetail(){
         }
         // Ausladen section
         if(tAus.length>0||(canEdit&&allEinItems.length>0)){
-          html+=`<div style="padding:6px 15px 4px;border-top:1px solid #f0f2f5;display:flex;align-items:center;gap:7px">
-            <span style="font-size:10px;font-weight:800;color:#c62828;text-transform:uppercase;letter-spacing:.5px">Ausladen</span>
-            <span style="font-size:9px;font-weight:700;color:#888">in</span>
+          html+=`<div style="padding:8px 15px 7px;border-top:1px solid #f0f2f5;background:#fff5f5;display:flex;align-items:center;gap:7px">
+            <span style="font-size:12px;font-weight:900;color:#b71c1c;text-transform:uppercase;letter-spacing:.8px">Ausladen</span>
+            <span style="font-size:10px;font-weight:700;color:#ef9a9a">in</span>
             ${locBadge(group.to)}
           </div>`;
           tAus.forEach(([ikey,item])=>_renderTItem(ikey,item));
