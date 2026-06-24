@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260624-101';
+      var V='20260624-102';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -6114,16 +6114,21 @@ function renderFahrtDetail(){
       // Build combined groups
       const groups={};
       const ensureGroup=(rk,from,to)=>{if(!groups[rk])groups[rk]={from,to,rk,tItems:[],tTasks:[]};};
-      transportItems.forEach(([ikey,item])=>{
-        const fr=item.from||f.from||'?';
-        const to=item.to||f.to||'?';
-        const rk=rtKey(fr,to);
-        ensureGroup(rk,fr,to);
-        groups[rk].tItems.push([ikey,item]);
+      // Create groups for explicit routes using their Firebase key (push ID or legacy rtKey)
+      Object.entries(f.routes||{}).forEach(([rid,r])=>{
+        if(r.from&&r.to)ensureGroup(rid,r.from,r.to);
       });
-      // Also create groups for routes added via +Fahrt (may have no items yet)
-      Object.values(f.routes||{}).forEach(r=>{
-        if(r.from&&r.to)ensureGroup(rtKey(r.from,r.to),r.from,r.to);
+      // Add transport items — if item has routeGroupId, use that group; else fall back to from/to
+      transportItems.forEach(([ikey,item])=>{
+        if(item.routeGroupId&&groups[item.routeGroupId]){
+          groups[item.routeGroupId].tItems.push([ikey,item]);
+        } else {
+          const fr=item.from||f.from||'?';
+          const to=item.to||f.to||'?';
+          const rk=rtKey(fr,to);
+          ensureGroup(rk,fr,to);
+          groups[rk].tItems.push([ikey,item]);
+        }
       });
       const standaloneTaskList=[];
       taskItems.forEach(([ikey,item])=>{
@@ -6224,6 +6229,7 @@ function renderFahrtDetail(){
               <button onclick="moveAnyEntry('${fid}','${escHtml(rk)}','up')" style="background:none;border:none;color:#bbb;font-size:13px;cursor:pointer;padding:0 4px;line-height:1;font-family:inherit" title="Nach oben">↑</button>
               <button onclick="moveAnyEntry('${fid}','${escHtml(rk)}','down')" style="background:none;border:none;color:#bbb;font-size:13px;cursor:pointer;padding:0 4px;line-height:1;font-family:inherit" title="Nach unten">↓</button>
             </div>`:''}
+            ${canEdit?`<button onclick="event.stopPropagation();deleteRouteGroup('${fid}','${escHtml(rk)}')" style="background:none;border:none;color:#ddd;font-size:18px;cursor:pointer;padding:0 4px;font-weight:700;line-height:1;margin-right:2px" title="Fahrt löschen">×</button>`:''}
             <span class="cat-count">${grpChecked}/${grpTotal}</span>
             <span class="cat-arrow">▾</span>
           </div>
@@ -6270,8 +6276,8 @@ function renderFahrtDetail(){
         const tEin=group.tItems.filter(([,i])=>i.action!=='ausladen');
         const tAus=group.tItems.filter(([,i])=>i.action==='ausladen');
         const _sectionAddBtns=(act)=>`<div style="padding:3px 15px 8px;display:flex;gap:6px">
-          <button onclick="openAddFahrtItem('${fid}','inventory','${act}','${escHtml(group.from)}','${escHtml(group.to)}')" style="flex:1;background:#f8f9fa;border:1px dashed #ddd;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;color:#555;cursor:pointer;font-family:inherit">+ Inventar</button>
-          <button onclick="openAddFahrtItem('${fid}','custom','${act}','${escHtml(group.from)}','${escHtml(group.to)}')" style="flex:1;background:#f8f9fa;border:1px dashed #ddd;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;color:#555;cursor:pointer;font-family:inherit">+ Artikel</button>
+          <button onclick="openAddFahrtItem('${fid}','inventory','${act}','${escHtml(group.from)}','${escHtml(group.to)}','${escHtml(rk)}')" style="flex:1;background:#f8f9fa;border:1px dashed #ddd;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;color:#555;cursor:pointer;font-family:inherit">+ Inventar</button>
+          <button onclick="openAddFahrtItem('${fid}','custom','${act}','${escHtml(group.from)}','${escHtml(group.to)}','${escHtml(rk)}')" style="flex:1;background:#f8f9fa;border:1px dashed #ddd;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;color:#555;cursor:pointer;font-family:inherit">+ Artikel</button>
         </div>`;
         // Ausladen section (first — unload before loading)
         if(tAus.length>0||(canEdit&&allEinItems.length>0)){
@@ -6292,7 +6298,7 @@ function renderFahrtDetail(){
                 ${item.menge>1?`<span style="font-size:11px;color:#aaa">${item.menge}×</span>`:''}
                 ${done?
                   `<span style="font-size:10px;color:#2e7d32;font-weight:700">Hinzugefügt</span>`:
-                  `<button onclick="addAusladenFromEinladen('${fid}','${ikey}','${escHtml(group.from)}','${escHtml(group.to)}')" style="background:#c62828;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">+</button>`
+                  `<button onclick="addAusladenFromEinladen('${fid}','${ikey}','${escHtml(group.from)}','${escHtml(group.to)}','${escHtml(rk)}')" style="background:#c62828;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">+</button>`
                 }
               </div>`;
             });
@@ -6789,12 +6795,13 @@ function deleteFahrt(fid){
   toast('Fahrt gelöscht');
 }
 
-let _addFahrtId=null,_addFahrtRouteKey=null,_addFahrtRouteFrom=null,_addFahrtRouteTo=null,_addFahrtAction='einladen';
-function openAddFahrtItem(fid,type,action,from,to){
+let _addFahrtId=null,_addFahrtRouteKey=null,_addFahrtRouteFrom=null,_addFahrtRouteTo=null,_addFahrtAction='einladen',_addFahrtRouteGroupId=null;
+function openAddFahrtItem(fid,type,action,from,to,groupId){
   _addFahrtId=fid;
   _addFahrtAction=action||'einladen';
   _addFahrtRouteFrom=from||null;
   _addFahrtRouteTo=to||null;
+  _addFahrtRouteGroupId=groupId||null;
   const actionLabel=_addFahrtAction==='ausladen'?'Ausladen':'Einladen';
   const hasRoute=!!(from&&to);
   const showAuch=hasRoute&&_addFahrtAction==='einladen';
@@ -6868,6 +6875,7 @@ function addFahrtInventoryItem(fid,iid){
   const comment=((document.getElementById('afi-inv-comment')||{}).value||'').trim();
   const newItem={name:item.name,menge,from,to,checked:false,isCustom:false,inventoryItemId:iid,rueckfahrt,action:_addFahrtAction||'einladen'};
   if(comment)newItem.comment=comment;
+  if(_addFahrtRouteGroupId)newItem.routeGroupId=_addFahrtRouteGroupId;
   if(db)db.ref('/logistikFahrten/'+fid+'/items').push(newItem);
   // "Direkt auch ausladen" option
   const ausChk=document.getElementById('afi-inv-auch-aus-check');
@@ -6943,6 +6951,30 @@ function moveStandaloneTask(fid,ikey,dir){
   if(db)db.ref('/logistikFahrten/'+fid+'/taskOrder').set(newOrder);
 }
 
+function deleteRouteGroup(fid,rid){
+  if(!confirm('Fahrt löschen? Alle Artikel dieser Fahrt werden entfernt.'))return;
+  const f=logistikFahrten[fid]; if(!f)return;
+  const updates={};
+  updates['/logistikFahrten/'+fid+'/routes/'+rid]=null;
+  updates['/logistikFahrten/'+fid+'/routeTimes/'+rid]=null;
+  // Determine if legacy rtKey (contains '__') or push ID
+  const isRtKey=rid.indexOf('__')!==-1;
+  Object.entries(f.items||{}).forEach(([ikey,item])=>{
+    if(item.routeGroupId===rid){
+      updates['/logistikFahrten/'+fid+'/items/'+ikey]=null;
+    } else if(item.isTask&&item.routeKey===rid){
+      updates['/logistikFahrten/'+fid+'/items/'+ikey]=null;
+    } else if(isRtKey&&!item.routeGroupId&&!item.isTask){
+      const fr=item.from||f.from||'?',to=item.to||f.to||'?';
+      if(rtKey(fr,to)===rid)updates['/logistikFahrten/'+fid+'/items/'+ikey]=null;
+    }
+  });
+  // Clean up entryOrder
+  const eo={...(f.entryOrder||{})};
+  if(eo[rid]!==undefined){delete eo[rid];updates['/logistikFahrten/'+fid+'/entryOrder']=Object.keys(eo).length?eo:null;}
+  if(db)db.ref('/').update(updates);
+}
+
 function moveAnyEntry(fid,key,dir){
   const f=logistikFahrten[fid]; if(!f)return;
   // Build set of all route group keys
@@ -6986,10 +7018,11 @@ function moveAnyEntry(fid,key,dir){
   if(db)db.ref('/logistikFahrten/'+fid+'/entryOrder').set(newEO);
 }
 
-function addAusladenFromEinladen(fid,einladenItemKey,fromLoc,toLoc){
+function addAusladenFromEinladen(fid,einladenItemKey,fromLoc,toLoc,groupId){
   const f=logistikFahrten[fid]; if(!f)return;
   const src=f.items&&f.items[einladenItemKey]; if(!src)return;
   const newItem={name:src.name,menge:src.menge||1,from:fromLoc||src.from||f.from||'AS',to:toLoc||src.to||f.to||'LS',checked:false,isCustom:!!src.isCustom,inventoryItemId:src.inventoryItemId||null,action:'ausladen',createdAt:Date.now()};
+  if(groupId)newItem.routeGroupId=groupId;
   if(db)db.ref('/logistikFahrten/'+fid+'/items').push(newItem);
 }
 
@@ -7009,12 +7042,12 @@ function saveNewFahrtRoute(){
   const from=getLocValue('nfr-from');
   const to=getLocValue('nfr-to');
   if(!from||!to||from===to){toast('Bitte zwei verschiedene Standorte wählen');return;}
-  const rk=rtKey(from,to);
   const timeVal=((document.getElementById('nfr-time')||{}).value||'').trim();
   const routeData={from,to,createdAt:Date.now()};
   if(db){
-    db.ref('/logistikFahrten/'+_newRouteFid+'/routes/'+rk).set(routeData);
-    if(timeVal)db.ref('/logistikFahrten/'+_newRouteFid+'/routeTimes/'+rk).set(timeVal);
+    const newRef=db.ref('/logistikFahrten/'+_newRouteFid+'/routes').push(routeData);
+    const rid=newRef.key;
+    if(timeVal)db.ref('/logistikFahrten/'+_newRouteFid+'/routeTimes/'+rid).set(timeVal);
   }
   closeModal('m-new-fahrt-route');
   toast('Fahrt erstellt');
@@ -7031,6 +7064,7 @@ function addFahrtCustomItem(){
   const newItem={name,menge,from,to,checked:false,isCustom:true,rueckfahrt,action:_addFahrtAction||'einladen'};
   if(comment)newItem.comment=comment;
   if(_afiPhotoData)newItem.photo=_afiPhotoData;
+  if(_addFahrtRouteGroupId)newItem.routeGroupId=_addFahrtRouteGroupId;
   if(db)db.ref('/logistikFahrten/'+_addFahrtId+'/items').push(newItem);
   // "Direkt auch ausladen" option
   const ausChk2=document.getElementById('afi-auch-aus-check');
