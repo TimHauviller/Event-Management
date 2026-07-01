@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260701-120';
+      var V='20260701-121';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -1433,18 +1433,22 @@ LS:[
 // ── VORBEREITUNG NÄCHSTES EVENT ─────────────────────────────────────
 const VNE_TASKS = {
   hz: [
-    {id:'vne_hz1',de:'pro Platz: 2x Messer groß | 2x Gabel groß | 1x Dessertbesteck | 1x Weißweinglas 0,1l | 1x Wasserglas | 1x Serviette',sub:'Oberdeck – Eindecken'},
-    {id:'vne_hz2',de:'1x Wasser still und Sprudel 0,75l pro Tisch',sub:'Oberdeck – Eindecken'},
-    {id:'vne_hz3',de:'1x Weinkühler pro Tisch',sub:'Oberdeck – Eindecken'},
-    {id:'vne_hz4',de:'1x Tischlampe pro Tisch',sub:'Oberdeck – Eindecken'},
-    {id:'vne_hz5',de:'Hausdeko auf Tische',sub:'Oberdeck – Eindecken'},
-    {id:'vne_hz6',de:'Fegen & wischen',sub:'Oberdeck – Eindecken'},
-    {id:'vne_hz7',de:'Stühle ausrichten',sub:'Oberdeck – Eindecken'},
+    {id:'vne_hz1',de:'pro Platz: 2x Messer groß | 2x Gabel groß | 1x Dessertbesteck | 1x Weißweinglas 0,1l | 1x Wasserglas | 1x Serviette',sub:'Oberdeck – Eindecken',link:'as_vb1'},
+    {id:'vne_hz2',de:'1x Wasser still und Sprudel 0,75l pro Tisch',sub:'Oberdeck – Eindecken',link:'as_vb2'},
+    {id:'vne_hz3',de:'1x Weinkühler pro Tisch',sub:'Oberdeck – Eindecken',link:'as_vb3'},
+    {id:'vne_hz4',de:'1x Tischlampe pro Tisch',sub:'Oberdeck – Eindecken',link:'as_vb4'},
+    {id:'vne_hz5',de:'Hausdeko auf Tische',sub:'Oberdeck – Eindecken',link:'as_vb5'},
+    {id:'vne_hz6',de:'Fegen & wischen',sub:'Oberdeck – Eindecken',link:'as_vb6'},
+    {id:'vne_hz7',de:'Stühle ausrichten',sub:'Oberdeck – Eindecken',link:'as_vb7'},
   ],
   brunch: [
     // Aufgaben werden noch definiert
   ]
 };
+
+// Lookup: vne task id → linked checklist task id in next event
+const VNE_LINKS = {};
+Object.values(VNE_TASKS).forEach(arr => arr.forEach(t => { if(t.link) VNE_LINKS[t.id]=t.link; }));
 
 function detectEventType(name) {
   const n=(name||'').toLowerCase();
@@ -3062,6 +3066,16 @@ function toggleCheck(id){
   const path='/eventData/'+loc+'/'+eventId+'/checked/'+id;
   if(db){if(val)db.ref(path).set(true);else db.ref(path).remove();}
   else saveLocal();
+  // VNE cross-link: wenn ein Vorbereitung-nächstes-Event Task abgehakt wird,
+  // gleichzeitig die entsprechende Aufgabe im nächsten Event eintragen
+  if(db && VNE_LINKS[id]) {
+    const nextEv=findNextDayEvent();
+    if(nextEv) {
+      const linkedPath='/eventData/'+loc+'/'+nextEv.eid+'/checked/'+VNE_LINKS[id];
+      if(val) db.ref(linkedPath).set(true);
+      else db.ref(linkedPath).remove();
+    }
+  }
 }
 
 function togglePhotoRequired(id){
