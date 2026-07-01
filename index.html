@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260701-105';
+      var V='20260701-106';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -235,7 +235,7 @@
     .adm-btn:hover{background:#f0f0f0}
     .adm-btn.del:hover{background:#ffebee;color:#ea4335;border-color:#ea4335}
     .adm-btn:disabled{opacity:.3;cursor:default}
-    .task.ev-added .task-de::before{content:'★ ';color:#ff9800;font-size:11px}
+    .task.ev-added .task-de::before{content:'';}
     .add-task-row{display:none;padding:8px 15px;border-top:1px solid #f5f5f5}
     body.admin-mode .add-task-row{display:block}
     body.event-leader-mode .add-task-row{display:block}
@@ -488,13 +488,7 @@
         <div class="hdr-title" id="hdr-loc-name"></div>
         <div class="hdr-event" id="hdr-event-name"></div>
       </div>
-      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-        <div id="hdr-user-name" style="font-size:11px;color:rgba(255,255,255,.6);font-weight:600;white-space:nowrap"></div>
-        <button onclick="openAZ()" title="A-Z Wissensdatenbank" style="background:rgba(255,255,255,.15);border:none;border-radius:8px;padding:6px 7px;cursor:pointer;color:#fff;font-size:10px;font-weight:800;flex-shrink:0;line-height:1;letter-spacing:.5px">A-Z</button>
-        <button onclick="printChecklist()" title="Drucken" style="background:rgba(255,255,255,.15);border:none;border-radius:8px;padding:7px 8px;cursor:pointer;color:#fff;display:flex;align-items:center;flex-shrink:0;line-height:1">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>
-        </button>
-      </div>
+      <div id="hdr-user-name" style="font-size:11px;color:rgba(255,255,255,.6);font-weight:600;white-space:nowrap;flex-shrink:0"></div>
     </div>
     <div class="prog-wrap"><div class="prog" id="prog-bar" style="width:0%"></div></div>
     <div class="prog-label">
@@ -507,6 +501,8 @@
     <div class="checklist-action-bar" id="action-bar-wrap">
       <a class="action-bar-btn" id="hdr-sheet-btn" href="#" target="_blank" rel="noopener" style="text-decoration:none">Factsheet</a>
       <button class="action-bar-btn" id="ablauf-menu-btn" onclick="openAblauf()" style="display:none">Ablauf des Events</button>
+      <button class="action-bar-btn" onclick="printChecklist()">Drucken</button>
+      <button class="action-bar-btn" onclick="openAZ()">Location A-Z</button>
     </div>
   </div>
   <div class="main">
@@ -1111,7 +1107,6 @@ AS:[
     t('as_sl22','Getränkebestellung ausfüllen','','Schichtleitung'),
     t('as_sl23','Feedback einholen & dokumentieren','','Schichtleitung'),
   ]},
-  {id:'as_el',name:'Eventleitung am Eventtag',tasks:[]},
 ],
 EG:[
   {id:'eg_vb',name:'Event Vorbereitung & Aufbauten',tasks:[
@@ -2546,7 +2541,7 @@ function getOrderedTasks(cat) {
   }
   // Add event-specific extra tasks
   Object.values(evExtraTasks).filter(tk=>tk.catId===cat.id).forEach(tk=>{
-    base.push({id:tk.id,de:tk.de,en:tk.en||'',sub:tk.sub||'',isEvent:true});
+    base.push({id:tk.id,de:tk.de||tk.text||'',en:tk.en||'',sub:tk.sub||'',isEvent:true});
   });
   const visible=base.filter(tk=>!evHidden[tk.id]);
   const order=evTaskOrder[cat.id];
@@ -3708,8 +3703,6 @@ function openAblauf(){
   const evEl=document.getElementById('ablauf-hdr-event');
   if(locEl) locEl.textContent=locNames[loc]||loc;
   if(evEl) evEl.textContent=ev.name||'Ablauf des Events';
-  const hdr=document.querySelector('#ablauf-screen .hdr');
-  if(hdr) hdr.style.background=LG_LOC_COLOR[loc]||'#1c1c2e';
   renderAblauf();
   showScreen('ablauf-screen');
 }
