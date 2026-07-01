@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260701-109';
+      var V='20260701-110';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -271,6 +271,8 @@
     .ablauf-alarm-btn{background:rgba(45,122,79,.1);border:none;border-radius:8px;padding:8px;cursor:pointer;color:#2d7a4f;display:flex;align-items:center;flex-shrink:0}
     .ablauf-alarm-btn:active{background:rgba(45,122,79,.2)}
     .ablauf-no-data{padding:32px 20px;text-align:center;color:#aaa;font-size:14px}
+    .ablauf-add-row{display:none;width:100%;margin-top:8px;padding:13px;background:none;border:2px dashed #ddd;border-radius:10px;color:#aaa;font-size:14px;cursor:pointer;box-sizing:border-box;text-align:center}
+    body.admin-mode .ablauf-add-row{display:block}
     .az-hdr{background:var(--hdr-bg,#1c1c2e);color:#fff;position:sticky;top:0;z-index:100;box-shadow:0 2px 10px rgba(0,0,0,.4)}
     .az-hdr-top{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px}
     .az-hdr-center{text-align:center;flex:1;padding:0 8px}
@@ -688,7 +690,10 @@
       <div style="width:40px"></div>
     </div>
   </div>
-  <div class="main" id="ablauf-main" style="padding:16px 16px 32px"></div>
+  <div class="main" id="ablauf-main" style="padding:16px 16px 0"></div>
+  <div style="padding:0 16px 32px">
+    <button class="ablauf-add-row" onclick="openAddAblaufItem()">＋ Ablaufpunkt hinzufügen</button>
+  </div>
 </div>
 
 <!-- MODALS -->
@@ -808,6 +813,15 @@
     <input type="text" id="rename-input" placeholder="Neuer Name" onkeydown="if(event.key==='Enter')saveRename()">
     <button class="mbtn" onclick="saveRename()">Speichern</button>
     <button class="mbtn grey" onclick="closeModal('m-rename')">Abbrechen</button>
+  </div>
+</div>
+<div class="overlay" id="m-add-ablauf">
+  <div class="modal">
+    <h2>Ablaufpunkt hinzufügen</h2>
+    <input type="time" id="ablauf-new-time" style="font-size:16px">
+    <input type="text" id="ablauf-new-desc" placeholder="Beschreibung" onkeydown="if(event.key==='Enter')saveAblaufItem()">
+    <button class="mbtn" onclick="saveAblaufItem()">Hinzufügen</button>
+    <button class="mbtn grey" onclick="closeModal('m-add-ablauf')">Abbrechen</button>
   </div>
 </div>
 <div class="overlay" id="m-subcat-edit">
@@ -1958,7 +1972,7 @@ function subscribeEvent(l, eid) {
   sub('/eventAblauf/'+l+'/'+eid, s => {
     evAblauf=s.val()||null;
     const btn=document.getElementById('ablauf-menu-btn');
-    if(btn) btn.style.display=(evAblauf&&evAblauf.items)?'':'none';
+    if(btn) btn.style.display=((evAblauf&&evAblauf.items)||isAdmin)?'':'none';
     if(document.getElementById('ablauf-screen').style.display==='block') renderAblauf();
   });
 }
@@ -3779,6 +3793,28 @@ function setAblaufAlarm(time, desc, eventDate){
   document.body.removeChild(a);
   setTimeout(()=>URL.revokeObjectURL(a.href),5000);
   toast('Kalender-Alarm wird erstellt – Datei öffnen zum Speichern');
+}
+function openAddAblaufItem(){
+  document.getElementById('ablauf-new-time').value='';
+  document.getElementById('ablauf-new-desc').value='';
+  showModal('m-add-ablauf');
+  setTimeout(()=>document.getElementById('ablauf-new-time').focus(),100);
+}
+function saveAblaufItem(){
+  const time=document.getElementById('ablauf-new-time').value.trim();
+  const desc=document.getElementById('ablauf-new-desc').value.trim();
+  if(!time){toast('Bitte Uhrzeit angeben');return;}
+  if(!desc){toast('Bitte Beschreibung angeben');return;}
+  const items=evAblauf&&evAblauf.items?Object.values(evAblauf.items):[];
+  const maxOrder=items.reduce((m,i)=>Math.max(m,i.order!==undefined?i.order:0),0);
+  const newOrder=items.length>0?maxOrder+1:0;
+  const newKey='a'+Date.now();
+  db.ref('/eventAblauf/'+loc+'/'+eventId+'/items/'+newKey).set({
+    time:time, desc:desc, order:newOrder
+  }).then(()=>{
+    closeModal('m-add-ablauf');
+    toast('Ablaufpunkt hinzugefügt');
+  }).catch(e=>toast('Fehler: '+e.message));
 }
 
 function toggleAdminFromAZ(){
