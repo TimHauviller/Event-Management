@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260701-107';
+      var V='20260701-108';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -236,6 +236,8 @@
     .adm-btn.del:hover{background:#ffebee;color:#ea4335;border-color:#ea4335}
     .adm-btn:disabled{opacity:.3;cursor:default}
     .task.ev-added .task-de::before{content:'';}
+    .task-open-btn{background:none;border:none;color:#c0c0c0;font-size:22px;font-weight:300;cursor:pointer;padding:2px 6px;flex-shrink:0;line-height:1;align-self:center;}
+    .task-open-btn:active{color:#1c1c2e;}
     .add-task-row{display:none;padding:8px 15px;border-top:1px solid #f5f5f5}
     body.admin-mode .add-task-row{display:block}
     body.event-leader-mode .add-task-row{display:block}
@@ -503,8 +505,6 @@
       <button class="action-bar-btn" id="ablauf-menu-btn" onclick="openAblauf()" style="display:none">Ablauf des Events</button>
       <button class="action-bar-btn" onclick="printChecklist()">Drucken</button>
       <button class="action-bar-btn" onclick="openAZ()">Location A-Z</button>
-      <button class="action-bar-btn" onclick="openOrder()">Getränkebestellung</button>
-      <button class="action-bar-btn" onclick="openFeedback()">Feedback</button>
     </div>
   </div>
   <div class="main">
@@ -2608,10 +2608,12 @@ function renderTask(tk, catId, siblings, origSub) {
     </div>`;
   }
   const evDel=tk.isEvent?`<button class="adm-btn del" onclick="deleteEvTask('${tk.id}')">✕</button>`:'';
+  const TASK_OPEN={'as_sl22':'openOrder()','as_sl23':'openFeedback()'};
+  const openFn=TASK_OPEN[tk.id]||'';
   return `<div class="task${checked?' done':''}${tk.isEvent?' ev-added':''}${tk.isPerm?' perm-task':''}" id="task-${tk.id}">
     <div class="chk${checked?' on':''}" onclick="event.stopPropagation();toggleCheck('${tk.id}')"></div>
-    <div class="task-txt">
-      <div class="task-de">${escHtml(de)}</div>
+    <div class="task-txt" ${openFn?`onclick="event.stopPropagation();${openFn}" style="cursor:pointer"`:''}">
+      <div class="task-de">${escHtml(de)}${openFn?` <span style="font-size:11px;color:#aaa;font-weight:600;letter-spacing:.2px">— Ausfüllen</span>`:''}</div>
       ${en?`<div class="task-en">${escHtml(en)}</div>`:''}
       ${evTaskNotes[tk.id]?`<div class="task-note">${escHtml(evTaskNotes[tk.id])}</div>`:''}
       ${(()=>{const ea=getEffectiveAssignee(tk.id,catId,origSub);const uname=ea?(taskUsers[ea.uid]||{}).name||'?':null;if(isAdmin){return ea?`<span class="assignee-badge" onclick="event.stopPropagation();openAssignTask('${tk.id}','${escAttr(de)}')" title="Zuweisung">${escHtml(uname)}${ea.level!=='task'?' (geerbt)':''}</span>`:`<button class="assign-btn" onclick="event.stopPropagation();openAssignTask('${tk.id}','${escAttr(de)}')" title="Mitarbeiter zuweisen">+</button>`;}return ea?`<span class="assignee-badge" style="cursor:default;pointer-events:none">${escHtml(uname)}${ea.level!=='task'?' (geerbt)':''}</span>`:'';})()}
