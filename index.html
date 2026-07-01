@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260701-123';
+      var V='20260701-125';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -977,6 +977,15 @@ AS:[
     t('as_ev20','Treppe fegen & wischen','Sweep & mop stairs'),
     t('as_ev21','Wecker stellen: Weißweine auf Tische + Tischlampen (10 min vor Hochgehen) | LEDs Outdoor (Start Abendessen) | Toilettencheck (ca. alle 60 min)','Set reminders: white wine + lamps (10 min before guests) | outdoor LEDs (dinner start) | toilet check (every 60 min)'),
   ]},
+  {id:'as_barv',name:'BAR | Vorbereitung',tasks:[
+    t('as_barv1','Position vorbereiten = Alle Zutaten für heutige Drinks bereitstellen + Werkzeug','Prepare station = set out all ingredients for today\'s drinks + tools'),
+    t('as_barv2','Gläser auffüllen','Refill glasses'),
+    t('as_barv3','Mülleimer bereitstellen','Set up trash can'),
+    t('as_barv4','Kiste für leere Flaschen vorbereiten','Prepare crate for empty bottles'),
+    t('as_barv5','Strohhalme auffüllen','Refill straws'),
+    t('as_barv6','Kühlschränke auffüllen','Refill refrigerators'),
+    t('as_barv7','Obst schneiden','Cut fruit'),
+  ]},
   {id:'as_no',name:'Nachbereitung – Oberdeck',tasks:[
     t('as_no1','Alle Tische komplett abräumen und abwischen | Deko','Clear and wipe all tables completely | decorations','Innenbereich'),
     t('as_no2','Stühle in 4er Stapel an den Rand stellen (Kinderstühle separieren) | verschmutzte Stühle abwischen','Chairs in stacks of 4 at edge (separate children\'s chairs) | wipe dirty chairs','Innenbereich'),
@@ -1167,6 +1176,15 @@ EG:[
     t('eg_ev20','Spülmaschine anmachen','Turn on dishwasher','Bar'),
     t('eg_ev21','Obst schneiden','Cut fruit','Bar'),
   ]},
+  {id:'eg_barv',name:'BAR | Vorbereitung',tasks:[
+    t('eg_barv1','Position vorbereiten = Alle Zutaten für heutige Drinks bereitstellen + Werkzeug','Prepare station = set out all ingredients for today\'s drinks + tools'),
+    t('eg_barv2','Gläser auffüllen','Refill glasses'),
+    t('eg_barv3','Mülleimer bereitstellen','Set up trash can'),
+    t('eg_barv4','Kiste für leere Flaschen vorbereiten','Prepare crate for empty bottles'),
+    t('eg_barv5','Strohhalme auffüllen','Refill straws'),
+    t('eg_barv6','Kühlschränke auffüllen','Refill refrigerators'),
+    t('eg_barv7','Obst schneiden','Cut fruit'),
+  ]},
   {id:'eg_ns',name:'Nachbereitung – Service',tasks:[
     t('eg_ns1','Alles was gespült werden muss einsammeln und in Spüle geben','Collect everything to be washed and place in dishwasher','Beginnen mit'),
     t('eg_ns2','Aschenbecher einsammeln, in Spüle geben','Collect ashtrays, place in dishwasher','Beginnen mit'),
@@ -1289,6 +1307,8 @@ EG:[
     t('eg_sl19','Fotos / Videos schicken + Feedback Veranstaltung an Timmy & Florian schicken','Send photos / videos + event feedback to Timmy & Florian','Letzter Kontrollgang'),
     t('eg_sl20','Ausloggen','Log out','Letzter Kontrollgang'),
     t('eg_sl21','Alle Türen zuschließen, Sensor in Mitarbeiterraum lassen und Türe schließen','Lock all doors, leave sensor in staff room and close door','Letzter Kontrollgang'),
+    t('eg_sl22','Getränkebestellung ausfüllen','','Schichtleitung'),
+    t('eg_sl23','Feedback einholen & dokumentieren','','Schichtleitung'),
   ]},
 ],
 LS:[
@@ -1429,6 +1449,31 @@ LS:[
   ]},
   {id:'ls_vne',name:'Vorbereitung nächstes Event',tasks:[]},
   {id:'ls_um',name:'Umbau – nächstes Event',tasks:[]},
+  {id:'ls_sl',name:'Checkliste Schichtleitung',tasks:[
+    t('ls_sl1','Immer wieder Aufgaben verteilen, die man zwischendurch schon erledigen kann','Continuously assign tasks that can be done in between','Während Veranstaltung'),
+    t('ls_sl2','Kontrolle Spüle (alles ordentlich gestapelt, sortiert und verstaut?)','Check dishwashing area (everything stacked, sorted and stowed neatly?)','Während Veranstaltung'),
+    t('ls_sl3','Absprache DJ: wann letzter Song ist (eventuelle Verlängerung klären)','Coordinate with DJ: when is last song (clarify possible extension)','Kurz vor Ende (~30 min)'),
+    t('ls_sl4','Kurzes Briefing, jedem eine Aufgabe zuteilen','Brief briefing, assign each person a task','Kurz vor Ende (~30 min)'),
+    t('ls_sl5','Die letzten Pausen der Mitarbeiter delegieren. Danach erstmal "durchziehen".','Delegate last breaks for staff. Then push through.','Kurz vor Ende (~30 min)'),
+    t('ls_sl6','Ca. 5 min vor Ende letzte Runde an der Bar ansagen (ggf. Plastikbecher)','~5 min before end: announce last round at bar (plastic cups if needed)','Kurz vor Ende (~30 min)'),
+    t('ls_sl7','Putzlicht und Location Licht anschalten','Turn on cleaning light and venue lights','Ende Veranstaltung'),
+    t('ls_sl8','Letztes Gespräch mit Verantwortlichen | Fragen ob alles in Ordnung war','Final conversation with person in charge | ask if everything was ok','Ende Veranstaltung'),
+    t('ls_sl9','30 min nach Ende: Gäste bitten die Location zu verlassen','30 min after end: ask guests to leave the venue','Ende Veranstaltung'),
+    t('ls_sl10','Mitarbeiter ansagen, dass ihre Nachbereitung jetzt beginnt','Announce to staff that their clean-up begins now','Ende Veranstaltung'),
+    t('ls_sl11','Unterstützung Mitarbeiter, aber auch ständige Kontrolle!','Support staff, but also constant monitoring!','Ende Veranstaltung'),
+    t('ls_sl12','Alle Checklisten gegenchecken, ggf. noch neue Aufgaben verteilen','Check all checklists, assign new tasks if needed','Kurz vor Schluss'),
+    t('ls_sl13','Kurzes Feedback Mitarbeiter: Wie war die Veranstaltung heute, gibt es wichtige Infos','Brief staff feedback: how was the event, any important info','Kurz vor Schluss'),
+    t('ls_sl14','Mitarbeiter ausloggen (ggf. kurz Hotspot auf Tablet machen)','Log out staff (use hotspot on tablet if needed)','Kurz vor Schluss'),
+    t('ls_sl15','Eventfläche: Alle Türen & Fenster geschlossen | Lichter, Ventilatoren und Fernseher aus','Venue: all doors & windows closed | lights, fans and TVs off','Letzter Kontrollgang'),
+    t('ls_sl16','Toiletten: Alle Lichter aus | Alle Fenster geschlossen','Toilets: all lights off | all windows closed','Letzter Kontrollgang'),
+    t('ls_sl17','Mitarbeiterraum: Alle Lichter aus | Alle Fenster geschlossen','Staff room: all lights off | all windows closed','Letzter Kontrollgang'),
+    t('ls_sl18','Backbereich: Alle Türen und Fenster geschlossen | Alle Lichter aus | Spülmaschine heruntergefahren','Back area: all doors and windows closed | all lights off | dishwasher shut down','Letzter Kontrollgang'),
+    t('ls_sl19','Fotos / Videos schicken + Feedback Veranstaltung an Timmy & Florian schicken','Send photos / videos + event feedback to Timmy & Florian','Letzter Kontrollgang'),
+    t('ls_sl20','Ausloggen','Log out','Letzter Kontrollgang'),
+    t('ls_sl21','Alle Türen zuschließen','Lock all doors','Letzter Kontrollgang'),
+    t('ls_sl22','Getränkebestellung ausfüllen','','Schichtleitung'),
+    t('ls_sl23','Feedback einholen & dokumentieren','','Schichtleitung'),
+  ]},
 ],
 }; // end CHECKLISTS
 
@@ -1476,6 +1521,7 @@ const VNE_TASKS = {
 
 // Which category ID is the VNE category for each location
 const VNE_CAT_IDS = {AS:'as_vne', EG:'eg_vne', LS:'ls_vne'};
+const BAR_CAT_IDS = {AS:'as_barv', EG:'eg_barv', LS:'ls_bv'};
 
 // Lookup: vne task id → linked checklist task id in next event
 const VNE_LINKS = {};
@@ -1520,6 +1566,57 @@ function renderVNEInfoCard(nextEv) {
       ${fsBtn}
     </div>
   </div>`;
+}
+
+// ── BAR NOTES (Factsheet Getränke-Infos) ───────────────────────────
+function renderBarNotesCard() {
+  const notes = barNotes || '';
+  const editBtn = isAdmin
+    ? `<button onclick="editBarNotes()" style="padding:4px 10px;background:#fff;color:var(--accent);border:1.5px solid var(--accent);border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">Bearbeiten</button>`
+    : '';
+  const header = `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px 6px">
+    <span style="font-size:11px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:.5px">Aus dem Factsheet</span>
+    ${editBtn}
+  </div>`;
+  if(!notes) {
+    return `<div style="margin:0 0 4px">${header}<div style="padding:6px 16px 10px;font-size:12px;color:#bbb">Keine Getränke-Infos aus Factsheet vorhanden.</div></div>`;
+  }
+  return `<div style="margin:0 0 4px;background:#fffbf0;border-left:3px solid #f5c842;margin:4px 16px 8px;border-radius:8px;overflow:hidden">
+    ${header}
+    <div style="padding:2px 16px 12px;font-size:13px;color:#555;white-space:pre-wrap;line-height:1.5">${escHtml(notes)}</div>
+  </div>`;
+}
+function editBarNotes() {
+  if(!isAdmin) return;
+  let wrap = document.getElementById('bar-notes-modal');
+  if(!wrap) {
+    wrap = document.createElement('div');
+    wrap.id = 'bar-notes-modal';
+    wrap.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
+    wrap.innerHTML = `<div style="background:#fff;border-radius:14px;padding:20px;width:100%;max-width:440px;box-shadow:0 8px 32px rgba(0,0,0,.22)">
+      <div style="font-weight:800;font-size:15px;margin-bottom:4px">Bar-Infos aus Factsheet</div>
+      <div style="font-size:12px;color:#999;margin-bottom:12px">Getränkeempfang, inklusive Getränke, Specials, etc.</div>
+      <textarea id="bar-notes-ta" style="width:100%;box-sizing:border-box;min-height:160px;border:1.5px solid #e0e0e0;border-radius:8px;padding:10px;font-size:13px;font-family:inherit;resize:vertical;line-height:1.5" placeholder="z.B. Sektempfang inklusive\nInklusive Softdrinks & Wasser\nAperol auf Wunsch (Aufpreis)"></textarea>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+        <button onclick="document.getElementById('bar-notes-modal').style.display='none'" style="padding:9px 18px;border:1.5px solid #e0e0e0;border-radius:8px;background:#fff;cursor:pointer;font-size:13px">Abbrechen</button>
+        <button onclick="saveBarNotes()" style="padding:9px 18px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700">Speichern</button>
+      </div>
+    </div>`;
+    document.body.appendChild(wrap);
+  }
+  document.getElementById('bar-notes-ta').value = barNotes || '';
+  wrap.style.display = 'flex';
+}
+function saveBarNotes() {
+  const notes = (document.getElementById('bar-notes-ta').value || '').trim();
+  barNotes = notes || null;
+  if(db && eventId) {
+    const path = '/barNotes/' + loc + '/' + eventId;
+    if(notes) db.ref(path).set(notes);
+    else db.ref(path).remove();
+  }
+  document.getElementById('bar-notes-modal').style.display = 'none';
+  renderIfApp();
 }
 
 // ── ORDER ITEMS DATA (from Google Sheets) ─────────────────────────
@@ -1923,6 +2020,7 @@ let permTasks = {AS:{},EG:{},LS:{}};
 let subNames = {AS:{},EG:{},LS:{}}; // {catId: {subKey: displayName}}
 
 // NEW: order screen
+let barNotes = null;  // factsheet bar notes for current event
 let orderData = {};   // current event order items: {itemKey: {ist: n}}
 let customOrderItems = {};  // user-added custom items: {id: {name, soll, ist}}
 let orderMeta = {};   // {datum, name}
@@ -2049,6 +2147,7 @@ function subscribeEvent(l, eid) {
   sub(base+'/taskAssignments',   s => { evTaskAssignments=s.val()||{};   renderIfApp(); renderMyTasksIfOpen(); });
   sub(base+'/catAssignments',    s => { evCatAssignments=s.val()||{};    renderIfApp(); });
   sub(base+'/subcatAssignments', s => { evSubcatAssignments=s.val()||{}; renderIfApp(); });
+  sub('/barNotes/'+l+'/'+eid, s => { barNotes=s.val()||null; renderIfApp(); });
   sub('/orders/'+l+'/'+eid, s => { orderData=s.val()||{}; });
   sub('/eventFeedback/'+l+'/'+eid, s => { feedbackData=s.val()||{}; });
   sub('/orderCustom/'+l+'/'+eid, s => {
@@ -2104,7 +2203,7 @@ function goToEvents() {
   eventLeaderMode = false;
   document.body.classList.remove('event-leader-mode','logged-in-mode');
   eventId = null;
-  evChecked={}; evHidden={}; evExtraTasks={}; evTaskOrder={}; evTaskNotes={}; evSubcatPhotos={}; evTaskAssignments={}; evCatAssignments={}; evSubcatAssignments={};
+  evChecked={}; evHidden={}; evExtraTasks={}; evTaskOrder={}; evTaskNotes={}; evSubcatPhotos={}; evTaskAssignments={}; evCatAssignments={}; evSubcatAssignments={}; barNotes=null;
   document.getElementById('ev-loc-name').textContent = locNames[loc]||loc;
   renderEventsList();
   showScreen('events-screen');
@@ -2120,7 +2219,7 @@ function pickEvent(eid) {
   if(currentTaskUser) document.body.classList.add('logged-in-mode');
   else document.body.classList.remove('logged-in-mode');
   const ev = (allEvents[loc]||{})[eid]||{};
-  evChecked={}; evHidden={}; evExtraTasks={}; evTaskOrder={}; evTaskNotes={}; evSubcatPhotos={}; evTaskAssignments={}; evCatAssignments={}; evSubcatAssignments={}; evFsChecklist=null; evAblauf=null;
+  evChecked={}; evHidden={}; evExtraTasks={}; evTaskOrder={}; evTaskNotes={}; evSubcatPhotos={}; evTaskAssignments={}; evCatAssignments={}; evSubcatAssignments={}; evFsChecklist=null; evAblauf=null; barNotes=null;
   document.getElementById('hdr-loc-name').textContent = locNames[loc]||loc;
   document.getElementById('hdr-event-name').textContent = ev.name||'';
   const hdrUser=document.getElementById('hdr-user-name');
@@ -2150,7 +2249,7 @@ function pickVorlage() {
   vorlageMode = true;
   document.body.classList.add('vorlage-mode');
   eventId = null;
-  evChecked={}; evHidden={}; evExtraTasks={}; evTaskOrder={}; evTaskNotes={}; evSubcatPhotos={}; evTaskAssignments={}; evCatAssignments={}; evSubcatAssignments={};
+  evChecked={}; evHidden={}; evExtraTasks={}; evTaskOrder={}; evTaskNotes={}; evSubcatPhotos={}; evTaskAssignments={}; evCatAssignments={}; evSubcatAssignments={}; barNotes=null;
   document.getElementById('hdr-loc-name').textContent = locNames[loc]||loc;
   document.getElementById('hdr-event-name').textContent = 'Vorlage – gilt für alle Events';
   const shBtn=document.getElementById('hdr-sheet-btn');
@@ -2578,6 +2677,10 @@ function render() {
       const _nxt=findNextDayEvent();
       html+=_nxt?renderVNEInfoCard(_nxt):`<div style="padding:14px 16px 4px;color:#aaa;font-size:13px">Kein nächstes Event gefunden.</div>`;
     }
+    // BAR | Vorbereitung – "Aus dem Factsheet" info block
+    if(cat.id===BAR_CAT_IDS[loc]&&!vorlageMode) {
+      html+=renderBarNotesCard();
+    }
     // Always render with subcategory grouping — getOrderedTasks already applies custom order
     const subcatGroups = groupBySub(tasks, cat.id);
     const namedGroups = subcatGroups.filter(g=>g.sub); // only named subcats count for move
@@ -2720,7 +2823,7 @@ function renderTask(tk, catId, siblings, origSub) {
     </div>`;
   }
   const evDel=tk.isEvent?`<button class="adm-btn del" onclick="deleteEvTask('${tk.id}')">✕</button>`:'';
-  const TASK_OPEN={'as_sl22':'openOrder()','as_sl23':'openFeedback()'};
+  const TASK_OPEN={'as_sl22':'openOrder()','as_sl23':'openFeedback()','eg_sl22':'openOrder()','eg_sl23':'openFeedback()','ls_sl22':'openOrder()','ls_sl23':'openFeedback()'};
   const openFn=TASK_OPEN[tk.id]||'';
   return `<div class="task${checked?' done':''}${tk.isEvent?' ev-added':''}${tk.isPerm?' perm-task':''}" id="task-${tk.id}">
     <div class="chk${checked?' on':''}" onclick="event.stopPropagation();toggleCheck('${tk.id}')"></div>
@@ -3081,13 +3184,13 @@ function toggleCheck(id){
     return;
   }
   // Block check for Getränkebestellung / Feedback if not yet filled
-  if(val && id==='as_sl22' && Object.keys(orderData||{}).length===0){
+  if(val && (id==='as_sl22'||id==='eg_sl22'||id==='ls_sl22') && Object.keys(orderData||{}).length===0){
     toast('Bitte zuerst die Getränkebestellung ausfüllen');
     const hint=document.querySelector('#task-'+id+' .task-open-hint');
     if(hint){hint.classList.add('shake');setTimeout(()=>hint.classList.remove('shake'),600);}
     return;
   }
-  if(val && id==='as_sl23' && Object.keys(feedbackData||{}).length===0){
+  if(val && (id==='as_sl23'||id==='eg_sl23'||id==='ls_sl23') && Object.keys(feedbackData||{}).length===0){
     toast('Bitte zuerst das Feedback ausfüllen');
     const hint=document.querySelector('#task-'+id+' .task-open-hint');
     if(hint){hint.classList.add('shake');setTimeout(()=>hint.classList.remove('shake'),600);}
