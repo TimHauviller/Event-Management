@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260701-106';
+      var V='20260701-107';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -503,6 +503,8 @@
       <button class="action-bar-btn" id="ablauf-menu-btn" onclick="openAblauf()" style="display:none">Ablauf des Events</button>
       <button class="action-bar-btn" onclick="printChecklist()">Drucken</button>
       <button class="action-bar-btn" onclick="openAZ()">Location A-Z</button>
+      <button class="action-bar-btn" onclick="openOrder()">Getränkebestellung</button>
+      <button class="action-bar-btn" onclick="openFeedback()">Feedback</button>
     </div>
   </div>
   <div class="main">
