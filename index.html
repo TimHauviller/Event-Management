@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260701-118';
+      var V='20260701-119';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -2147,13 +2147,10 @@ function copyMainVorlage(){
     const base=(cat.tasks||[]).filter(tk=>!hidden[tk.id]);
     const perms=Object.values(permTasks[loc]||{}).filter(tk=>tk.catId===cat.id&&!hidden[tk.id]);
     base.forEach(tk=>{
-      // use sub-group as category if present, else main category name
-      const grp=tk.sub?tk.sub:catNm;
-      copy.tasks['t_'+tk.id]={de:tk.de||'',cat:grp,order:order++};
+      copy.tasks['t_'+tk.id]={de:tk.de||'',cat:catNm,sub:tk.sub||'',order:order++};
     });
     perms.forEach(tk=>{
-      const grp=tk.sub?tk.sub:catNm;
-      copy.tasks['p_'+tk.id]={de:tk.de||'',cat:grp,order:order++};
+      copy.tasks['p_'+tk.id]={de:tk.de||'',cat:catNm,sub:tk.sub||'',order:order++};
     });
   });
   if(db)db.ref('/namedTemplates/'+loc).push(copy).then(ref=>{
@@ -4322,19 +4319,27 @@ function renderNamedTemplate(){
   const tmpl=(namedTemplates[loc]||{})[currentTemplateId];
   if(!tmpl){cont.innerHTML='';return;}
   const tasks=Object.entries(tmpl.tasks||{}).sort((a,b)=>(a[1].order||0)-(b[1].order||0));
-  // Group by category
-  const cats={};
+  // Group by main category, preserving order of first appearance
+  const catOrder=[], catMap={};
   tasks.forEach(([tid,t])=>{
     const c=t.cat||'Allgemein';
-    if(!cats[c])cats[c]=[];
-    cats[c].push([tid,t]);
+    if(!catMap[c]){catMap[c]=[];catOrder.push(c);}
+    catMap[c].push([tid,t]);
   });
-  if(Object.keys(cats).length===0){
+  if(catOrder.length===0){
     cont.innerHTML=`<div style="text-align:center;padding:40px 20px;color:#bbb"><div style="font-size:14px;font-weight:700;color:#888">Noch keine Aufgaben</div><div style="font-size:12px;margin-top:6px">Mit dem Button unten Aufgaben hinzufügen</div></div>`;
     return;
   }
   let html='';
-  Object.entries(cats).forEach(([catName,items])=>{
+  catOrder.forEach(catName=>{
+    const items=catMap[catName];
+    // Group by sub within this category, preserving order
+    const subOrder=[], subMap={};
+    items.forEach(([tid,t])=>{
+      const s=t.sub||'';
+      if(!subMap[s]){subMap[s]=[];subOrder.push(s);}
+      subMap[s].push([tid,t]);
+    });
     html+=`<div class="cat open" style="margin-bottom:10px;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.07)">
       <div class="cat-hdr" onclick="this.closest('.cat').classList.toggle('open')">
         <div class="cat-title">${escHtml(catName)}</div>
@@ -4342,12 +4347,15 @@ function renderNamedTemplate(){
         <span class="cat-arrow">▾</span>
       </div>
       <div class="cat-body">`;
-    items.forEach(([tid,t])=>{
-      html+=`<div style="padding:11px 15px;border-top:1px solid #f5f5f5;display:flex;align-items:center;gap:10px">
-        <div style="flex:1;font-size:13.5px;font-weight:600;color:var(--text)">${escHtml(t.de||'')}</div>
-        <button onclick="editNTTask('${tid}')" style="background:none;border:none;color:#aaa;cursor:pointer;font-size:14px;padding:2px 6px">✏️</button>
-        <button onclick="deleteNTTask('${tid}')" style="background:none;border:none;color:#e57373;cursor:pointer;font-size:16px;padding:2px 4px">×</button>
-      </div>`;
+    subOrder.forEach(subName=>{
+      if(subName) html+=`<div class="subcat-row"><span class="subcat-lbl">${escHtml(subName)}</span></div>`;
+      subMap[subName].forEach(([tid,t])=>{
+        html+=`<div style="padding:11px 15px;border-top:1px solid #f5f5f5;display:flex;align-items:center;gap:10px">
+          <div style="flex:1;font-size:13.5px;font-weight:600;color:var(--text)">${escHtml(t.de||'')}</div>
+          <button onclick="editNTTask('${tid}')" style="background:none;border:none;color:#aaa;cursor:pointer;font-size:14px;padding:2px 6px">✏</button>
+          <button onclick="deleteNTTask('${tid}')" style="background:none;border:none;color:#e57373;cursor:pointer;font-size:16px;padding:2px 4px">×</button>
+        </div>`;
+      });
     });
     html+=`</div></div>`;
   });
