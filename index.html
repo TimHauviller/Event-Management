@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260701-122';
+      var V='20260701-123';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -1266,6 +1266,7 @@ EG:[
     t('eg_um1','Buffet neu behussen','New covers on buffet'),
     t('eg_um2','Teller auf Buffet','Plates on buffet'),
   ]},
+  {id:'eg_vne',name:'Vorbereitung nächstes Event',tasks:[]},
   {id:'eg_sl',name:'Checkliste Schichtleitung',tasks:[
     t('eg_sl1','Immer wieder Aufgaben verteilen, die man zwischendurch schon erledigen kann','Continuously assign tasks that can be done in between','Während Veranstaltung'),
     t('eg_sl2','Kontrolle Spüle (alles ordentlich gestapelt, sortiert und verstaut?)','Check dishwashing area (everything stacked, sorted and stowed neatly?)','Während Veranstaltung'),
@@ -1426,29 +1427,59 @@ LS:[
     t('ls_sp6','Mülltüten wechseln','Change garbage bags'),
     t('ls_sp7','Boden wischen','Mop floor'),
   ]},
+  {id:'ls_vne',name:'Vorbereitung nächstes Event',tasks:[]},
   {id:'ls_um',name:'Umbau – nächstes Event',tasks:[]},
 ],
 }; // end CHECKLISTS
 
 // ── VORBEREITUNG NÄCHSTES EVENT ─────────────────────────────────────
+// VNE tasks per location + event type — link maps to the corresponding checklist task in the next event
 const VNE_TASKS = {
-  hz: [
-    {id:'vne_hz1',de:'pro Platz: 2x Messer groß | 2x Gabel groß | 1x Dessertbesteck | 1x Weißweinglas 0,1l | 1x Wasserglas | 1x Serviette',sub:'Oberdeck – Eindecken',link:'as_vb1'},
-    {id:'vne_hz2',de:'1x Wasser still und Sprudel 0,75l pro Tisch',sub:'Oberdeck – Eindecken',link:'as_vb2'},
-    {id:'vne_hz3',de:'1x Weinkühler pro Tisch',sub:'Oberdeck – Eindecken',link:'as_vb3'},
-    {id:'vne_hz4',de:'1x Tischlampe pro Tisch',sub:'Oberdeck – Eindecken',link:'as_vb4'},
-    {id:'vne_hz5',de:'Hausdeko auf Tische',sub:'Oberdeck – Eindecken',link:'as_vb5'},
-    {id:'vne_hz6',de:'Fegen & wischen',sub:'Oberdeck – Eindecken',link:'as_vb6'},
-    {id:'vne_hz7',de:'Stühle ausrichten',sub:'Oberdeck – Eindecken',link:'as_vb7'},
-  ],
-  brunch: [
-    // Aufgaben werden noch definiert
-  ]
+  AS: {
+    hz: [
+      {id:'vne_as_hz1',de:'pro Platz: 2x Messer groß | 2x Gabel groß | 1x Dessertbesteck | 1x Weißweinglas 0,1l | 1x Wasserglas | 1x Serviette',sub:'Oberdeck – Eindecken',link:'as_vb1'},
+      {id:'vne_as_hz2',de:'1x Wasser still und Sprudel 0,75l pro Tisch',sub:'Oberdeck – Eindecken',link:'as_vb2'},
+      {id:'vne_as_hz3',de:'1x Weinkühler pro Tisch',sub:'Oberdeck – Eindecken',link:'as_vb3'},
+      {id:'vne_as_hz4',de:'1x Tischlampe pro Tisch',sub:'Oberdeck – Eindecken',link:'as_vb4'},
+      {id:'vne_as_hz5',de:'Hausdeko auf Tische',sub:'Oberdeck – Eindecken',link:'as_vb5'},
+      {id:'vne_as_hz6',de:'Fegen & wischen',sub:'Oberdeck – Eindecken',link:'as_vb6'},
+      {id:'vne_as_hz7',de:'Stühle ausrichten',sub:'Oberdeck – Eindecken',link:'as_vb7'},
+    ],
+    brunch: []
+  },
+  EG: {
+    hz: [
+      {id:'vne_eg_hz1',de:'pro Platz: 2x Messer groß | 2x Gabel groß | 1x Dessertbesteck | 1x Weißweinglas 0,1l | 1x Wasserglas | 1x Serviette',sub:'Eindecken',link:'eg_vb1'},
+      {id:'vne_eg_hz2',de:'1x Wasser still und Sprudel 0,75l pro Tisch',sub:'Eindecken',link:'eg_vb2'},
+      {id:'vne_eg_hz3',de:'1x Weinkühler pro Tisch',sub:'Eindecken',link:'eg_vb3'},
+      {id:'vne_eg_hz4',de:'1x Tischlampe pro Tisch',sub:'Eindecken',link:'eg_vb4'},
+      {id:'vne_eg_hz5',de:'Hausdeko auf Tische',sub:'Eindecken',link:'eg_vb5'},
+      {id:'vne_eg_hz6',de:'Fegen & wischen',sub:'Eindecken',link:'eg_vb6'},
+      {id:'vne_eg_hz7',de:'Stühle ausrichten',sub:'Eindecken',link:'eg_vb7'},
+    ],
+    brunch: []
+  },
+  LS: {
+    hz: [
+      {id:'vne_ls_hz1',de:'Location fegen',sub:'Eindecken für HZ',link:'ls_vb1'},
+      {id:'vne_ls_hz2',de:'Location wischen',sub:'Eindecken für HZ',link:'ls_vb2'},
+      {id:'vne_ls_hz3',de:'pro Platz: 2x Messer groß / 2x Gabel groß / 1x Dessertbesteck / 1x Weißweinglas 0,1l / 1x Wasserglas / 1x Serviette',sub:'Eindecken für HZ',link:'ls_vb3'},
+      {id:'vne_ls_hz4',de:'2x Wasser still und Sprudel 0,75l pro Tisch',sub:'Eindecken für HZ',link:'ls_vb4'},
+      {id:'vne_ls_hz5',de:'2x Weinkühler pro Tisch',sub:'Eindecken für HZ',link:'ls_vb5'},
+      {id:'vne_ls_hz6',de:'2x Tischlampe pro Tisch',sub:'Eindecken für HZ',link:'ls_vb6'},
+      {id:'vne_ls_hz7',de:'Hausdeko (wenn gewünscht) auf Tische',sub:'Eindecken für HZ',link:'ls_vb7'},
+      {id:'vne_ls_hz8',de:'Stühle ausrichten',sub:'Eindecken für HZ',link:'ls_vb8'},
+    ],
+    brunch: []
+  }
 };
+
+// Which category ID is the VNE category for each location
+const VNE_CAT_IDS = {AS:'as_vne', EG:'eg_vne', LS:'ls_vne'};
 
 // Lookup: vne task id → linked checklist task id in next event
 const VNE_LINKS = {};
-Object.values(VNE_TASKS).forEach(arr => arr.forEach(t => { if(t.link) VNE_LINKS[t.id]=t.link; }));
+Object.values(VNE_TASKS).forEach(locTasks => Object.values(locTasks).forEach(arr => arr.forEach(t => { if(t.link) VNE_LINKS[t.id]=t.link; })));
 
 function detectEventType(name) {
   const n=(name||'').toLowerCase();
@@ -1477,11 +1508,17 @@ function renderVNEInfoCard(nextEv) {
   const timeStr=nextEv.timeFrom?(nextEv.timeFrom+(nextEv.timeTo?' – '+nextEv.timeTo:'')):'';
   const paxStr=nextEv.pax?(nextEv.pax+' Pax'):'';
   const meta=[typeLabel,dateStr,timeStr,paxStr].filter(Boolean).join(' · ');
+  const fsBtn=nextEv.sheetUrl
+    ?`<a href="${escHtml(nextEv.sheetUrl)}" target="_blank" rel="noopener" style="display:inline-block;padding:7px 14px;background:#fff;color:var(--accent);border:1.5px solid var(--accent);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;margin-left:8px">Factsheet ansehen</a>`
+    :'';
   return `<div style="margin:12px 16px 6px;background:#fff8e1;border-radius:10px;padding:12px 14px;border-left:3px solid var(--accent)">
     <div style="font-weight:800;font-size:12px;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Nächstes Event</div>
     <div style="font-weight:800;font-size:15px;color:#333;margin-bottom:2px">${escHtml(nextEv.name)}</div>
     <div style="font-size:12px;color:#888;margin-bottom:10px">${escHtml(meta)}</div>
-    <button onclick="pickEvent('${nextEv.eid}')" style="padding:7px 14px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">Checkliste ansehen</button>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+      <button onclick="pickEvent('${nextEv.eid}')" style="padding:7px 14px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">Checkliste ansehen</button>
+      ${fsBtn}
+    </div>
   </div>`;
 }
 
@@ -2536,10 +2573,10 @@ function render() {
         </div>
       </div><div class="cat-body">`;
 
-    // Special info card for Vorbereitung nächstes Event
-    if(cat.id==='as_vne'&&!vorlageMode) {
+    // Special info card for Vorbereitung nächstes Event (alle Locations)
+    if(cat.id===VNE_CAT_IDS[loc]&&!vorlageMode) {
       const _nxt=findNextDayEvent();
-      html+=_nxt?renderVNEInfoCard(_nxt):`<div style="padding:14px 16px 4px;color:#aaa;font-size:13px">Kein Event am Folgetag gefunden.</div>`;
+      html+=_nxt?renderVNEInfoCard(_nxt):`<div style="padding:14px 16px 4px;color:#aaa;font-size:13px">Kein nächstes Event gefunden.</div>`;
     }
     // Always render with subcategory grouping — getOrderedTasks already applies custom order
     const subcatGroups = groupBySub(tasks, cat.id);
@@ -2594,12 +2631,13 @@ function render() {
 }
 
 function getOrderedTasks(cat) {
-  // Dynamic tasks for Vorbereitung nächstes Event
-  if(cat.id==='as_vne'&&!vorlageMode) {
+  // Dynamic tasks for Vorbereitung nächstes Event (alle Locations)
+  if(cat.id===VNE_CAT_IDS[loc]&&!vorlageMode) {
     const nextEv=findNextDayEvent();
     if(!nextEv) return [];
     const type=detectEventType(nextEv.name);
-    return (VNE_TASKS[type]||VNE_TASKS['hz']).map(t=>({...t}));
+    const locTasks=VNE_TASKS[loc]||{};
+    return (locTasks[type]||locTasks['hz']||[]).map(t=>({...t}));
   }
   const base=(cat.tasks||[]).slice();
   // Add permanent tasks for this location+category
