@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260624-102';
+      var V='20260701-103';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -368,6 +368,18 @@
     .log-item{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px solid #f5f5f5}
     .log-dot{width:8px;height:8px;border-radius:50%;background:#ccc;flex-shrink:0;margin-top:4px}
     .log-dot.done{background:#4caf50}.log-dot.approved{background:#2e7d32}.log-dot.rejected{background:#ea4335}.log-dot.created{background:var(--accent)}.log-dot.comment{background:#ff9800}
+    .fs-section{background:#fff;border-radius:10px;margin:0 0 8px;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden}
+    .fs-section-hdr{display:flex;align-items:center;gap:8px;padding:11px 14px;cursor:pointer;user-select:none}
+    .fs-section-arrow{font-size:11px;color:#aaa;transition:transform .2s;flex-shrink:0}
+    .fs-section.open .fs-section-arrow{transform:rotate(90deg)}
+    .fs-section-body{display:none;border-top:1px solid #f0f2f5}
+    .fs-section.open .fs-section-body{display:block}
+    .fs-task-row{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid #f5f5f5}
+    .fs-task-row:last-child{border-bottom:none}
+    .fs-task-text{flex:1;font-size:13px;color:#1c1c2e;line-height:1.4}
+    .fs-task-text.done{text-decoration:line-through;color:#bbb}
+    .fs-chk{width:18px;height:18px;border-radius:4px;border:1.5px solid #ccc;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:all .15s;font-size:11px;font-weight:700;color:transparent}
+    .fs-chk.on{background:#2e7d32;border-color:#2e7d32;color:#fff}
 
 </style>
 </head>
@@ -499,12 +511,14 @@
       <hr class="admin-bar-sep admin-event-only">
       <div class="admin-bar-section admin-event-only">
         <div class="admin-bar-section-lbl">Event anpassen</div>
+        <button class="btn-r" style="background:#1c1c2e;color:#fff" onclick="openFsImport()">Factsheet-CL</button>
         <button class="btn-r orange" onclick="resetChecks()">Checks löschen</button>
         <button class="btn-r red" onclick="resetEvent()">Event zurücksetzen</button>
       </div>
     </div>
     <div id="cl-container"></div>
     <button class="add-cat-row" onclick="openNewCat()">＋ Neue Kategorie</button>
+    <div id="fs-cl-container" style="padding:0 2px 16px"></div>
   </div>
 </div>
 
@@ -1753,6 +1767,8 @@ let logistikTab = 'fahrten';
 const INV_CATS = ['MÖBEL','GESCHIRR & GLÄSER','DEKORATION','TECHNIK & EQUIPMENT'];
 const LG_LOC = {AS:'amSee Leipzig',EG:'EVENTGIESSEREI',LS:'LAKESIDE'};
 let evChecked = {}, evHidden = {}, evExtraTasks = {}, evTaskOrder = {};
+let evFsChecklist = null;
+let _fsAddSid = null;
 let photos = {}, edits = {};
 let photoRequired = {};  // {taskId: true} — tasks that need a photo before checking
 let undoStack = [];  // [{type, data}] — last actions for undo
@@ -1913,6 +1929,7 @@ function subscribeEvent(l, eid) {
     }
   });
   sub('/orderMeta/'+l+'/'+eid, s => { orderMeta=s.val()||{}; });
+  sub('/eventChecklists/'+l+'/'+eid, s => { evFsChecklist=s.val()||null; renderFsChecklist(); });
 }
 
 // ── NAVIGATION ─────────────────────────────────────────────────────
@@ -1966,7 +1983,7 @@ function pickEvent(eid) {
   if(currentTaskUser) document.body.classList.add('logged-in-mode');
   else document.body.classList.remove('logged-in-mode');
   const ev = (allEvents[loc]||{})[eid]||{};
-  evChecked={}; evHidden={}; evExtraTasks={}; evTaskOrder={}; evTaskNotes={}; evSubcatPhotos={}; evTaskAssignments={}; evCatAssignments={}; evSubcatAssignments={};
+  evChecked={}; evHidden={}; evExtraTasks={}; evTaskOrder={}; evTaskNotes={}; evSubcatPhotos={}; evTaskAssignments={}; evCatAssignments={}; evSubcatAssignments={}; evFsChecklist=null;
   document.getElementById('hdr-loc-name').textContent = locNames[loc]||loc;
   document.getElementById('hdr-event-name').textContent = ev.name||'';
   const hdrUser=document.getElementById('hdr-user-name');
@@ -2089,6 +2106,156 @@ function pruneOldArchived(l) {
 }
 function renderIfApp() {
   if (document.getElementById('app').style.display==='block') render();
+}
+
+// ── FACTSHEET CHECKLIST ─────────────────────────────────────────────
+function renderFsChecklist() {
+  const container = document.getElementById('fs-cl-container');
+  if (!container) return;
+  const cl = evFsChecklist;
+  const sections = cl ? (cl.sections||{}) : {};
+  const tasks = cl ? (cl.tasks||{}) : {};
+  const checked = cl ? (cl.checked||{}) : {};
+  const sortedSections = Object.entries(sections).sort((a,b)=>(a[1].order||0)-(b[1].order||0));
+  let totalTasks = Object.keys(tasks).length;
+  let doneTasks = Object.keys(tasks).filter(tid=>checked[tid]).length;
+  let html = '';
+  if (sortedSections.length === 0 && !(isAdmin && !vorlageMode)) { container.innerHTML=''; return; }
+  html += `<div style="display:flex;align-items:center;justify-content:space-between;margin:18px 0 10px">
+    <div>
+      <div style="font-size:11px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:.8px">Factsheet-Checkliste</div>
+      ${totalTasks>0?`<div style="font-size:12px;color:#aaa;margin-top:2px">${doneTasks} / ${totalTasks} erledigt</div>`:''}
+    </div>
+    ${isAdmin&&!vorlageMode?`<div style="display:flex;gap:6px;align-items:center">
+      <button onclick="openFsAddSection()" style="background:#e8f5e9;color:#2e7d32;border:none;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">+ Abschnitt</button>
+      <button onclick="openFsImport()" style="background:#e3f2fd;color:#1565c0;border:none;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Import</button>
+      ${cl?`<button onclick="deleteFsChecklist()" style="background:#fce4ec;color:#c62828;border:none;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Löschen</button>`:''}
+    </div>`:''}
+  </div>`;
+  if (sortedSections.length === 0) {
+    html += `<div style="background:#f8f9fa;border-radius:10px;padding:18px;text-align:center;color:#aaa;font-size:13px">Noch keine Checkliste vorhanden.<br><span style="font-size:11px;margin-top:4px;display:block">Abschnitt hinzufügen oder Factsheet importieren</span></div>`;
+    container.innerHTML = html;
+    return;
+  }
+  const openSections = new Set([...container.querySelectorAll('.fs-section.open')].map(el=>el.id));
+  sortedSections.forEach(([sid, sec]) => {
+    const secTasks = Object.entries(tasks).filter(([,t])=>t.sectionId===sid).sort((a,b)=>(a[1].order||0)-(b[1].order||0));
+    const secDone = secTasks.filter(([tid])=>checked[tid]).length;
+    const isOpen = openSections.has('fs-sec-'+sid);
+    html += `<div class="fs-section${isOpen?' open':''}" id="fs-sec-${escHtml(sid)}">
+      <div class="fs-section-hdr" onclick="document.getElementById('fs-sec-${escHtml(sid)}').classList.toggle('open')">
+        <span class="fs-section-arrow">▸</span>
+        <span style="flex:1;font-size:13px;font-weight:700;color:#1c1c2e">${escHtml(sec.name||'Abschnitt')}</span>
+        <span style="font-size:11px;color:#aaa;font-weight:600;margin-right:4px">${secDone}/${secTasks.length}</span>
+        ${isAdmin&&!vorlageMode?`<button onclick="event.stopPropagation();deleteFsSection('${escHtml(sid)}')" style="background:none;border:none;color:#ddd;font-size:16px;cursor:pointer;padding:0 4px;line-height:1;font-weight:700">×</button>`:''}
+      </div>
+      <div class="fs-section-body">`;
+    secTasks.forEach(([tid, task]) => {
+      const isDone = !!checked[tid];
+      html += `<div class="fs-task-row">
+        <div class="fs-chk${isDone?' on':''}" onclick="toggleFsTask('${escHtml(tid)}')">${isDone?'✓':''}</div>
+        <span class="fs-task-text${isDone?' done':''}">${escHtml(task.text||'')}</span>
+        ${isAdmin&&!vorlageMode?`<button onclick="deleteFsTask('${escHtml(tid)}')" style="background:none;border:none;color:#ddd;font-size:14px;cursor:pointer;padding:0 4px;line-height:1;font-weight:700;flex-shrink:0">×</button>`:''}
+      </div>`;
+    });
+    if (isAdmin && !vorlageMode) {
+      html += `<div style="padding:8px 14px"><button onclick="openFsAddTask('${escHtml(sid)}')" style="background:none;border:1px dashed #ddd;border-radius:8px;padding:5px 12px;font-size:11px;font-weight:700;color:#888;cursor:pointer;font-family:inherit;width:100%">+ Aufgabe hinzufügen</button></div>`;
+    }
+    html += `</div></div>`;
+  });
+  container.innerHTML = html;
+}
+
+function toggleFsTask(tid) {
+  if (!eventId || vorlageMode || !db) return;
+  const checked = (evFsChecklist&&evFsChecklist.checked)||{};
+  if (checked[tid]) db.ref('/eventChecklists/'+loc+'/'+eventId+'/checked/'+tid).remove();
+  else db.ref('/eventChecklists/'+loc+'/'+eventId+'/checked/'+tid).set(true);
+}
+
+function deleteFsChecklist() {
+  if (!confirm('Factsheet-Checkliste löschen?')) return;
+  if (db) db.ref('/eventChecklists/'+loc+'/'+eventId).remove();
+}
+
+function deleteFsSection(sid) {
+  if (!confirm('Abschnitt löschen?')) return;
+  const tasks = (evFsChecklist&&evFsChecklist.tasks)||{};
+  const updates = {};
+  updates['/eventChecklists/'+loc+'/'+eventId+'/sections/'+sid] = null;
+  Object.entries(tasks).forEach(([tid,t]) => {
+    if (t.sectionId===sid) {
+      updates['/eventChecklists/'+loc+'/'+eventId+'/tasks/'+tid] = null;
+      updates['/eventChecklists/'+loc+'/'+eventId+'/checked/'+tid] = null;
+    }
+  });
+  if (db) db.ref('/').update(updates);
+}
+
+function deleteFsTask(tid) {
+  if (!db) return;
+  db.ref('/').update({
+    ['/eventChecklists/'+loc+'/'+eventId+'/tasks/'+tid]: null,
+    ['/eventChecklists/'+loc+'/'+eventId+'/checked/'+tid]: null
+  });
+}
+
+function openFsImport() {
+  const el = document.getElementById('fs-import-txt');
+  if (el) el.value = '';
+  openModal('m-fs-import');
+  setTimeout(()=>{ if(el) el.focus(); }, 100);
+}
+
+function saveFsImport() {
+  const txt = (document.getElementById('fs-import-txt').value||'').trim();
+  if (!txt) { toast('Bitte JSON einfügen'); return; }
+  let data;
+  try { data = JSON.parse(txt); } catch(e) { toast('Ungültiges JSON'); return; }
+  if (!data.sections || !data.tasks) { toast('JSON muss sections und tasks enthalten'); return; }
+  if (!db) return;
+  db.ref('/eventChecklists/'+loc+'/'+eventId).set({sections:data.sections, tasks:data.tasks, checked:{}})
+    .then(() => { closeModal('m-fs-import'); toast('Checkliste importiert'); });
+}
+
+function openFsAddSection() {
+  const el = document.getElementById('fs-sec-name');
+  if (el) el.value = '';
+  openModal('m-fs-add-section');
+  setTimeout(()=>{ if(el) el.focus(); }, 100);
+}
+
+function saveFsSection() {
+  const name = (document.getElementById('fs-sec-name').value||'').trim();
+  if (!name) { toast('Bitte Name eingeben'); return; }
+  const sections = (evFsChecklist&&evFsChecklist.sections)||{};
+  const maxOrder = Object.values(sections).reduce((m,s)=>Math.max(m,s.order||0), -1);
+  if (db) {
+    db.ref('/eventChecklists/'+loc+'/'+eventId+'/sections').push({name, order: maxOrder+1});
+    closeModal('m-fs-add-section');
+    toast('Abschnitt hinzugefügt');
+  }
+}
+
+function openFsAddTask(sid) {
+  _fsAddSid = sid;
+  const el = document.getElementById('fs-task-text');
+  if (el) el.value = '';
+  openModal('m-fs-add-task');
+  setTimeout(()=>{ if(el) el.focus(); }, 100);
+}
+
+function saveFsTask() {
+  const text = (document.getElementById('fs-task-text').value||'').trim();
+  if (!text) { toast('Bitte Aufgabe eingeben'); return; }
+  const tasks = (evFsChecklist&&evFsChecklist.tasks)||{};
+  const secTasks = Object.values(tasks).filter(t=>t.sectionId===_fsAddSid);
+  const maxOrder = secTasks.reduce((m,t)=>Math.max(m,t.order||0), -1);
+  if (db) {
+    db.ref('/eventChecklists/'+loc+'/'+eventId+'/tasks').push({text, sectionId:_fsAddSid, order:maxOrder+1});
+    closeModal('m-fs-add-task');
+    toast('Aufgabe hinzugefügt');
+  }
 }
 
 // ── EVENTS LIST ────────────────────────────────────────────────────
@@ -8497,6 +8664,32 @@ function saveInventoryItem(){
     <textarea id="task-note-input" placeholder="Kommentar zur Aufgabe..." style="width:100%;box-sizing:border-box;border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;outline:none;resize:vertical;min-height:80px;margin-bottom:12px"></textarea>
     <button class="mbtn" onclick="saveTaskNote()">Speichern</button>
     <button class="mbtn grey" onclick="closeModal('m-task-note')">Abbrechen</button>
+  </div>
+</div>
+<!-- FACTSHEET CHECKLIST MODALS -->
+<div class="overlay" id="m-fs-import">
+  <div class="modal">
+    <h2>Factsheet-Checkliste</h2>
+    <p style="font-size:12px;color:#666;margin:0 0 10px;line-height:1.5">Factsheet bei Claude im Chat teilen — Claude erstellt das JSON und du kannst es hier einfügen.<br><span style="color:#aaa">Format: {"sections":{"s1":{"name":"...","order":0}},"tasks":{"t1":{"text":"...","sectionId":"s1","order":0}}}</span></p>
+    <textarea id="fs-import-txt" placeholder='{"sections":{...},"tasks":{...}}' style="width:100%;height:130px;font-size:11px;font-family:monospace;padding:8px;border:1.5px solid #ddd;border-radius:8px;resize:vertical;box-sizing:border-box;outline:none"></textarea>
+    <button class="mbtn" onclick="saveFsImport()">Importieren</button>
+    <button class="mbtn grey" onclick="closeModal('m-fs-import')">Abbrechen</button>
+  </div>
+</div>
+<div class="overlay" id="m-fs-add-section">
+  <div class="modal">
+    <h2>Abschnitt hinzufügen</h2>
+    <input type="text" id="fs-sec-name" placeholder="Name des Abschnitts" onkeydown="if(event.key==='Enter')saveFsSection()">
+    <button class="mbtn" onclick="saveFsSection()">Hinzufügen</button>
+    <button class="mbtn grey" onclick="closeModal('m-fs-add-section')">Abbrechen</button>
+  </div>
+</div>
+<div class="overlay" id="m-fs-add-task">
+  <div class="modal">
+    <h2>Aufgabe hinzufügen</h2>
+    <input type="text" id="fs-task-text" placeholder="Aufgabe" onkeydown="if(event.key==='Enter')saveFsTask()">
+    <button class="mbtn" onclick="saveFsTask()">Hinzufügen</button>
+    <button class="mbtn grey" onclick="closeModal('m-fs-add-task')">Abbrechen</button>
   </div>
 </div>
 <!-- PERSISTENT ADMIN CORNER BUTTON -->
