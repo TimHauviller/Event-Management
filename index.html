@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260701-111';
+      var V='20260701-112';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -4510,6 +4510,27 @@ function renderFeedback() {
     return `<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:#999;margin:18px 0 6px">${escHtml(label)}</div>`;
   }
 
+  function trinkgeldCard() {
+    const val=d['trinkgeld'];
+    const isYes=val==='ja', isNo=val==='nein';
+    const inStyle='width:100%;box-sizing:border-box;border:1.5px solid #ddd;border-radius:8px;padding:9px 11px;font-size:14px;font-family:inherit;outline:none;color:#333;margin-top:4px';
+    let h=`<div style="display:flex;gap:8px;margin-top:6px">
+      <button onclick="setFeedback('trinkgeld','ja')" style="flex:1;padding:11px;border-radius:8px;border:2px solid ${isYes?'#4caf50':'#ddd'};background:${isYes?'#4caf50':'#fafafa'};color:${isYes?'#fff':'#444'};font-size:14px;font-weight:700;cursor:pointer">Ja</button>
+      <button onclick="setFeedback('trinkgeld','nein')" style="flex:1;padding:11px;border-radius:8px;border:2px solid ${isNo?'#ea4335':'#ddd'};background:${isNo?'#ea4335':'#fafafa'};color:${isNo?'#fff':'#444'};font-size:14px;font-weight:700;cursor:pointer">Nein</button>
+    </div>`;
+    if(isYes){
+      h+=`<div style="margin-top:12px">
+        <div style="font-size:12px;font-weight:700;color:#666">Wie viel?</div>
+        <input type="text" value="${escHtml(d['trinkgeld_amount']||'')}" oninput="setFeedbackText('trinkgeld_amount',this.value)" placeholder="z.B. 50 €" style="${inStyle}">
+      </div>
+      <div style="margin-top:10px">
+        <div style="font-size:12px;font-weight:700;color:#666">Hingelegt wohin?</div>
+        <input type="text" value="${escHtml(d['trinkgeld_where']||'')}" oninput="setFeedbackText('trinkgeld_where',this.value)" placeholder="z.B. Büro, Safe, ..." style="${inStyle}">
+      </div>`;
+    }
+    return h;
+  }
+
   let html = '';
 
   // \u2500\u2500 Wer macht das Feedback \u2500\u2500
@@ -4537,6 +4558,7 @@ function renderFeedback() {
   html += sec('Sonstiges');
   html += card('Eigene Zufriedenheit', ratingRow('selfSat'));
   html += card('Fundsachen', yesno('lostFound', 'Was wurde gefunden? Wo wird es aufbewahrt?') + `<p style="font-size:12px;color:#888;margin:8px 0 2px;line-height:1.5">📸 <em>Bitte ein ansprechendes Foto machen, das dem Kunden gezeigt werden kann — z.B. das Fundstück auf einem Kleiderbügel oder sauber drapiert, nicht einfach auf die Küchentheke gelegt.</em></p>` + photoSection('lostFound'));
+  html += card('Trinkgeld?', trinkgeldCard());
   html += card('Sonstige Anmerkungen', ta('notes', 'Freie Anmerkungen...', 4) + photoSection('notes'));
 
   document.getElementById('feedback-content').innerHTML = html;
