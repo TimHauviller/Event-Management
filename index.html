@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260701-110';
+      var V='20260701-111';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -271,6 +271,7 @@
     .ablauf-alarm-btn{background:rgba(45,122,79,.1);border:none;border-radius:8px;padding:8px;cursor:pointer;color:#2d7a4f;display:flex;align-items:center;flex-shrink:0}
     .ablauf-alarm-btn:active{background:rgba(45,122,79,.2)}
     .ablauf-no-data{padding:32px 20px;text-align:center;color:#aaa;font-size:14px}
+    .task-open-hint{font-size:12px;color:var(--accent);font-weight:800;margin-left:4px;letter-spacing:.1px}
     .ablauf-add-row{display:none;width:100%;margin-top:8px;padding:13px;background:none;border:2px dashed #ddd;border-radius:10px;color:#aaa;font-size:14px;cursor:pointer;box-sizing:border-box;text-align:center}
     body.admin-mode .ablauf-add-row{display:block}
     .az-hdr{background:var(--hdr-bg,#1c1c2e);color:#fff;position:sticky;top:0;z-index:100;box-shadow:0 2px 10px rgba(0,0,0,.4)}
@@ -2623,7 +2624,7 @@ function renderTask(tk, catId, siblings, origSub) {
   return `<div class="task${checked?' done':''}${tk.isEvent?' ev-added':''}${tk.isPerm?' perm-task':''}" id="task-${tk.id}">
     <div class="chk${checked?' on':''}" onclick="event.stopPropagation();toggleCheck('${tk.id}')"></div>
     <div class="task-txt" ${openFn?`onclick="event.stopPropagation();${openFn}" style="cursor:pointer"`:''}">
-      <div class="task-de">${escHtml(de)}${openFn?` <span style="font-size:11px;color:#aaa;font-weight:600;letter-spacing:.2px">— Ausfüllen</span>`:''}</div>
+      <div class="task-de">${escHtml(de)}${openFn?` <span class="task-open-hint">Ausfüllen →</span>`:''}</div>
       ${en?`<div class="task-en">${escHtml(en)}</div>`:''}
       ${evTaskNotes[tk.id]?`<div class="task-note">${escHtml(evTaskNotes[tk.id])}</div>`:''}
       ${(()=>{const ea=getEffectiveAssignee(tk.id,catId,origSub);const uname=ea?(taskUsers[ea.uid]||{}).name||'?':null;if(isAdmin){return ea?`<span class="assignee-badge" onclick="event.stopPropagation();openAssignTask('${tk.id}','${escAttr(de)}')" title="Zuweisung">${escHtml(uname)}${ea.level!=='task'?' (geerbt)':''}</span>`:`<button class="assign-btn" onclick="event.stopPropagation();openAssignTask('${tk.id}','${escAttr(de)}')" title="Mitarbeiter zuweisen">+</button>`;}return ea?`<span class="assignee-badge" style="cursor:default;pointer-events:none">${escHtml(uname)}${ea.level!=='task'?' (geerbt)':''}</span>`:'';})()}
@@ -2937,6 +2938,19 @@ function toggleCheck(id){
     toast('Bitte zuerst ein Mitarbeiterfoto hochladen');
     const btn=document.querySelector('#task-'+id+' .ico-btn.req');
     if(btn){btn.classList.add('shake');setTimeout(()=>btn.classList.remove('shake'),600);}
+    return;
+  }
+  // Block check for Getränkebestellung / Feedback if not yet filled
+  if(val && id==='as_sl22' && Object.keys(orderData||{}).length===0){
+    toast('Bitte zuerst die Getränkebestellung ausfüllen');
+    const hint=document.querySelector('#task-'+id+' .task-open-hint');
+    if(hint){hint.classList.add('shake');setTimeout(()=>hint.classList.remove('shake'),600);}
+    return;
+  }
+  if(val && id==='as_sl23' && Object.keys(feedbackData||{}).length===0){
+    toast('Bitte zuerst das Feedback ausfüllen');
+    const hint=document.querySelector('#task-'+id+' .task-open-hint');
+    if(hint){hint.classList.add('shake');setTimeout(()=>hint.classList.remove('shake'),600);}
     return;
   }
   // Lock category toggle for 600ms so the category can't accidentally close
