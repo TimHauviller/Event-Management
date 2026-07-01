@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260701-108';
+      var V='20260701-109';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -240,8 +240,6 @@
     .task-open-btn:active{color:#1c1c2e;}
     .add-task-row{display:none;padding:8px 15px;border-top:1px solid #f5f5f5}
     body.admin-mode .add-task-row{display:block}
-    body.event-leader-mode .add-task-row{display:block}
-    body.logged-in-mode .add-task-row{display:block}
     .add-task-inner-btn{background:none;border:none;font-size:12px;font-weight:600;color:var(--accent,#3a8fd4);cursor:pointer;padding:0}
     .add-cat-row{display:none;width:100%;background:none;border:2px dashed var(--border);padding:12px;border-radius:var(--r);text-align:center;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted);margin-top:6px}
     body.admin-mode .add-cat-row{display:block}
@@ -2598,12 +2596,10 @@ function renderTask(tk, catId, siblings, origSub) {
           <button class="adm-btn" ${upDis} onclick="moveTask('${catId}','${tk.id}',-1)">▲</button>
           <button class="adm-btn" ${dnDis} onclick="moveTask('${catId}','${tk.id}',1)">▼</button>
           <button class="adm-btn" onclick="openEditTask('${tk.id}','${catId}')">✎</button>
-          <button class="adm-btn" onclick="openMoveToCat('${tk.id}','${catId}')" title="In andere Kategorie verschieben">↗</button>
           <button class="adm-btn del" onclick="hideVorlageTask('${tk.id}')" title="Aus Vorlage entfernen">✕</button>
-          <button class="adm-btn${photoRequired[tk.id]?' photo-req-on':''}" onclick="togglePhotoRequired('${tk.id}')" title="${photoRequired[tk.id]?'Foto-Pflicht aus':'Foto-Pflicht ein'}" style="font-size:13px">&#128247;</button>
+          <button class="adm-btn${photoRequired[tk.id]?' photo-req-on':''}" onclick="togglePhotoRequired('${tk.id}')" title="${photoRequired[tk.id]?'Foto-Pflicht aus':'Foto-Pflicht ein'}"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.65 0-3 1.35-3 3s1.35 3 3 3 3-1.35 3-3-1.35-3-3-3z"/></svg></button>
         </div>
         <button class="${photos[tk.id]?'ico-btn active':'ico-btn'}" onclick="openRefPhoto('${tk.id}','${escAttr(de)}')" title="${photos[tk.id]?'Referenzfoto ansehen':'Referenzfoto hochladen'}">Foto</button>
-        <button class="${videos[tk.id]?'ico-btn active has-video':'ico-btn'}" onclick="openTaskVideo('${tk.id}','${escAttr(de)}')" title="${videos[tk.id]?'Video ansehen':'Video hinzufügen'}">Video</button>
       </div>
     </div>`;
   }
@@ -2623,14 +2619,12 @@ function renderTask(tk, catId, siblings, origSub) {
         <button class="adm-btn" ${upDis} onclick="moveTask('${catId}','${tk.id}',-1)">▲</button>
         <button class="adm-btn" ${dnDis} onclick="moveTask('${catId}','${tk.id}',1)">▼</button>
         <button class="adm-btn" onclick="openEditTask('${tk.id}','${catId}')">✎</button>
-        <button class="adm-btn" onclick="openMoveToCat('${tk.id}','${catId}')" title="In andere Kategorie verschieben">↗</button>
         <button class="adm-btn del" onclick="hideTask('${tk.id}')">×</button>
         ${evDel}
-        <button class="adm-btn${photoRequired[tk.id]?' photo-req-on':''}" onclick="togglePhotoRequired('${tk.id}')" title="${photoRequired[tk.id]?'Foto-Pflicht aus':'Foto-Pflicht ein'}" style="font-size:13px">&#128247;</button>
+        <button class="adm-btn${photoRequired[tk.id]?' photo-req-on':''}" onclick="togglePhotoRequired('${tk.id}')" title="${photoRequired[tk.id]?'Foto-Pflicht aus':'Foto-Pflicht ein'}"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.65 0-3 1.35-3 3s1.35 3 3 3 3-1.35 3-3-1.35-3-3-3z"/></svg></button>
       </div>
       ${photos[tk.id]?`<button class="ico-btn active" onclick="openRefPhoto('${tk.id}','${escAttr(de)}')" title="Referenzfoto ansehen">Foto</button>`:(isAdmin?`<button class="ico-btn" onclick="openRefPhoto('${tk.id}','${escAttr(de)}')" title="Referenzfoto hochladen">Foto</button>`:'')} ${photoRequired[tk.id]?`<button class="${evTaskPhotos[tk.id]?'ico-btn active':'ico-btn req'}" onclick="openStaffPhoto('${tk.id}','${escAttr(de)}')" title="${evTaskPhotos[tk.id]?'Mitarbeiterfoto ansehen':'Mitarbeiterfoto hochladen (Pflicht)'}">MA Foto${evTaskPhotos[tk.id]?'':' *'}</button>`:''}
-      ${(isAdmin||videos[tk.id])?`<button class="${videos[tk.id]?'ico-btn active has-video':'ico-btn'}" onclick="openTaskVideo('${tk.id}','${escAttr(de)}')" title="${videos[tk.id]?'Video ansehen':'Video hinzufügen'}">Video</button>`:''}
-      <button class="${evTaskNotes[tk.id]?'ico-btn note-active':'ico-btn note-btn'}" onclick="openTaskNote('${tk.id}')" title="${evTaskNotes[tk.id]?'Kommentar bearbeiten':'Kommentar hinzufügen'}">&#128172;</button>
+      <button class="${evTaskNotes[tk.id]?'ico-btn note-active':'ico-btn note-btn'}" onclick="openTaskNote('${tk.id}')" title="${evTaskNotes[tk.id]?'Kommentar bearbeiten':'Kommentar hinzufügen'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg></button>
     </div>
   </div>`;
 }
