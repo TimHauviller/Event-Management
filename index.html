@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260701-117';
+      var V='20260701-118';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -1096,6 +1096,7 @@ AS:[
     t('as_ab8','Grill Station Pavillon in Eis Container | Grill und Tische hinter Eis Container stellen','Grill station gazebo into ice container | grill and tables behind ice container'),
     t('as_ab9','Alle Schirme schließen','Close all umbrellas'),
   ]},
+  {id:'as_vne',name:'Vorbereitung nächstes Event',tasks:[]},
   {id:'as_sl',name:'Checkliste Schichtleitung',tasks:[
     t('as_sl1','Immer wieder Aufgaben verteilen, die man zwischendurch schon erledigen kann','Continuously assign tasks that can be done in between','Während Veranstaltung'),
     t('as_sl2','Kontrolle Spüle (alles ordentlich gestapelt, sortiert und verstaut?)','Check dishwashing area (everything stacked, sorted and stowed neatly?)','Während Veranstaltung'),
@@ -1429,6 +1430,54 @@ LS:[
 ],
 }; // end CHECKLISTS
 
+// ── VORBEREITUNG NÄCHSTES EVENT ─────────────────────────────────────
+const VNE_TASKS = {
+  hz: [
+    {id:'vne_hz1',de:'pro Platz: 2x Messer groß | 2x Gabel groß | 1x Dessertbesteck | 1x Weißweinglas 0,1l | 1x Wasserglas | 1x Serviette',sub:'Oberdeck – Eindecken'},
+    {id:'vne_hz2',de:'1x Wasser still und Sprudel 0,75l pro Tisch',sub:'Oberdeck – Eindecken'},
+    {id:'vne_hz3',de:'1x Weinkühler pro Tisch',sub:'Oberdeck – Eindecken'},
+    {id:'vne_hz4',de:'1x Tischlampe pro Tisch',sub:'Oberdeck – Eindecken'},
+    {id:'vne_hz5',de:'Hausdeko auf Tische',sub:'Oberdeck – Eindecken'},
+    {id:'vne_hz6',de:'Fegen & wischen',sub:'Oberdeck – Eindecken'},
+    {id:'vne_hz7',de:'Stühle ausrichten',sub:'Oberdeck – Eindecken'},
+  ],
+  brunch: [
+    // Aufgaben werden noch definiert
+  ]
+};
+
+function detectEventType(name) {
+  const n=(name||'').toLowerCase();
+  if(n.includes('brunch')) return 'brunch';
+  return 'hz'; // Hochzeit, Firmenfeier, Sommerfest etc.
+}
+
+function findNextDayEvent() {
+  if(!loc||!eventId) return null;
+  const curEv=(allEvents[loc]||{})[eventId];
+  if(!curEv||!curEv.date) return null;
+  const d=new Date(curEv.date+'T00:00:00');
+  d.setDate(d.getDate()+1);
+  const nextDate=d.toISOString().split('T')[0];
+  const evs=allEvents[loc]||{};
+  const found=Object.entries(evs).find(([eid,e])=>e.date===nextDate&&eid!==eventId);
+  return found?{eid:found[0],...found[1]}:null;
+}
+
+function renderVNEInfoCard(nextEv) {
+  const type=detectEventType(nextEv.name);
+  const typeLabel=type==='brunch'?'Brunch':'Hochzeit / Firmenfeier';
+  const dateStr=nextEv.date?new Date(nextEv.date+'T00:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}):'';
+  const timeStr=nextEv.timeFrom?(nextEv.timeFrom+(nextEv.timeTo?' – '+nextEv.timeTo:'')):'';
+  const paxStr=nextEv.pax?(nextEv.pax+' Pax'):'';
+  const meta=[typeLabel,dateStr,timeStr,paxStr].filter(Boolean).join(' · ');
+  return `<div style="margin:12px 16px 6px;background:#fff8e1;border-radius:10px;padding:12px 14px;border-left:3px solid var(--accent)">
+    <div style="font-weight:800;font-size:12px;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Nächstes Event</div>
+    <div style="font-weight:800;font-size:15px;color:#333;margin-bottom:2px">${escHtml(nextEv.name)}</div>
+    <div style="font-size:12px;color:#888;margin-bottom:10px">${escHtml(meta)}</div>
+    <button onclick="pickEvent('${nextEv.eid}')" style="padding:7px 14px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">Checkliste ansehen</button>
+  </div>`;
+}
 
 // ── ORDER ITEMS DATA (from Google Sheets) ─────────────────────────
 const ORDER_ITEMS = {
@@ -2484,6 +2533,11 @@ function render() {
         </div>
       </div><div class="cat-body">`;
 
+    // Special info card for Vorbereitung nächstes Event
+    if(cat.id==='as_vne'&&!vorlageMode) {
+      const _nxt=findNextDayEvent();
+      html+=_nxt?renderVNEInfoCard(_nxt):`<div style="padding:14px 16px 4px;color:#aaa;font-size:13px">Kein Event am Folgetag gefunden.</div>`;
+    }
     // Always render with subcategory grouping — getOrderedTasks already applies custom order
     const subcatGroups = groupBySub(tasks, cat.id);
     const namedGroups = subcatGroups.filter(g=>g.sub); // only named subcats count for move
@@ -2537,6 +2591,13 @@ function render() {
 }
 
 function getOrderedTasks(cat) {
+  // Dynamic tasks for Vorbereitung nächstes Event
+  if(cat.id==='as_vne'&&!vorlageMode) {
+    const nextEv=findNextDayEvent();
+    if(!nextEv) return [];
+    const type=detectEventType(nextEv.name);
+    return (VNE_TASKS[type]||VNE_TASKS['hz']).map(t=>({...t}));
+  }
   const base=(cat.tasks||[]).slice();
   // Add permanent tasks for this location+category
   Object.values(permTasks[loc]||{}).filter(tk=>tk.catId===cat.id).forEach(tk=>{
@@ -3851,7 +3912,7 @@ function setAblaufAlarm(time, desc, eventDate){
 function openAddAblaufItem(){
   document.getElementById('ablauf-new-time').value='';
   document.getElementById('ablauf-new-desc').value='';
-  showModal('m-add-ablauf');
+  openModal('m-add-ablauf');
   setTimeout(()=>document.getElementById('ablauf-new-time').focus(),100);
 }
 function saveAblaufItem(){
