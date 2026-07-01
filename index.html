@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260701-113';
+      var V='20260701-114';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -553,9 +553,10 @@
     </div>
   </div>
   <div class="main">
-    <div style="background:#fff8e1;border:1.5px solid #ffd54f;border-radius:12px;padding:12px 16px;margin-bottom:14px;font-size:13px;color:#7a5800;line-height:1.5">
+    <div style="background:#fff8e1;border:1.5px solid #ffd54f;border-radius:12px;padding:12px 16px;margin-bottom:10px;font-size:13px;color:#7a5800;line-height:1.5">
       Aufgaben die du hier hinzufügst oder löschst, werden automatisch in <strong>allen Events</strong> dieser Location übernommen.
     </div>
+    <button onclick="syncAllVorlageOrderToEvents()" style="width:100%;padding:12px;margin-bottom:14px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">Reihenfolge jetzt auf alle Events übertragen</button>
     <div id="vorlage-container"></div>
     <button class="add-cat-row" onclick="openNewCatVorlage()">+ Neue Kategorie</button>
   </div>
@@ -2778,6 +2779,35 @@ function moveTask(catId, taskId, dir) {
   }
   render();
   const el=document.getElementById('cat-'+catId); if(el){ el.classList.add('open'); openCats.add(catId); }
+}
+
+// Überträgt die komplette aktuelle Vorlage-Reihenfolge auf alle Events (einmalige Sync)
+function syncAllVorlageOrderToEvents() {
+  if(!db || !loc) return;
+  const eids = Object.keys(allEvents[loc]||{});
+  if(eids.length === 0){ toast('Keine Events vorhanden'); return; }
+  const updates = {};
+  getAllCats().forEach(cat => {
+    const base = (cat.tasks||[]).slice();
+    Object.values(permTasks[loc]||{}).filter(tk=>tk.catId===cat.id).forEach(tk=>{
+      base.push({id:tk.id,de:tk.de,en:tk.en||'',sub:tk.sub||'',isPerm:true});
+    });
+    const hidden = vorlageHidden[loc]||{};
+    const visible = base.filter(tk=>!(hidden[tk.id]&&!tk.isPerm));
+    const order = (vorlageTaskOrder[loc]||{})[cat.id];
+    if(order&&order.length>0){
+      const idx={}; order.forEach((id,i)=>idx[id]=i);
+      visible.sort((a,b)=>(idx[a.id]!==undefined?idx[a.id]:9999)-(idx[b.id]!==undefined?idx[b.id]:9999));
+    }
+    const ids = visible.map(t=>t.id);
+    if(ids.length>0){
+      eids.forEach(eid=>{ updates['/eventData/'+loc+'/'+eid+'/taskOrder/'+cat.id]=ids; });
+    }
+  });
+  if(Object.keys(updates).length===0){ toast('Nichts zu synchronisieren'); return; }
+  db.ref('/').update(updates)
+    .then(()=>toast('Reihenfolge auf '+eids.length+' Events übertragen ✓'))
+    .catch(e=>toast('Fehler: '+e.message));
 }
 
 // Synct eine neue Aufgaben-Reihenfolge aus der Vorlage in alle bestehenden Events
