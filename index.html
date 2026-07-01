@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260701-115';
+      var V='20260701-116';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -1896,7 +1896,7 @@ function subscribeGlobal() {
     db.ref('/catOrder/'+l).on('value', s => { catOrder[l]=s.val()||[]; if(loc===l)renderIfApp(); });
     db.ref('/vorlageOrder/'+l).on('value', s => { vorlageTaskOrder[l]=s.val()||{}; if(vorlageMode&&loc===l)renderIfApp(); });
     db.ref('/vorlageHidden/'+l).on('value', s => { vorlageHidden[l]=s.val()||{}; if(vorlageMode&&loc===l)renderIfApp(); });
-    db.ref('/permTasks/'+l).on('value', s => { permTasks[l]=s.val()||{}; if(loc===l)renderIfApp(); });
+    db.ref('/permTasks/'+l).on('value', s => { permTasks[l]=s.val()||{}; if(loc===l){ renderIfApp(); if(vorlageMode) renderVorlage(); } });
     db.ref('/subNames/'+l).on('value', s => { subNames[l]=s.val()||{}; if(loc===l)renderIfApp(); });
     db.ref('/namedTemplates/'+l).on('value', s => { namedTemplates[l]=s.val()||{}; if(loc===l){if(isEventsVisible())renderEvents(); if(currentTemplateId&&document.getElementById('named-template-screen').style.display!=='none')renderNamedTemplate();} });
     db.ref('/vorlageNames/'+l).on('value', s => { vorlageNames[l]=s.val()||''; if(loc===l&&isEventsVisible())renderEvents(); });
@@ -3743,7 +3743,8 @@ function deletePermTask(id){
   if(!confirm('Dauerhafte Aufgabe löschen?')) return;
   delete permTasks[loc][id];
   if(db) db.ref('/permTasks/'+loc+'/'+id).remove(); else saveLocal();
-  render(); toast('Aufgabe gelöscht');
+  if(vorlageMode) renderVorlage(); else render();
+  toast('Aufgabe gelöscht');
 }
 
 // ── A-Z WISSENSDATENBANK ──────────────────────────────────────────
