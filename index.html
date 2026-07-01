@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260701-112';
+      var V='20260701-113';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -2751,7 +2751,7 @@ function moveSubcat(catId, origSub, dir) {
   if(vorlageMode){
     if(!vorlageTaskOrder[loc]) vorlageTaskOrder[loc]={};
     vorlageTaskOrder[loc][catId]=newIds;
-    if(db) db.ref('/vorlageOrder/'+loc+'/'+catId).set(newIds); else saveLocal();
+    if(db){ db.ref('/vorlageOrder/'+loc+'/'+catId).set(newIds); _syncVorlageOrderToEvents(catId,newIds); } else saveLocal();
   } else {
     evTaskOrder[catId]=newIds;
     if(db) db.ref('/eventData/'+loc+'/'+eventId+'/taskOrder/'+catId).set(newIds); else saveLocal();
@@ -2771,13 +2771,23 @@ function moveTask(catId, taskId, dir) {
   if(vorlageMode){
     if(!vorlageTaskOrder[loc]) vorlageTaskOrder[loc]={};
     vorlageTaskOrder[loc][catId]=ids;
-    if(db) db.ref('/vorlageOrder/'+loc+'/'+catId).set(ids); else saveLocal();
+    if(db){ db.ref('/vorlageOrder/'+loc+'/'+catId).set(ids); _syncVorlageOrderToEvents(catId,ids); } else saveLocal();
   } else {
     evTaskOrder[catId]=ids;
     if(db) db.ref('/eventData/'+loc+'/'+eventId+'/taskOrder/'+catId).set(ids); else saveLocal();
   }
   render();
   const el=document.getElementById('cat-'+catId); if(el){ el.classList.add('open'); openCats.add(catId); }
+}
+
+// Synct eine neue Aufgaben-Reihenfolge aus der Vorlage in alle bestehenden Events
+function _syncVorlageOrderToEvents(catId, ids) {
+  if(!db || !loc) return;
+  const eids = Object.keys(allEvents[loc]||{});
+  if(eids.length === 0) return;
+  const updates = {};
+  eids.forEach(eid => { updates['/eventData/'+loc+'/'+eid+'/taskOrder/'+catId] = ids; });
+  db.ref('/').update(updates);
 }
 
 // ── ADMIN ──────────────────────────────────────────────────────────
