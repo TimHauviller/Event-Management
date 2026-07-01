@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260701-121';
+      var V='20260701-122';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -1460,13 +1460,14 @@ function findNextDayEvent() {
   if(!loc||!eventId) return null;
   const curEv=(allEvents[loc]||{})[eventId];
   if(!curEv||!curEv.date) return null;
-  const d=new Date(curEv.date+'T00:00:00');
-  d.setDate(d.getDate()+1);
-  // Use local date to avoid timezone-shift bugs (toISOString returns UTC)
-  const nextDate=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const curDate=curEv.date;
   const evs=allEvents[loc]||{};
-  const found=Object.entries(evs).find(([eid,e])=>e.date===nextDate&&eid!==eventId);
-  return found?{eid:found[0],...found[1]}:null;
+  // Find all future events at this location, sorted by date ascending
+  const future=Object.entries(evs)
+    .filter(([eid,e])=>e.date&&e.date>curDate&&eid!==eventId)
+    .sort((a,b)=>a[1].date.localeCompare(b[1].date));
+  if(!future.length) return null;
+  return {eid:future[0][0],...future[0][1]};
 }
 
 function renderVNEInfoCard(nextEv) {
