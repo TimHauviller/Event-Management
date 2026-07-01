@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260701-125';
+      var V='20260701-126';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -1581,9 +1581,14 @@ function renderBarNotesCard() {
   if(!notes) {
     return `<div style="margin:0 0 4px">${header}<div style="padding:6px 16px 10px;font-size:12px;color:#bbb">Keine Getränke-Infos aus Factsheet vorhanden.</div></div>`;
   }
-  return `<div style="margin:0 0 4px;background:#fffbf0;border-left:3px solid #f5c842;margin:4px 16px 8px;border-radius:8px;overflow:hidden">
+  const lines = notes.split('\n').filter(l=>l.trim());
+  const items = lines.map(l=>`<div style="display:flex;align-items:flex-start;gap:8px;padding:4px 0">
+    <span style="flex-shrink:0;width:6px;height:6px;border-radius:50%;background:#f5c842;margin-top:5px"></span>
+    <span style="font-size:13px;color:#555;line-height:1.5">${escHtml(l.trim())}</span>
+  </div>`).join('');
+  return `<div style="background:#fffbf0;border-left:3px solid #f5c842;margin:4px 16px 8px;border-radius:8px;overflow:hidden">
     ${header}
-    <div style="padding:2px 16px 12px;font-size:13px;color:#555;white-space:pre-wrap;line-height:1.5">${escHtml(notes)}</div>
+    <div style="padding:2px 16px 12px">${items}</div>
   </div>`;
 }
 function editBarNotes() {
