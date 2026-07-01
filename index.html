@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260701-119';
+      var V='20260701-120';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -1458,7 +1458,8 @@ function findNextDayEvent() {
   if(!curEv||!curEv.date) return null;
   const d=new Date(curEv.date+'T00:00:00');
   d.setDate(d.getDate()+1);
-  const nextDate=d.toISOString().split('T')[0];
+  // Use local date to avoid timezone-shift bugs (toISOString returns UTC)
+  const nextDate=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   const evs=allEvents[loc]||{};
   const found=Object.entries(evs).find(([eid,e])=>e.date===nextDate&&eid!==eventId);
   return found?{eid:found[0],...found[1]}:null;
@@ -4350,10 +4351,17 @@ function renderNamedTemplate(){
     subOrder.forEach(subName=>{
       if(subName) html+=`<div class="subcat-row"><span class="subcat-lbl">${escHtml(subName)}</span></div>`;
       subMap[subName].forEach(([tid,t])=>{
-        html+=`<div style="padding:11px 15px;border-top:1px solid #f5f5f5;display:flex;align-items:center;gap:10px">
-          <div style="flex:1;font-size:13.5px;font-weight:600;color:var(--text)">${escHtml(t.de||'')}</div>
-          <button onclick="editNTTask('${tid}')" style="background:none;border:none;color:#aaa;cursor:pointer;font-size:14px;padding:2px 6px">✏</button>
-          <button onclick="deleteNTTask('${tid}')" style="background:none;border:none;color:#e57373;cursor:pointer;font-size:16px;padding:2px 4px">×</button>
+        html+=`<div class="task" id="ntt-${tid}">
+          <div class="chk" style="opacity:.22;cursor:default;pointer-events:none"></div>
+          <div class="task-txt">
+            <div class="task-de">${escHtml(t.de||'')}</div>
+          </div>
+          <div class="task-btns">
+            <div class="adm-btns" style="display:flex">
+              <button class="adm-btn" onclick="editNTTask('${tid}')" title="Bearbeiten">✏</button>
+              <button class="adm-btn del" onclick="deleteNTTask('${tid}')" title="Löschen">✕</button>
+            </div>
+          </div>
         </div>`;
       });
     });
