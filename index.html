@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260701-127';
+      var V='20260701-128';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -260,7 +260,16 @@
     .ico-btn.has-video{color:#e53935}
     .ico-btn.note-active{color:#1a73e8;opacity:1}
     .ico-btn.note-btn{opacity:.3}
-    .task-note{font-size:11px;color:#5f6368;font-style:italic;margin-top:3px;line-height:1.4;word-break:break-word}
+    .task-note{font-size:12px;color:#e53935;font-weight:700;margin-top:4px;line-height:1.4;word-break:break-word}
+    .task-3dot{position:relative;display:inline-flex;align-items:center}
+    .task-3dot-btn{background:none;border:none;font-size:20px;color:#ccc;cursor:pointer;padding:0 3px;line-height:1;border-radius:4px;font-weight:700;letter-spacing:1px}
+    .task-3dot-btn:hover{color:#888}
+    .task-3dot-btn.has-note{color:#e53935;opacity:1}
+    .task-3dot-dropdown{display:none;position:absolute;right:0;top:calc(100% + 4px);background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.16);z-index:200;min-width:190px;overflow:hidden;border:1px solid #eee}
+    .task-3dot.open .task-3dot-dropdown{display:block}
+    .task-3dot-item{display:flex;align-items:center;gap:9px;padding:11px 14px;font-size:13px;font-weight:600;color:#333;cursor:pointer;border:none;background:none;width:100%;text-align:left;font-family:inherit;white-space:nowrap}
+    .task-3dot-item:hover{background:#f5f5f5}
+    .task-3dot-item .t3-badge{font-size:10px;font-weight:800;background:#e53935;color:#fff;padding:1px 6px;border-radius:8px;margin-left:auto}
     /* A-Z Screen */
     #az-screen{display:none;min-height:100vh;background:var(--bg)}
     #ablauf-screen{display:none;min-height:100vh;background:var(--bg)}
@@ -2829,6 +2838,9 @@ function renderTask(tk, catId, siblings, origSub) {
   const evDel=tk.isEvent?`<button class="adm-btn del" onclick="deleteEvTask('${tk.id}')">✕</button>`:'';
   const TASK_OPEN={'as_sl22':'openOrder()','as_sl23':'openFeedback()','eg_sl22':'openOrder()','eg_sl23':'openFeedback()','ls_sl22':'openOrder()','ls_sl23':'openFeedback()'};
   const openFn=TASK_OPEN[tk.id]||'';
+  const _hasNote=!!evTaskNotes[tk.id];
+  const _hasPhoto=!!evTaskPhotos[tk.id];
+  const _isReq=!!photoRequired[tk.id];
   return `<div class="task${checked?' done':''}${tk.isEvent?' ev-added':''}${tk.isPerm?' perm-task':''}" id="task-${tk.id}">
     <div class="chk${checked?' on':''}" onclick="event.stopPropagation();toggleCheck('${tk.id}')"></div>
     <div class="task-txt" ${openFn?`onclick="event.stopPropagation();${openFn}" style="cursor:pointer"`:''}">
@@ -2846,8 +2858,16 @@ function renderTask(tk, catId, siblings, origSub) {
         ${evDel}
         <button class="adm-btn${photoRequired[tk.id]?' photo-req-on':''}" onclick="togglePhotoRequired('${tk.id}')" title="${photoRequired[tk.id]?'Foto-Pflicht aus':'Foto-Pflicht ein'}"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.65 0-3 1.35-3 3s1.35 3 3 3 3-1.35 3-3-1.35-3-3-3z"/></svg></button>
       </div>
-      ${photos[tk.id]?`<button class="ico-btn active" onclick="openRefPhoto('${tk.id}','${escAttr(de)}')" title="Referenzfoto ansehen">Foto</button>`:(isAdmin?`<button class="ico-btn" onclick="openRefPhoto('${tk.id}','${escAttr(de)}')" title="Referenzfoto hochladen">Foto</button>`:'')} ${photoRequired[tk.id]?`<button class="${evTaskPhotos[tk.id]?'ico-btn active':'ico-btn req'}" onclick="openStaffPhoto('${tk.id}','${escAttr(de)}')" title="${evTaskPhotos[tk.id]?'Mitarbeiterfoto ansehen':'Mitarbeiterfoto hochladen (Pflicht)'}">MA Foto${evTaskPhotos[tk.id]?'':' *'}</button>`:''}
-      <button class="${evTaskNotes[tk.id]?'ico-btn note-active':'ico-btn note-btn'}" onclick="openTaskNote('${tk.id}')" title="${evTaskNotes[tk.id]?'Kommentar bearbeiten':'Kommentar hinzufügen'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg></button>
+      ${photos[tk.id]?`<button class="ico-btn active" onclick="openRefPhoto('${tk.id}','${escAttr(de)}')" title="Referenzfoto ansehen">Foto</button>`:(isAdmin?`<button class="ico-btn" onclick="openRefPhoto('${tk.id}','${escAttr(de)}')" title="Referenzfoto hochladen">Foto</button>`:'')}
+      <div class="task-3dot" id="dot-${tk.id}">
+        <button class="task-3dot-btn${_hasNote?' has-note':''}" onclick="event.stopPropagation();toggleTaskMenu('${tk.id}')" title="Optionen">&#8942;</button>
+        <div class="task-3dot-dropdown">
+          <button class="task-3dot-item" onclick="event.stopPropagation();closeAllTaskMenus();openStaffPhoto('${tk.id}','${escAttr(de)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.65 0-3 1.35-3 3s1.35 3 3 3 3-1.35 3-3-1.35-3-3-3z"/></svg>Foto hochladen${_hasPhoto?`<span class="t3-badge">✓</span>`:(_isReq?`<span class="t3-badge">!</span>`:'')}
+          </button>
+          <button class="task-3dot-item" onclick="event.stopPropagation();closeAllTaskMenus();openTaskNote('${tk.id}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>Kommentar${_hasNote?`<span class="t3-badge" style="background:#e53935">!</span>`:''}
+          </button>
+        </div>
+      </div>
     </div>
   </div>`;
 }
@@ -2932,16 +2952,27 @@ function saveTaskNote() {
   // Update inline without full re-render
   const noteEl=document.querySelector('#task-'+_noteTaskId+' .task-note');
   const txtEl=document.querySelector('#task-'+_noteTaskId+' .task-txt');
-  const btnEl=document.querySelector('#task-'+_noteTaskId+' .note-btn, #task-'+_noteTaskId+' .note-active');
+  const dotBtn=document.querySelector('#dot-'+_noteTaskId+' .task-3dot-btn');
   if(val){
     if(noteEl) noteEl.textContent=val;
     else if(txtEl){const d=document.createElement('div');d.className='task-note';d.textContent=val;txtEl.appendChild(d);}
-    if(btnEl){btnEl.className='ico-btn note-active';btnEl.title='Kommentar bearbeiten';}
+    if(dotBtn) dotBtn.classList.add('has-note');
   } else {
     if(noteEl) noteEl.remove();
-    if(btnEl){btnEl.className='ico-btn note-btn';btnEl.title='Kommentar hinzufügen';}
+    if(dotBtn) dotBtn.classList.remove('has-note');
   }
 }
+function toggleTaskMenu(tkId) {
+  const el=document.getElementById('dot-'+tkId);
+  if(!el) return;
+  const wasOpen=el.classList.contains('open');
+  closeAllTaskMenus();
+  if(!wasOpen) el.classList.add('open');
+}
+function closeAllTaskMenus() {
+  document.querySelectorAll('.task-3dot.open').forEach(el=>el.classList.remove('open'));
+}
+document.addEventListener('click', closeAllTaskMenus);
 
 function moveSubcat(catId, origSub, dir) {
   const cat = getAllCats().find(c=>c.id===catId); if(!cat) return;
