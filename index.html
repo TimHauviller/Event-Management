@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260703-130';
+      var V='20260703-131';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -2861,7 +2861,8 @@ function renderTask(tk, catId, siblings, origSub) {
         <button class="adm-btn${photoRequired[tk.id]?' photo-req-on':''}" onclick="togglePhotoRequired('${tk.id}')" title="${photoRequired[tk.id]?'Foto-Pflicht aus':'Foto-Pflicht ein'}"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.65 0-3 1.35-3 3s1.35 3 3 3 3-1.35 3-3-1.35-3-3-3z"/></svg></button>
       </div>
       ${photos[tk.id]?`<button class="ico-btn active" onclick="openRefPhoto('${tk.id}','${escAttr(de)}')" title="Referenzfoto ansehen">Foto</button>`:(isAdmin?`<button class="ico-btn" onclick="openRefPhoto('${tk.id}','${escAttr(de)}')" title="Referenzfoto hochladen">Foto</button>`:'')}
-      ${!photos[tk.id]&&_hasPhoto?`<button class="ico-btn active" onclick="openStaffPhoto('${tk.id}','${escAttr(de)}')" title="Foto ansehen">Foto</button>`:(!photos[tk.id]&&_isReq&&!_hasPhoto?`<button class="ico-btn req" onclick="event.stopPropagation();openStaffPhoto('${tk.id}','${escAttr(de)}')" title="Foto hochladen (Pflicht)">Fotopflicht</button>`:'')}
+      ${!photos[tk.id]&&_hasPhoto?`<button class="ico-btn active" onclick="openStaffPhoto('${tk.id}','${escAttr(de)}')" title="Foto ansehen">Foto</button>`:''}
+      ${_isReq&&!_hasPhoto?`<button class="ico-btn req" onclick="event.stopPropagation();openStaffPhoto('${tk.id}','${escAttr(de)}')" title="Foto hochladen (Pflicht)">! Fotopflicht</button>`:''}
       <div class="task-3dot" id="dot-${tk.id}">
         <button class="task-3dot-btn${_hasNote?' has-note':''}" onclick="event.stopPropagation();toggleTaskMenu('${tk.id}')" title="Optionen">&#8942;</button>
         <div class="task-3dot-dropdown">
