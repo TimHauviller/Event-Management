@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260701-128';
+      var V='20260703-129';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -773,6 +773,8 @@
     <input type="text" id="add-de" placeholder="Aufgabe (Deutsch)">
     <input type="text" id="add-en" placeholder="Task (English)">
     <input type="text" id="add-sub" placeholder="Unterkategorie (optional)">
+    <label style="font-size:12px;color:#888;margin:6px 0 3px;display:block">Foto zur Aufgabe (optional)</label>
+    <input type="file" id="add-photo-file" accept="image/*" style="width:100%;box-sizing:border-box;font-size:13px;margin-bottom:12px">
     <label id="add-perm-row" style="display:flex;align-items:flex-start;gap:8px;font-size:13px;margin-bottom:10px;cursor:pointer;padding:10px;background:#fff8e1;border-radius:8px;border:1px solid #ffd54f">
       <input type="checkbox" id="add-perm" style="width:auto;margin:2px 0 0;cursor:pointer;flex-shrink:0">
       <span><strong>Dauerhaft (Vorlage)</strong><br><span style="font-size:11px;color:#888;font-weight:400">Wird automatisch in die Eventvorlage eingefügt und erscheint bei allen zukünftigen Events dieser Location. Bleibt auch nach Event-Reset erhalten.</span></span>
@@ -2859,13 +2861,15 @@ function renderTask(tk, catId, siblings, origSub) {
         <button class="adm-btn${photoRequired[tk.id]?' photo-req-on':''}" onclick="togglePhotoRequired('${tk.id}')" title="${photoRequired[tk.id]?'Foto-Pflicht aus':'Foto-Pflicht ein'}"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.65 0-3 1.35-3 3s1.35 3 3 3 3-1.35 3-3-1.35-3-3-3z"/></svg></button>
       </div>
       ${photos[tk.id]?`<button class="ico-btn active" onclick="openRefPhoto('${tk.id}','${escAttr(de)}')" title="Referenzfoto ansehen">Foto</button>`:(isAdmin?`<button class="ico-btn" onclick="openRefPhoto('${tk.id}','${escAttr(de)}')" title="Referenzfoto hochladen">Foto</button>`:'')}
+      ${!photos[tk.id]&&_hasPhoto?`<button class="ico-btn active" onclick="openStaffPhoto('${tk.id}','${escAttr(de)}')" title="Foto ansehen">Foto</button>`:''}
       <div class="task-3dot" id="dot-${tk.id}">
         <button class="task-3dot-btn${_hasNote?' has-note':''}" onclick="event.stopPropagation();toggleTaskMenu('${tk.id}')" title="Optionen">&#8942;</button>
         <div class="task-3dot-dropdown">
-          <button class="task-3dot-item" onclick="event.stopPropagation();closeAllTaskMenus();openStaffPhoto('${tk.id}','${escAttr(de)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.65 0-3 1.35-3 3s1.35 3 3 3 3-1.35 3-3-1.35-3-3-3z"/></svg>Foto hochladen${_hasPhoto?`<span class="t3-badge">✓</span>`:(_isReq?`<span class="t3-badge">!</span>`:'')}
+          <button class="task-3dot-item" onclick="event.stopPropagation();closeAllTaskMenus();openStaffPhoto('${tk.id}','${escAttr(de)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.65 0-3 1.35-3 3s1.35 3 3 3 3-1.35 3-3-1.35-3-3-3z"/></svg>Foto ${_hasPhoto?'ansehen / ändern':'hochladen'}${_isReq&&!_hasPhoto?`<span class="t3-badge">!</span>`:''}
           </button>
           <button class="task-3dot-item" onclick="event.stopPropagation();closeAllTaskMenus();openTaskNote('${tk.id}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>Kommentar${_hasNote?`<span class="t3-badge" style="background:#e53935">!</span>`:''}
           </button>
+          ${tk.isEvent?`<div style="border-top:1px solid #f0f0f0;margin:4px 0"></div><button class="task-3dot-item" style="color:#bbb;font-weight:500" onclick="event.stopPropagation();closeAllTaskMenus();deleteEvTask('${tk.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="opacity:.5"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>Aufgabe löschen</button>`:''}
         </div>
       </div>
     </div>
@@ -3459,6 +3463,7 @@ function openAddTask(catId, subName){
   document.getElementById('add-perm').checked=vorlageMode;
   document.getElementById('add-perm').disabled=vorlageMode;
   document.getElementById('add-perm-row').style.display=isAdmin?'flex':'none';
+  const pf=document.getElementById('add-photo-file'); if(pf) pf.value='';
   openModal('m-add'); setTimeout(()=>document.getElementById('add-de').focus(),100);
 }
 
@@ -3483,9 +3488,22 @@ function saveNewTask(){
     evExtraTasks[id]=tk;
     if(db) db.ref('/eventData/'+loc+'/'+eventId+'/extraTasks/'+id).set(tk); else saveLocal();
     document.getElementById('add-perm').disabled=false;
-  closeModal('m-add');
-  render();
-  toast('Aufgabe hinzugefügt ✓');
+    const photoInput=document.getElementById('add-photo-file');
+    const photoFile=photoInput&&photoInput.files&&photoInput.files[0]?photoInput.files[0]:null;
+    if(photoInput) photoInput.value='';
+    closeModal('m-add');
+    if(photoFile){
+      const reader=new FileReader();
+      reader.onload=e=>{
+        evTaskPhotos[id]=e.target.result;
+        if(db) db.ref('/eventData/'+loc+'/'+eventId+'/taskPhotos/'+id).set(e.target.result);
+        render();
+      };
+      reader.readAsDataURL(photoFile);
+    } else {
+      render();
+    }
+    toast('Aufgabe hinzugefügt ✓');
   }
   showUndoBtn();
 }
