@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260703-129';
+      var V='20260703-130';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -2861,15 +2861,15 @@ function renderTask(tk, catId, siblings, origSub) {
         <button class="adm-btn${photoRequired[tk.id]?' photo-req-on':''}" onclick="togglePhotoRequired('${tk.id}')" title="${photoRequired[tk.id]?'Foto-Pflicht aus':'Foto-Pflicht ein'}"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.65 0-3 1.35-3 3s1.35 3 3 3 3-1.35 3-3-1.35-3-3-3z"/></svg></button>
       </div>
       ${photos[tk.id]?`<button class="ico-btn active" onclick="openRefPhoto('${tk.id}','${escAttr(de)}')" title="Referenzfoto ansehen">Foto</button>`:(isAdmin?`<button class="ico-btn" onclick="openRefPhoto('${tk.id}','${escAttr(de)}')" title="Referenzfoto hochladen">Foto</button>`:'')}
-      ${!photos[tk.id]&&_hasPhoto?`<button class="ico-btn active" onclick="openStaffPhoto('${tk.id}','${escAttr(de)}')" title="Foto ansehen">Foto</button>`:''}
+      ${!photos[tk.id]&&_hasPhoto?`<button class="ico-btn active" onclick="openStaffPhoto('${tk.id}','${escAttr(de)}')" title="Foto ansehen">Foto</button>`:(!photos[tk.id]&&_isReq&&!_hasPhoto?`<button class="ico-btn req" onclick="event.stopPropagation();openStaffPhoto('${tk.id}','${escAttr(de)}')" title="Foto hochladen (Pflicht)">Fotopflicht</button>`:'')}
       <div class="task-3dot" id="dot-${tk.id}">
         <button class="task-3dot-btn${_hasNote?' has-note':''}" onclick="event.stopPropagation();toggleTaskMenu('${tk.id}')" title="Optionen">&#8942;</button>
         <div class="task-3dot-dropdown">
-          <button class="task-3dot-item" onclick="event.stopPropagation();closeAllTaskMenus();openStaffPhoto('${tk.id}','${escAttr(de)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.65 0-3 1.35-3 3s1.35 3 3 3 3-1.35 3-3-1.35-3-3-3z"/></svg>Foto ${_hasPhoto?'ansehen / ändern':'hochladen'}${_isReq&&!_hasPhoto?`<span class="t3-badge">!</span>`:''}
+          <button class="task-3dot-item" onclick="event.stopPropagation();closeAllTaskMenus();openStaffPhoto('${tk.id}','${escAttr(de)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.65 0-3 1.35-3 3s1.35 3 3 3 3-1.35 3-3-1.35-3-3-3z"/></svg>${_isReq?'Fotopflicht':'Foto'} ${_hasPhoto?'ansehen / ändern':'hochladen'}${_isReq&&!_hasPhoto?`<span class="t3-badge">!</span>`:''}
           </button>
           <button class="task-3dot-item" onclick="event.stopPropagation();closeAllTaskMenus();openTaskNote('${tk.id}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>Kommentar${_hasNote?`<span class="t3-badge" style="background:#e53935">!</span>`:''}
           </button>
-          ${tk.isEvent?`<div style="border-top:1px solid #f0f0f0;margin:4px 0"></div><button class="task-3dot-item" style="color:#bbb;font-weight:500" onclick="event.stopPropagation();closeAllTaskMenus();deleteEvTask('${tk.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="opacity:.5"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>Aufgabe löschen</button>`:''}
+          ${eventId&&!vorlageMode?`<div style="border-top:1px solid #f0f0f0;margin:4px 0"></div><button class="task-3dot-item" style="color:#bbb;font-weight:500" onclick="event.stopPropagation();closeAllTaskMenus();${tk.isEvent?`deleteEvTask('${tk.id}')`:`hideTask('${tk.id}')`}"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="opacity:.5"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>${tk.isEvent?'Aufgabe löschen':'Aufgabe ausblenden'}</button>`:''}
         </div>
       </div>
     </div>
