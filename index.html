@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260703-131';
+      var V='20260703-132';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -510,7 +510,7 @@
       <span id="action-bar-arrow">▼</span><span id="action-bar-label">MENÜ</span>
     </div>
     <div class="checklist-action-bar" id="action-bar-wrap">
-      <a class="action-bar-btn" id="hdr-sheet-btn" href="#" target="_blank" rel="noopener" style="text-decoration:none">Factsheet</a>
+      <a class="action-bar-btn" id="hdr-sheet-btn" href="#" target="_blank" rel="noopener" style="text-decoration:none;display:none">Factsheet</a>
       <button class="action-bar-btn" id="ablauf-menu-btn" onclick="openAblauf()" style="display:none">Ablauf des Events</button>
       <button class="action-bar-btn" onclick="printChecklist()">Drucken</button>
       <button class="action-bar-btn" onclick="openAZ()">Location A-Z</button>
@@ -2252,7 +2252,7 @@ function pickEvent(eid) {
   const lbl=document.getElementById('admin-bar-lbl');
   if(lbl) lbl.textContent='Event anpassen';
   const shBtn=document.getElementById('hdr-sheet-btn');
-  if(shBtn){if(ev.sheetUrl){shBtn.href=ev.sheetUrl;shBtn.classList.add('show');}else{shBtn.href='#';shBtn.classList.remove('show');}}
+  if(shBtn){if(ev.sheetUrl){shBtn.href=ev.sheetUrl;shBtn.style.display='flex';}else{shBtn.href='#';shBtn.style.display='none';}}
   updateAdminButtons();
   if (db) { render(); subscribeEvent(loc, eid); }
   else { loadLocalEvent(loc, eid); render(); }
@@ -2268,7 +2268,7 @@ function pickVorlage() {
   document.getElementById('hdr-loc-name').textContent = locNames[loc]||loc;
   document.getElementById('hdr-event-name').textContent = 'Vorlage – gilt für alle Events';
   const shBtn=document.getElementById('hdr-sheet-btn');
-  if(shBtn){shBtn.href='#';shBtn.classList.remove('show');}
+  if(shBtn){shBtn.href='#';shBtn.style.display='none';}
   const lbl=document.getElementById('admin-bar-lbl');
   if(lbl) lbl.textContent=vorlageNames[loc]||'Hauptvorlage';
   const vn=document.getElementById('vorlage-loc-name');
