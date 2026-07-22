@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260703-137';
+      var V='20260703-138';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -6470,16 +6470,22 @@ function renderLogistik(){
 }
 
 // ── LOGISTIK ITEMS ────────────────────────────────────────────────
+let _lgLocExpanded={};
+function toggleLgLoc(loc){
+  _lgLocExpanded[loc]=(_lgLocExpanded[loc]===false)?true:false;
+  renderLogistikItems();
+}
+
 function renderLogistikItems(){
   const content=document.getElementById('lg-content'); if(!content)return;
   const all=Object.entries(logistikItems||{});
   const LOC_NAMES={AS:'amSee Leipzig',EG:'EVENTGIESSEREI',LS:'LAKESIDE'};
   const LOC_COLORS={AS:'#2d7a4f',EG:'#c8a951',LS:'#1C949C'};
-  const TYPE_DEF={
-    einladen:{label:'Einladen',color:'#34a853',bg:'#eafaf1'},
-    ausladen:{label:'Ausladen',color:'#ea4335',bg:'#ffeaea'},
-    todo:{label:'To-Do',color:'#1565c0',bg:'#e8f0fe'}
-  };
+  const TYPES=[
+    {key:'einladen',label:'Einladen',color:'#2e7d32',bg:'#eafaf1',border:'#c8e6c9'},
+    {key:'ausladen',label:'Ausladen',color:'#c62828',bg:'#ffeaea',border:'#ffcdd2'},
+    {key:'todo',    label:'To-Do',   color:'#1565c0',bg:'#e8f0fe',border:'#bbdefb'}
+  ];
   if(!all.length){
     content.innerHTML=`<div style="text-align:center;padding:50px 20px;color:#bbb">
       <div style="font-size:16px;font-weight:700;color:#666">Noch keine Einträge</div>
@@ -6487,75 +6493,29 @@ function renderLogistikItems(){
     </div>`;
     return;
   }
-  // Gruppe nach Datum
-  const byDate={};
-  all.forEach(([id,it])=>{
-    const dk=it.date||'__nodate__';
-    if(!byDate[dk])byDate[dk]=[];
-    byDate[dk].push([id,it]);
-  });
-  const dateKeys=Object.keys(byDate).sort((a,b)=>{
-    if(a==='__nodate__')return 1;
-    if(b==='__nodate__')return -1;
-    return a<b?-1:1;
-  });
-  // Logistik-User für Fahrer-Dropdown
-  const lgUsers=Object.entries(taskUsers||{}).filter(([,u])=>u.roleLG||(u.role==='logistik'));
+  // Locations sammeln
+  const allLocs=new Set();
+  all.forEach(([,it])=>{if(it.loc)allLocs.add(it.loc);});
+  const orderedLocs=['AS','EG','LS'].filter(l=>allLocs.has(l));
+  allLocs.forEach(l=>{if(!orderedLocs.includes(l))orderedLocs.push(l);});
   let html='<div style="padding:14px">';
-  dateKeys.forEach(dk=>{
-    const items=byDate[dk];
-    const meta=(lgFahrtMeta&&lgFahrtMeta[dk])||{};
-    const dateLabel=dk==='__nodate__'?'Kein Datum':new Date(dk+'T12:00:00').toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'});
-    // Datum-Karte (wie alter Fahrt-Stil)
-    html+=`<div style="background:#fff;border:1.5px solid #e0e0e0;border-radius:16px;margin-bottom:18px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06)">`;
-    // Karten-Header
-    html+=`<div style="background:#1c1c2e;padding:12px 16px;display:flex;align-items:center;justify-content:space-between">
-      <span style="font-size:14px;font-weight:800;color:#fff;letter-spacing:.3px">${escHtml(dateLabel)}</span>
-    </div>`;
-    // Fahrer-Zeile
-    if(lgUsers.length>0&&dk!=='__nodate__'){
-      const d1=meta.driver1||'';
-      const d2=meta.driver2||'';
-      const dkSafe=dk.replace(/[^0-9-]/g,'');
-      html+=`<div style="display:flex;gap:8px;padding:10px 14px;background:#f8f9fa;border-bottom:1px solid #f0f0f0">
-        <div style="flex:1">
-          <label style="font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:3px">Fahrer 1</label>
-          <select onchange="setLgFahrtDriver('${dkSafe}','driver1',this.value)" style="width:100%;padding:7px 10px;border:1.5px solid #e0e0e0;border-radius:10px;font-family:inherit;font-size:13px;background:#fff;color:#1c1c2e">
-            <option value="">– kein –</option>
-            ${lgUsers.map(([uid,u])=>`<option value="${escAttr(uid)}"${d1===uid?' selected':''}>${escHtml(u.name||uid)}</option>`).join('')}
-          </select>
-        </div>
-        <div style="flex:1">
-          <label style="font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:3px">Fahrer 2</label>
-          <select onchange="setLgFahrtDriver('${dkSafe}','driver2',this.value)" style="width:100%;padding:7px 10px;border:1.5px solid #e0e0e0;border-radius:10px;font-family:inherit;font-size:13px;background:#fff;color:#1c1c2e">
-            <option value="">– kein –</option>
-            ${lgUsers.map(([uid,u])=>`<option value="${escAttr(uid)}"${d2===uid?' selected':''}>${escHtml(u.name||uid)}</option>`).join('')}
-          </select>
-        </div>
+  orderedLocs.forEach(loc=>{
+    const locItems=all.filter(([,it])=>it.loc===loc);
+    if(!locItems.length)return;
+    const color=LOC_COLORS[loc]||'#1e3a6e';
+    const name=LOC_NAMES[loc]||loc;
+    const total=locItems.length;
+    const done=locItems.filter(([,it])=>it.checked).length;
+    const expanded=(_lgLocExpanded[loc]!==false);
+    html+=`<div style="background:#fff;border:1.5px solid #e0e0e0;border-radius:16px;margin-bottom:14px;overflow:hidden">
+      <div onclick="toggleLgLoc('${loc}')" style="padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;user-select:none">
+        <div style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0"></div>
+        <span style="font-size:15px;font-weight:800;color:#1c1c2e;flex:1">${escHtml(name)}</span>
+        <span style="font-size:12px;color:#aaa;font-weight:700;margin-right:6px">${done}/${total}</span>
+        <span style="font-size:18px;color:#aaa;line-height:1;transform:rotate(${expanded?'90':'0'}deg);display:inline-block">&#8250;</span>
       </div>`;
-    }
-    html+=`<div style="padding:12px 14px">`;
-    // Items nach Location gruppieren
-    const allLocs=new Set();
-    items.forEach(([,it])=>{ if(it.loc)allLocs.add(it.loc); });
-    const orderedLocs=['AS','EG','LS',...Object.keys(LOC_COLORS).filter(l=>!['AS','EG','LS'].includes(l))].filter(l=>allLocs.has(l));
-    // Custom Locs ergänzen
-    allLocs.forEach(l=>{ if(!orderedLocs.includes(l))orderedLocs.push(l); });
-    const TYPES=[
-      {key:'einladen',label:'Einladen',color:'#2e7d32',bg:'#eafaf1',border:'#c8e6c9'},
-      {key:'ausladen',label:'Ausladen',color:'#c62828',bg:'#ffeaea',border:'#ffcdd2'},
-      {key:'todo',   label:'To-Do',   color:'#1565c0',bg:'#e8f0fe',border:'#bbdefb'}
-    ];
-    orderedLocs.forEach(loc=>{
-      const locItems=items.filter(([,it])=>it.loc===loc);
-      if(!locItems.length)return;
-      const color=LOC_COLORS[loc]||'#1e3a6e';
-      const name=LOC_NAMES[loc]||loc;
-      html+=`<div style="display:flex;align-items:center;gap:8px;margin:14px 0 8px">
-        <div style="flex:1;height:1.5px;background:#e8e8e8"></div>
-        <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:${color};background:${color}18;border-radius:20px;padding:4px 12px;white-space:nowrap">${escHtml(name)}</span>
-        <div style="flex:1;height:1.5px;background:#e8e8e8"></div>
-      </div>`;
+    if(expanded){
+      html+=`<div style="border-top:1px solid #f0f0f0;padding:10px 14px 6px">`;
       TYPES.forEach(({key,label,color:tColor,bg,border})=>{
         const typeItems=locItems.filter(([,it])=>it.type===key);
         if(!typeItems.length)return;
@@ -6572,6 +6532,7 @@ function renderLogistikItems(){
               <div style="min-width:0;flex:1">
                 <div style="font-size:14px;font-weight:700;color:${checked?'#aaa':'#1c1c2e'}">${escHtml(it.name||'')}</div>
                 ${destName?`<div style="font-size:11px;color:#999;margin-top:2px">nach: ${escHtml(destName)}</div>`:''}
+                ${it.date?`<div style="font-size:11px;color:#bbb;margin-top:2px">${new Date(it.date+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'})}</div>`:''}
                 ${it.comment?`<div style="font-size:12px;color:#888;margin-top:2px">${escHtml(it.comment)}</div>`:''}
               </div>
               ${it.photo?`<img src="${it.photo}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;flex-shrink:0;cursor:pointer" onclick="event.stopPropagation();openPhotoViewer('${it.photo}')">`:''}
@@ -6581,12 +6542,17 @@ function renderLogistikItems(){
         });
         html+='</div>';
       });
-    });
-    // Items ohne Location
-    items.filter(([,it])=>!it.loc).forEach(([id,it])=>{
+      html+='</div>';
+    }
+    html+='</div>';
+  });
+  // Items ohne Location
+  const noLoc=all.filter(([,it])=>!it.loc);
+  if(noLoc.length){
+    noLoc.forEach(([id,it])=>{
       const checked=!!it.checked;
-      const td=TYPE_DEF[it.type||'todo'];
-      html+=`<div class="event-card${checked?' done':''}" style="border-left-color:${td.color};${checked?'opacity:.5':''}">
+      const tColor=({einladen:'#34a853',ausladen:'#ea4335',todo:'#1565c0'})[it.type||'todo'];
+      html+=`<div class="event-card${checked?' done':''}" style="border-left-color:${tColor};${checked?'opacity:.5':''}">
         <div style="flex:1;min-width:0;display:flex;align-items:center;gap:10px">
           <div class="chk${checked?' on':''}" onclick="toggleLgItem('${id}')" style="flex-shrink:0"></div>
           <div style="min-width:0;flex:1">
@@ -6598,9 +6564,7 @@ function renderLogistikItems(){
         </div>
       </div>`;
     });
-    html+='</div>'; // close padding div
-    html+='</div>'; // close card
-  });
+  }
   html+='</div>';
   content.innerHTML=html;
 }
