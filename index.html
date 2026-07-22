@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260703-138';
+      var V='20260703-139';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -6634,38 +6634,35 @@ function _aliPhotoSelected(input){
 function saveAddLgItem(){
   const name=(document.getElementById('ali-name').value||'').trim();
   if(!name){toast('Bitte Beschreibung eingeben');return;}
+  // Alle Werte VOR closeModal lesen
+  const itemType=_lgItemType;
   const loc=getLocValue('ali-loc');
+  const destLoc=(itemType!=='todo')?getLocValue('ali-dest'):null;
   const comment=(document.getElementById('ali-comment').value||'').trim();
   const date=(document.getElementById('ali-date').value||'');
-  const entry={type:_lgItemType,loc,name,checked:false,createdAt:Date.now()};
+  const photoData=_aliPhotoData;
+  closeModal('m-add-lg-item');
+  _aliPhotoData=null;
+  const entry={type:itemType,loc,name,checked:false,createdAt:Date.now()};
+  if(destLoc)entry.destLoc=destLoc;
   if(comment)entry.comment=comment;
   if(date)entry.date=date;
-  if(_aliPhotoData)entry.photo=_aliPhotoData;
-  closeModal('m-add-lg-item');
-  // Bei Einladen: automatisch verknüpftes Ausladen-Item am Zielort erstellen
-  if(_lgItemType==='einladen'){
-    const destLoc=getLocValue('ali-dest');
-    entry.destLoc=destLoc;
-    if(destLoc&&destLoc!==loc){
-      const ref1=db.ref('/logistikItems').push();
-      const ref2=db.ref('/logistikItems').push();
-      entry.linkedId=ref2.key;
-      const paired={type:'ausladen',loc:destLoc,name,checked:false,createdAt:Date.now()+1,linkedId:ref1.key};
-      if(comment)paired.comment=comment;
-      if(date)paired.date=date;
-      ref1.set(entry);
-      ref2.set(paired);
-      toast('Einladen + Ausladen angelegt');
-    } else {
-      db.ref('/logistikItems').push(entry).then(()=>toast('Eintrag gespeichert'));
-    }
-  } else if(_lgItemType==='ausladen'){
-    entry.destLoc=getLocValue('ali-dest');
-    db.ref('/logistikItems').push(entry).then(()=>toast('Eintrag gespeichert'));
+  if(photoData)entry.photo=photoData;
+  // Bei Einladen mit anderem Zielort: automatisch Ausladen-Item anlegen
+  if(itemType==='einladen'&&destLoc&&destLoc!==loc){
+    const ref1=db.ref('/logistikItems').push();
+    const ref2=db.ref('/logistikItems').push();
+    entry.linkedId=ref2.key;
+    const paired={type:'ausladen',loc:destLoc,name,checked:false,createdAt:Date.now()+1,linkedId:ref1.key};
+    if(comment)paired.comment=comment;
+    if(date)paired.date=date;
+    ref1.set(entry);
+    ref2.set(paired);
+    const LOC_NAMES={AS:'amSee',EG:'EVENTGIESSEREI',LS:'LAKESIDE'};
+    toast('Einladen ('+( LOC_NAMES[loc]||loc)+') + Ausladen ('+(LOC_NAMES[destLoc]||destLoc)+') angelegt');
   } else {
     db.ref('/logistikItems').push(entry).then(()=>toast('Eintrag gespeichert'));
   }
-  _aliPhotoData=null;
 }
 
 
