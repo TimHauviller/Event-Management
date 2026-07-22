@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260703-139';
+      var V='20260703-141';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -6476,16 +6476,27 @@ function toggleLgLoc(loc){
   renderLogistikItems();
 }
 
+function _lgCard(id,it,checked,color,subtitle,onclickFn){
+  return `<div class="event-card${checked?' done':''}" style="border-left-color:${color};${checked?'opacity:.5':''}">
+    <div style="flex:1;min-width:0;display:flex;align-items:center;gap:10px">
+      <div class="chk${checked?' on':''}" onclick="${onclickFn}('${id}')" style="flex-shrink:0"></div>
+      <div style="min-width:0;flex:1">
+        <div style="font-size:14px;font-weight:700;color:${checked?'#aaa':'#1c1c2e'}">${escHtml(it.name||'')}</div>
+        ${subtitle?`<div style="font-size:11px;color:#999;margin-top:2px">${subtitle}</div>`:''}
+        ${it.date?`<div style="font-size:11px;color:#bbb;margin-top:2px">${new Date(it.date+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'})}</div>`:''}
+        ${it.comment?`<div style="font-size:12px;color:#888;margin-top:2px">${escHtml(it.comment)}</div>`:''}
+      </div>
+      ${it.photo?`<img src="${it.photo}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;flex-shrink:0;cursor:pointer" onclick="event.stopPropagation();openPhotoViewer('${it.photo}')">`:''}
+      ${currentTaskUser?`<button onclick="event.stopPropagation();deleteLgItem('${id}')" style="background:none;border:none;color:#ddd;font-size:20px;cursor:pointer;padding:2px 6px;flex-shrink:0;line-height:1">×</button>`:''}
+    </div>
+  </div>`;
+}
+
 function renderLogistikItems(){
   const content=document.getElementById('lg-content'); if(!content)return;
   const all=Object.entries(logistikItems||{});
   const LOC_NAMES={AS:'amSee Leipzig',EG:'EVENTGIESSEREI',LS:'LAKESIDE'};
   const LOC_COLORS={AS:'#2d7a4f',EG:'#c8a951',LS:'#1C949C'};
-  const TYPES=[
-    {key:'einladen',label:'Einladen',color:'#2e7d32',bg:'#eafaf1',border:'#c8e6c9'},
-    {key:'ausladen',label:'Ausladen',color:'#c62828',bg:'#ffeaea',border:'#ffcdd2'},
-    {key:'todo',    label:'To-Do',   color:'#1565c0',bg:'#e8f0fe',border:'#bbdefb'}
-  ];
   if(!all.length){
     content.innerHTML=`<div style="text-align:center;padding:50px 20px;color:#bbb">
       <div style="font-size:16px;font-weight:700;color:#666">Noch keine Einträge</div>
@@ -6493,19 +6504,36 @@ function renderLogistikItems(){
     </div>`;
     return;
   }
-  // Locations sammeln
-  const allLocs=new Set();
-  all.forEach(([,it])=>{if(it.loc)allLocs.add(it.loc);});
-  const orderedLocs=['AS','EG','LS'].filter(l=>allLocs.has(l));
-  allLocs.forEach(l=>{if(!orderedLocs.includes(l))orderedLocs.push(l);});
+  // Alle relevanten Locations sammeln (inkl. Zielorte von Einladen-Items)
+  const locSet=new Set();
+  all.forEach(([,it])=>{
+    if(it.loc)locSet.add(it.loc);
+    if(it.type==='einladen'&&it.destLoc)locSet.add(it.destLoc);
+  });
+  const orderedLocs=['AS','EG','LS'].filter(l=>locSet.has(l));
+  locSet.forEach(l=>{if(!orderedLocs.includes(l))orderedLocs.push(l);});
   let html='<div style="padding:14px">';
   orderedLocs.forEach(loc=>{
-    const locItems=all.filter(([,it])=>it.loc===loc);
-    if(!locItems.length)return;
     const color=LOC_COLORS[loc]||'#1e3a6e';
     const name=LOC_NAMES[loc]||loc;
-    const total=locItems.length;
-    const done=locItems.filter(([,it])=>it.checked).length;
+    // Einladen: Items die VON dieser Location abgeholt werden
+    const einItems=all.filter(([,it])=>it.loc===loc&&it.type==='einladen');
+    // Ausladen: Items die AN dieser Location abgeliefert werden (destLoc) — virtuell aus Einladen-Items
+    const ausItemsVirtual=all.filter(([,it])=>it.type==='einladen'&&it.destLoc===loc);
+    // Ausladen: direkt angelegte Ausladen-Items
+    const ausItemsDirect=all.filter(([,it])=>it.loc===loc&&it.type==='ausladen');
+    // To-Do
+    const todoItems=all.filter(([,it])=>it.loc===loc&&it.type==='todo');
+    if(!einItems.length&&!ausItemsVirtual.length&&!ausItemsDirect.length&&!todoItems.length)return;
+    // Progress
+    const allForProgress=[
+      ...einItems.map(([,it])=>!!it.checked),
+      ...ausItemsVirtual.map(([,it])=>!!it.checkedOut),
+      ...ausItemsDirect.map(([,it])=>!!it.checked),
+      ...todoItems.map(([,it])=>!!it.checked)
+    ];
+    const total=allForProgress.length;
+    const done=allForProgress.filter(Boolean).length;
     const expanded=(_lgLocExpanded[loc]!==false);
     html+=`<div style="background:#fff;border:1.5px solid #e0e0e0;border-radius:16px;margin-bottom:14px;overflow:hidden">
       <div onclick="toggleLgLoc('${loc}')" style="padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;user-select:none">
@@ -6516,32 +6544,36 @@ function renderLogistikItems(){
       </div>`;
     if(expanded){
       html+=`<div style="border-top:1px solid #f0f0f0;padding:10px 14px 6px">`;
-      TYPES.forEach(({key,label,color:tColor,bg,border})=>{
-        const typeItems=locItems.filter(([,it])=>it.type===key);
-        if(!typeItems.length)return;
-        html+=`<div style="margin-bottom:10px">
-          <div style="background:${bg};border:1px solid ${border};border-radius:8px;padding:5px 12px;margin-bottom:5px">
-            <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:${tColor}">${escHtml(label)}</span>
-          </div>`;
-        typeItems.forEach(([id,it])=>{
-          const checked=!!it.checked;
+      // EINLADEN
+      if(einItems.length){
+        html+=`<div style="margin-bottom:10px"><div style="background:#eafaf1;border:1px solid #c8e6c9;border-radius:8px;padding:5px 12px;margin-bottom:5px"><span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#2e7d32">Einladen</span></div>`;
+        einItems.forEach(([id,it])=>{
           const destName=it.destLoc?(LOC_NAMES[it.destLoc]||it.destLoc):null;
-          html+=`<div class="event-card${checked?' done':''}" style="border-left-color:${tColor};${checked?'opacity:.5':''}">
-            <div style="flex:1;min-width:0;display:flex;align-items:center;gap:10px">
-              <div class="chk${checked?' on':''}" onclick="toggleLgItem('${id}')" style="flex-shrink:0"></div>
-              <div style="min-width:0;flex:1">
-                <div style="font-size:14px;font-weight:700;color:${checked?'#aaa':'#1c1c2e'}">${escHtml(it.name||'')}</div>
-                ${destName?`<div style="font-size:11px;color:#999;margin-top:2px">nach: ${escHtml(destName)}</div>`:''}
-                ${it.date?`<div style="font-size:11px;color:#bbb;margin-top:2px">${new Date(it.date+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'})}</div>`:''}
-                ${it.comment?`<div style="font-size:12px;color:#888;margin-top:2px">${escHtml(it.comment)}</div>`:''}
-              </div>
-              ${it.photo?`<img src="${it.photo}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;flex-shrink:0;cursor:pointer" onclick="event.stopPropagation();openPhotoViewer('${it.photo}')">`:''}
-              ${currentTaskUser?`<button onclick="event.stopPropagation();deleteLgItem('${id}')" style="background:none;border:none;color:#ddd;font-size:20px;cursor:pointer;padding:2px 6px;flex-shrink:0;line-height:1">×</button>`:''}
-            </div>
-          </div>`;
+          html+=_lgCard(id,it,!!it.checked,'#2e7d32',destName?'nach: '+escHtml(destName):null,'toggleLgItem');
         });
         html+='</div>';
-      });
+      }
+      // AUSLADEN (virtuell aus Einladen + direkt)
+      const allAus=[...ausItemsVirtual,...ausItemsDirect];
+      if(allAus.length){
+        html+=`<div style="margin-bottom:10px"><div style="background:#ffeaea;border:1px solid #ffcdd2;border-radius:8px;padding:5px 12px;margin-bottom:5px"><span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#c62828">Ausladen</span></div>`;
+        ausItemsVirtual.forEach(([id,it])=>{
+          const fromName=LOC_NAMES[it.loc]||it.loc;
+          html+=_lgCard(id,it,!!it.checkedOut,'#c62828','von: '+escHtml(fromName),'toggleLgItemOut');
+        });
+        ausItemsDirect.forEach(([id,it])=>{
+          html+=_lgCard(id,it,!!it.checked,'#c62828',null,'toggleLgItem');
+        });
+        html+='</div>';
+      }
+      // TO-DO
+      if(todoItems.length){
+        html+=`<div style="margin-bottom:10px"><div style="background:#e8f0fe;border:1px solid #bbdefb;border-radius:8px;padding:5px 12px;margin-bottom:5px"><span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#1565c0">To-Do</span></div>`;
+        todoItems.forEach(([id,it])=>{
+          html+=_lgCard(id,it,!!it.checked,'#1565c0',null,'toggleLgItem');
+        });
+        html+='</div>';
+      }
       html+='</div>';
     }
     html+='</div>';
@@ -6569,19 +6601,15 @@ function renderLogistikItems(){
   content.innerHTML=html;
 }
 
-function setLgFahrtDriver(dateStr,slot,uid){
-  if(db)db.ref('/lgFahrtMeta/'+dateStr+'/'+slot).set(uid||null);
-}
-
 function toggleLgItem(id){
   const it=logistikItems[id]; if(!it)return;
   if(db)db.ref('/logistikItems/'+id+'/checked').set(!it.checked);
 }
+function toggleLgItemOut(id){
+  const it=logistikItems[id]; if(!it)return;
+  if(db)db.ref('/logistikItems/'+id+'/checkedOut').set(!it.checkedOut);
+}
 function deleteLgItem(id){
-  const it=logistikItems[id];
-  if(it&&it.linkedId){
-    db.ref('/logistikItems/'+it.linkedId).remove();
-  }
   if(db)db.ref('/logistikItems/'+id).remove();
   toast('Gelöscht');
 }
@@ -6591,8 +6619,8 @@ let _aliPhotoData=null;
 
 function setLgItemType(type){
   _lgItemType=type;
-  const defs={einladen:['#34a853','#eafaf1','#2e7d32'],ausladen:['#ea4335','#ffeaea','#c62828'],todo:['#1565c0','#e8f0fe','#1565c0']};
-  ['einladen','ausladen','todo'].forEach(t=>{
+  const defs={einladen:['#34a853','#eafaf1','#2e7d32'],todo:['#1565c0','#e8f0fe','#1565c0']};
+  ['einladen','todo'].forEach(t=>{
     const btn=document.getElementById('ali-type-'+t);
     if(!btn)return;
     const [border,bg,col]=defs[t];
@@ -6602,7 +6630,9 @@ function setLgItemType(type){
     btn.style.color=on?col:'#888';
   });
   const destRow=document.getElementById('ali-dest-row');
+  const todoLocRow=document.getElementById('ali-loc-todo-row');
   if(destRow)destRow.style.display=(type==='todo')?'none':'block';
+  if(todoLocRow)todoLocRow.style.display=(type==='todo')?'block':'none';
 }
 
 function openAddLgItem(){
@@ -6634,10 +6664,9 @@ function _aliPhotoSelected(input){
 function saveAddLgItem(){
   const name=(document.getElementById('ali-name').value||'').trim();
   if(!name){toast('Bitte Beschreibung eingeben');return;}
-  // Alle Werte VOR closeModal lesen
-  const itemType=_lgItemType;
+  const itemType=_lgItemType; // 'einladen'=Logistikfahrt, 'todo'=To-Do
   const loc=getLocValue('ali-loc');
-  const destLoc=(itemType!=='todo')?getLocValue('ali-dest'):null;
+  const destLoc=(itemType==='einladen')?getLocValue('ali-dest'):null;
   const comment=(document.getElementById('ali-comment').value||'').trim();
   const date=(document.getElementById('ali-date').value||'');
   const photoData=_aliPhotoData;
@@ -6648,21 +6677,12 @@ function saveAddLgItem(){
   if(comment)entry.comment=comment;
   if(date)entry.date=date;
   if(photoData)entry.photo=photoData;
-  // Bei Einladen mit anderem Zielort: automatisch Ausladen-Item anlegen
-  if(itemType==='einladen'&&destLoc&&destLoc!==loc){
-    const ref1=db.ref('/logistikItems').push();
-    const ref2=db.ref('/logistikItems').push();
-    entry.linkedId=ref2.key;
-    const paired={type:'ausladen',loc:destLoc,name,checked:false,createdAt:Date.now()+1,linkedId:ref1.key};
-    if(comment)paired.comment=comment;
-    if(date)paired.date=date;
-    ref1.set(entry);
-    ref2.set(paired);
-    const LOC_NAMES={AS:'amSee',EG:'EVENTGIESSEREI',LS:'LAKESIDE'};
-    toast('Einladen ('+( LOC_NAMES[loc]||loc)+') + Ausladen ('+(LOC_NAMES[destLoc]||destLoc)+') angelegt');
-  } else {
-    db.ref('/logistikItems').push(entry).then(()=>toast('Eintrag gespeichert'));
-  }
+  const LN={AS:'amSee',EG:'EVENTGIESSEREI',LS:'LAKESIDE'};
+  db.ref('/logistikItems').push(entry).then(()=>{
+    toast(itemType==='einladen'&&destLoc
+      ?'Fahrt: '+(LN[loc]||loc)+' → '+(LN[destLoc]||destLoc)
+      :'Eintrag gespeichert');
+  });
 }
 
 
@@ -7079,31 +7099,38 @@ function saveInventoryItem(){
 <div class="overlay" id="m-add-lg-item">
   <div class="modal">
     <h2>Neuer Eintrag</h2>
-    <label class="tform-lbl">Was wird transportiert / Aufgabe</label>
+    <label class="tform-lbl">Bezeichnung</label>
     <input type="text" id="ali-name" class="tform-input" placeholder="z.B. Lounge-Möbel" style="font-family:inherit">
     <label class="tform-lbl">Art</label>
-    <div style="display:flex;gap:6px;margin-bottom:16px">
-      <button id="ali-type-einladen" onclick="setLgItemType('einladen')" style="flex:1;padding:9px 4px;border:1.5px solid #34a853;border-radius:10px;background:#eafaf1;color:#2e7d32;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit">Einladen</button>
-      <button id="ali-type-ausladen" onclick="setLgItemType('ausladen')" style="flex:1;padding:9px 4px;border:1.5px solid #e0e0e0;border-radius:10px;background:#fff;color:#888;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit">Ausladen</button>
-      <button id="ali-type-todo" onclick="setLgItemType('todo')" style="flex:1;padding:9px 4px;border:1.5px solid #e0e0e0;border-radius:10px;background:#fff;color:#888;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit">To-Do</button>
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <button id="ali-type-einladen" onclick="setLgItemType('einladen')" style="flex:1;padding:10px 4px;border:1.5px solid #34a853;border-radius:10px;background:#eafaf1;color:#2e7d32;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">Logistikfahrt</button>
+      <button id="ali-type-todo" onclick="setLgItemType('todo')" style="flex:1;padding:10px 4px;border:1.5px solid #e0e0e0;border-radius:10px;background:#fff;color:#888;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">To-Do</button>
     </div>
-    <label class="tform-lbl">Location</label>
-    <select id="ali-loc" class="tform-input" style="font-family:inherit" onchange="handleLocSelectChange('ali-loc')">
-      <option value="AS">amSee Leipzig</option>
-      <option value="EG">EVENTGIESSEREI</option>
-      <option value="LS">LAKESIDE</option>
-      <option value="__custom__">Eigene Adresse…</option>
-    </select>
-    <input type="text" id="ali-loc-custom" placeholder="Name oder Adresse" class="tform-input" style="display:none;font-family:inherit;border-color:#1565c0;background:#e8f0fe;margin-top:6px">
     <div id="ali-dest-row">
-      <label class="tform-lbl">Wohin ausgeladen</label>
+      <label class="tform-lbl">Von Location (Einladen)</label>
+      <select id="ali-loc" class="tform-input" style="font-family:inherit" onchange="handleLocSelectChange('ali-loc')">
+        <option value="AS">amSee Leipzig</option>
+        <option value="EG">EVENTGIESSEREI</option>
+        <option value="LS">LAKESIDE</option>
+        <option value="__custom__">Eigene Adresse…</option>
+      </select>
+      <input type="text" id="ali-loc-custom" placeholder="Name oder Adresse" class="tform-input" style="display:none;font-family:inherit;margin-top:6px">
+      <label class="tform-lbl">Nach Location (Ausladen)</label>
       <select id="ali-dest" class="tform-input" style="font-family:inherit" onchange="handleLocSelectChange('ali-dest')">
         <option value="AS">amSee Leipzig</option>
         <option value="EG">EVENTGIESSEREI</option>
         <option value="LS" selected>LAKESIDE</option>
         <option value="__custom__">Eigene Adresse…</option>
       </select>
-      <input type="text" id="ali-dest-custom" placeholder="Name oder Adresse" class="tform-input" style="display:none;font-family:inherit;border-color:#1565c0;background:#e8f0fe;margin-top:6px">
+      <input type="text" id="ali-dest-custom" placeholder="Name oder Adresse" class="tform-input" style="display:none;font-family:inherit;margin-top:6px">
+    </div>
+    <div id="ali-loc-todo-row" style="display:none">
+      <label class="tform-lbl">Location</label>
+      <select id="ali-loc-todo" class="tform-input" style="font-family:inherit" onchange="document.getElementById('ali-loc').value=this.value">
+        <option value="AS">amSee Leipzig</option>
+        <option value="EG">EVENTGIESSEREI</option>
+        <option value="LS">LAKESIDE</option>
+      </select>
     </div>
     <label class="tform-lbl">Datum</label>
     <input type="date" id="ali-date" class="tform-input" style="font-family:inherit">
