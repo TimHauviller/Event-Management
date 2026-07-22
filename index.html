@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260703-136';
+      var V='20260703-137';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -6506,20 +6506,18 @@ function renderLogistikItems(){
     const items=byDate[dk];
     const meta=(lgFahrtMeta&&lgFahrtMeta[dk])||{};
     const dateLabel=dk==='__nodate__'?'Kein Datum':new Date(dk+'T12:00:00').toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'});
-    html+=`<div style="margin:0 0 22px">`;
-    // Datum-Trennlinie
-    html+=`<div style="display:flex;align-items:center;gap:10px;margin:16px 0 10px">
-      <div style="flex:1;height:1.5px;background:#e0e0e0"></div>
-      <span style="font-size:13px;font-weight:800;color:#1c1c2e;letter-spacing:.3px;white-space:nowrap">${escHtml(dateLabel)}</span>
-      <div style="flex:1;height:1.5px;background:#e0e0e0"></div>
+    // Datum-Karte (wie alter Fahrt-Stil)
+    html+=`<div style="background:#fff;border:1.5px solid #e0e0e0;border-radius:16px;margin-bottom:18px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06)">`;
+    // Karten-Header
+    html+=`<div style="background:#1c1c2e;padding:12px 16px;display:flex;align-items:center;justify-content:space-between">
+      <span style="font-size:14px;font-weight:800;color:#fff;letter-spacing:.3px">${escHtml(dateLabel)}</span>
     </div>`;
-    // Fahrer-Zeile (nur wenn Datum bekannt und Logistik-User vorhanden)
+    // Fahrer-Zeile
     if(lgUsers.length>0&&dk!=='__nodate__'){
       const d1=meta.driver1||'';
       const d2=meta.driver2||'';
       const dkSafe=dk.replace(/[^0-9-]/g,'');
-      const userOpts=lgUsers.map(([uid,u])=>`<option value="${escAttr(uid)}">${escHtml(u.name||uid)}</option>`).join('');
-      html+=`<div style="display:flex;gap:8px;margin-bottom:12px">
+      html+=`<div style="display:flex;gap:8px;padding:10px 14px;background:#f8f9fa;border-bottom:1px solid #f0f0f0">
         <div style="flex:1">
           <label style="font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:3px">Fahrer 1</label>
           <select onchange="setLgFahrtDriver('${dkSafe}','driver1',this.value)" style="width:100%;padding:7px 10px;border:1.5px solid #e0e0e0;border-radius:10px;font-family:inherit;font-size:13px;background:#fff;color:#1c1c2e">
@@ -6536,6 +6534,7 @@ function renderLogistikItems(){
         </div>
       </div>`;
     }
+    html+=`<div style="padding:12px 14px">`;
     // Items nach Location gruppieren
     const allLocs=new Set();
     items.forEach(([,it])=>{ if(it.loc)allLocs.add(it.loc); });
@@ -6599,7 +6598,8 @@ function renderLogistikItems(){
         </div>
       </div>`;
     });
-    html+='</div>';
+    html+='</div>'; // close padding div
+    html+='</div>'; // close card
   });
   html+='</div>';
   content.innerHTML=html;
@@ -6614,6 +6614,10 @@ function toggleLgItem(id){
   if(db)db.ref('/logistikItems/'+id+'/checked').set(!it.checked);
 }
 function deleteLgItem(id){
+  const it=logistikItems[id];
+  if(it&&it.linkedId){
+    db.ref('/logistikItems/'+it.linkedId).remove();
+  }
   if(db)db.ref('/logistikItems/'+id).remove();
   toast('Gelöscht');
 }
@@ -6667,17 +6671,36 @@ function saveAddLgItem(){
   const name=(document.getElementById('ali-name').value||'').trim();
   if(!name){toast('Bitte Beschreibung eingeben');return;}
   const loc=getLocValue('ali-loc');
-  const entry={type:_lgItemType,loc,name,checked:false,createdAt:Date.now()};
-  if(_lgItemType!=='todo'){
-    entry.destLoc=getLocValue('ali-dest');
-  }
   const comment=(document.getElementById('ali-comment').value||'').trim();
-  if(comment)entry.comment=comment;
   const date=(document.getElementById('ali-date').value||'');
+  const entry={type:_lgItemType,loc,name,checked:false,createdAt:Date.now()};
+  if(comment)entry.comment=comment;
   if(date)entry.date=date;
   if(_aliPhotoData)entry.photo=_aliPhotoData;
   closeModal('m-add-lg-item');
-  if(db)db.ref('/logistikItems').push(entry).then(()=>toast('Eintrag gespeichert'));
+  // Bei Einladen: automatisch verknüpftes Ausladen-Item am Zielort erstellen
+  if(_lgItemType==='einladen'){
+    const destLoc=getLocValue('ali-dest');
+    entry.destLoc=destLoc;
+    if(destLoc&&destLoc!==loc){
+      const ref1=db.ref('/logistikItems').push();
+      const ref2=db.ref('/logistikItems').push();
+      entry.linkedId=ref2.key;
+      const paired={type:'ausladen',loc:destLoc,name,checked:false,createdAt:Date.now()+1,linkedId:ref1.key};
+      if(comment)paired.comment=comment;
+      if(date)paired.date=date;
+      ref1.set(entry);
+      ref2.set(paired);
+      toast('Einladen + Ausladen angelegt');
+    } else {
+      db.ref('/logistikItems').push(entry).then(()=>toast('Eintrag gespeichert'));
+    }
+  } else if(_lgItemType==='ausladen'){
+    entry.destLoc=getLocValue('ali-dest');
+    db.ref('/logistikItems').push(entry).then(()=>toast('Eintrag gespeichert'));
+  } else {
+    db.ref('/logistikItems').push(entry).then(()=>toast('Eintrag gespeichert'));
+  }
   _aliPhotoData=null;
 }
 
