@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260703-134';
+      var V='20260703-135';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -2003,6 +2003,7 @@ let inventoryItems = {};
 let inventoryPhotos = {};
 let inventoryStock = {AS:{},EG:{},LS:{}};
 let logistikItems = {};
+let lgFahrtMeta = {};
 let logistikTab = 'items';
 const INV_CATS = ['MÖBEL','GESCHIRR & GLÄSER','DEKORATION','TECHNIK & EQUIPMENT'];
 const LG_LOC = {AS:'amSee Leipzig',EG:'EVENTGIESSEREI',LS:'LAKESIDE'};
@@ -2113,6 +2114,10 @@ function subscribeGlobal() {
   let _rfTimeout=null;
   db.ref('/logistikItems').on('value', s => {
     logistikItems=s.val()||{};
+    if(isLogistikVisible()&&logistikTab==='items')renderLogistikItems();
+  });
+  db.ref('/lgFahrtMeta').on('value', s => {
+    lgFahrtMeta=s.val()||{};
     if(isLogistikVisible()&&logistikTab==='items')renderLogistikItems();
   });
   ['AS','EG','LS'].forEach(l => {
@@ -6470,62 +6475,127 @@ function renderLogistikItems(){
   const all=Object.entries(logistikItems||{});
   const LOC_NAMES={AS:'amSee Leipzig',EG:'EVENTGIESSEREI',LS:'LAKESIDE'};
   const LOC_COLORS={AS:'#2d7a4f',EG:'#c8a951',LS:'#1C949C'};
-  const customLocs=new Set();
-  all.forEach(([,it])=>{if(it.loc&&!LOC_COLORS[it.loc])customLocs.add(it.loc);});
-  const locs=['AS','EG','LS',...customLocs];
-  let hasAny=false;
-  locs.forEach(loc=>{if(all.some(([,it])=>it.loc===loc))hasAny=true;});
-  if(!hasAny){
+  const TYPE_DEF={
+    einladen:{label:'Einladen',color:'#34a853',bg:'#eafaf1'},
+    ausladen:{label:'Ausladen',color:'#ea4335',bg:'#ffeaea'},
+    todo:{label:'To-Do',color:'#1565c0',bg:'#e8f0fe'}
+  };
+  if(!all.length){
     content.innerHTML=`<div style="text-align:center;padding:50px 20px;color:#bbb">
       <div style="font-size:16px;font-weight:700;color:#666">Noch keine Einträge</div>
       <div style="font-size:13px;margin-top:6px">Mit dem + Button Eintrag hinzufügen</div>
     </div>`;
     return;
   }
+  // Gruppe nach Datum
+  const byDate={};
+  all.forEach(([id,it])=>{
+    const dk=it.date||'__nodate__';
+    if(!byDate[dk])byDate[dk]=[];
+    byDate[dk].push([id,it]);
+  });
+  const dateKeys=Object.keys(byDate).sort((a,b)=>{
+    if(a==='__nodate__')return 1;
+    if(b==='__nodate__')return -1;
+    return a<b?-1:1;
+  });
+  // Logistik-User für Fahrer-Dropdown
+  const lgUsers=Object.entries(taskUsers||{}).filter(([,u])=>u.roleLG||(u.role==='logistik'));
   let html='<div style="padding:14px">';
-  const TYPES=[
-    {key:'einladen',label:'Einladen',color:'#34a853',bg:'#eafaf1'},
-    {key:'ausladen',label:'Ausladen',color:'#ea4335',bg:'#ffeaea'},
-    {key:'todo',label:'To-Do',color:'#1565c0',bg:'#e8f0fe'}
-  ];
-  locs.forEach(loc=>{
-    const locItems=all.filter(([,it])=>it.loc===loc);
-    if(!locItems.length)return;
-    const color=LOC_COLORS[loc]||'#1e3a6e';
-    const name=LOC_NAMES[loc]||loc;
-    html+=`<div style="display:flex;align-items:center;gap:8px;margin:16px 0 10px">
-      <div style="flex:1;height:1.5px;background:#e8e8e8"></div>
-      <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:${color};background:${color}18;border-radius:20px;padding:4px 12px;white-space:nowrap">${escHtml(name)}</span>
-      <div style="flex:1;height:1.5px;background:#e8e8e8"></div>
+  dateKeys.forEach(dk=>{
+    const items=byDate[dk];
+    const meta=(lgFahrtMeta&&lgFahrtMeta[dk])||{};
+    const dateLabel=dk==='__nodate__'?'Kein Datum':new Date(dk+'T12:00:00').toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'});
+    html+=`<div style="margin:0 0 22px">`;
+    // Datum-Trennlinie
+    html+=`<div style="display:flex;align-items:center;gap:10px;margin:16px 0 10px">
+      <div style="flex:1;height:1.5px;background:#e0e0e0"></div>
+      <span style="font-size:13px;font-weight:800;color:#1c1c2e;letter-spacing:.3px;white-space:nowrap">${escHtml(dateLabel)}</span>
+      <div style="flex:1;height:1.5px;background:#e0e0e0"></div>
     </div>`;
-    TYPES.forEach(({key,label,color:tColor,bg})=>{
-      const typeItems=locItems.filter(([,it])=>it.type===key);
-      if(!typeItems.length)return;
-      html+=`<div style="margin-bottom:12px">
-        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:${tColor};margin-bottom:5px;display:flex;align-items:center;gap:5px">
-          <span style="width:7px;height:7px;border-radius:50%;background:${tColor};display:inline-block;flex-shrink:0"></span>${escHtml(label)}
-        </div>`;
-      typeItems.forEach(([id,it])=>{
+    // Fahrer-Zeile (nur wenn Datum bekannt und Logistik-User vorhanden)
+    if(lgUsers.length>0&&dk!=='__nodate__'){
+      const d1=meta.driver1||'';
+      const d2=meta.driver2||'';
+      const dkSafe=dk.replace(/[^0-9-]/g,'');
+      const userOpts=lgUsers.map(([uid,u])=>`<option value="${escAttr(uid)}">${escHtml(u.name||uid)}</option>`).join('');
+      html+=`<div style="display:flex;gap:8px;margin-bottom:12px">
+        <div style="flex:1">
+          <label style="font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:3px">Fahrer 1</label>
+          <select onchange="setLgFahrtDriver('${dkSafe}','driver1',this.value)" style="width:100%;padding:7px 10px;border:1.5px solid #e0e0e0;border-radius:10px;font-family:inherit;font-size:13px;background:#fff;color:#1c1c2e">
+            <option value="">– kein –</option>
+            ${lgUsers.map(([uid,u])=>`<option value="${escAttr(uid)}"${d1===uid?' selected':''}>${escHtml(u.name||uid)}</option>`).join('')}
+          </select>
+        </div>
+        <div style="flex:1">
+          <label style="font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:3px">Fahrer 2</label>
+          <select onchange="setLgFahrtDriver('${dkSafe}','driver2',this.value)" style="width:100%;padding:7px 10px;border:1.5px solid #e0e0e0;border-radius:10px;font-family:inherit;font-size:13px;background:#fff;color:#1c1c2e">
+            <option value="">– kein –</option>
+            ${lgUsers.map(([uid,u])=>`<option value="${escAttr(uid)}"${d2===uid?' selected':''}>${escHtml(u.name||uid)}</option>`).join('')}
+          </select>
+        </div>
+      </div>`;
+    }
+    // Items nach Location gruppieren
+    const allLocs=new Set();
+    items.forEach(([,it])=>{ if(it.loc)allLocs.add(it.loc); });
+    const orderedLocs=['AS','EG','LS',...Object.keys(LOC_COLORS).filter(l=>!['AS','EG','LS'].includes(l))].filter(l=>allLocs.has(l));
+    // Custom Locs ergänzen
+    allLocs.forEach(l=>{ if(!orderedLocs.includes(l))orderedLocs.push(l); });
+    orderedLocs.forEach(loc=>{
+      const locItems=items.filter(([,it])=>it.loc===loc);
+      if(!locItems.length)return;
+      const color=LOC_COLORS[loc]||'#1e3a6e';
+      const name=LOC_NAMES[loc]||loc;
+      html+=`<div style="display:flex;align-items:center;gap:8px;margin:10px 0 7px">
+        <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:${color};background:${color}18;border-radius:20px;padding:3px 11px;white-space:nowrap;border:1px solid ${color}30">${escHtml(name)}</span>
+        <div style="flex:1;height:1px;background:#f0f0f0"></div>
+      </div>`;
+      locItems.forEach(([id,it])=>{
         const checked=!!it.checked;
-        html+=`<div class="event-card${checked?' done':''}" style="border-left-color:${tColor};${checked?'opacity:.5':''}">
+        const td=TYPE_DEF[it.type||'todo'];
+        const destName=it.destLoc?(LOC_NAMES[it.destLoc]||it.destLoc):null;
+        html+=`<div class="event-card${checked?' done':''}" style="border-left-color:${td.color};${checked?'opacity:.5':''}">
           <div style="flex:1;min-width:0;display:flex;align-items:center;gap:10px">
             <div class="chk${checked?' on':''}" onclick="toggleLgItem('${id}')" style="flex-shrink:0"></div>
             <div style="min-width:0;flex:1">
+              <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:3px">
+                <span style="font-size:10px;font-weight:800;background:${td.bg};color:${td.color};border-radius:8px;padding:1px 7px;text-transform:uppercase;letter-spacing:.5px;flex-shrink:0">${escHtml(td.label)}</span>
+                ${destName?`<span style="font-size:10px;color:#bbb">&#8594; ${escHtml(destName)}</span>`:''}
+              </div>
               <div style="font-size:14px;font-weight:700;color:${checked?'#aaa':'#1c1c2e'}">${escHtml(it.name||'')}</div>
-              ${it.destLoc?`<div style="font-size:11px;color:#888;margin-top:2px">Wohin: ${escHtml(LG_LOC[it.destLoc]||it.destLoc)}</div>`:''}
               ${it.comment?`<div style="font-size:12px;color:#888;margin-top:2px">${escHtml(it.comment)}</div>`:''}
-              ${it.date?`<div style="font-size:11px;color:#aaa;margin-top:2px">${new Date(it.date+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'})}</div>`:''}
             </div>
             ${it.photo?`<img src="${it.photo}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;flex-shrink:0;cursor:pointer" onclick="event.stopPropagation();openPhotoViewer('${it.photo}')">`:''}
             ${currentTaskUser?`<button onclick="event.stopPropagation();deleteLgItem('${id}')" style="background:none;border:none;color:#ddd;font-size:20px;cursor:pointer;padding:2px 6px;flex-shrink:0;line-height:1">×</button>`:''}
           </div>
         </div>`;
       });
-      html+='</div>';
     });
+    // Items ohne Location
+    items.filter(([,it])=>!it.loc).forEach(([id,it])=>{
+      const checked=!!it.checked;
+      const td=TYPE_DEF[it.type||'todo'];
+      html+=`<div class="event-card${checked?' done':''}" style="border-left-color:${td.color};${checked?'opacity:.5':''}">
+        <div style="flex:1;min-width:0;display:flex;align-items:center;gap:10px">
+          <div class="chk${checked?' on':''}" onclick="toggleLgItem('${id}')" style="flex-shrink:0"></div>
+          <div style="min-width:0;flex:1">
+            <div style="font-size:14px;font-weight:700;color:${checked?'#aaa':'#1c1c2e'}">${escHtml(it.name||'')}</div>
+            ${it.comment?`<div style="font-size:12px;color:#888;margin-top:2px">${escHtml(it.comment)}</div>`:''}
+          </div>
+          ${it.photo?`<img src="${it.photo}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;flex-shrink:0;cursor:pointer" onclick="event.stopPropagation();openPhotoViewer('${it.photo}')">`:''}
+          ${currentTaskUser?`<button onclick="event.stopPropagation();deleteLgItem('${id}')" style="background:none;border:none;color:#ddd;font-size:20px;cursor:pointer;padding:2px 6px;flex-shrink:0;line-height:1">×</button>`:''}
+        </div>
+      </div>`;
+    });
+    html+='</div>';
   });
   html+='</div>';
   content.innerHTML=html;
+}
+
+function setLgFahrtDriver(dateStr,slot,uid){
+  if(db)db.ref('/lgFahrtMeta/'+dateStr+'/'+slot).set(uid||null);
 }
 
 function toggleLgItem(id){
@@ -7014,6 +7084,9 @@ function saveInventoryItem(){
 <div class="overlay" id="m-add-lg-item">
   <div class="modal">
     <h2>Neuer Eintrag</h2>
+    <label class="tform-lbl">Was wird transportiert / Aufgabe</label>
+    <input type="text" id="ali-name" class="tform-input" placeholder="z.B. Lounge-Möbel" style="font-family:inherit">
+    <label class="tform-lbl">Art</label>
     <div style="display:flex;gap:6px;margin-bottom:16px">
       <button id="ali-type-einladen" onclick="setLgItemType('einladen')" style="flex:1;padding:9px 4px;border:1.5px solid #34a853;border-radius:10px;background:#eafaf1;color:#2e7d32;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit">Einladen</button>
       <button id="ali-type-ausladen" onclick="setLgItemType('ausladen')" style="flex:1;padding:9px 4px;border:1.5px solid #e0e0e0;border-radius:10px;background:#fff;color:#888;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit">Ausladen</button>
@@ -7037,8 +7110,8 @@ function saveInventoryItem(){
       </select>
       <input type="text" id="ali-dest-custom" placeholder="Name oder Adresse" class="tform-input" style="display:none;font-family:inherit;border-color:#1565c0;background:#e8f0fe;margin-top:6px">
     </div>
-    <label class="tform-lbl">Beschreibung</label>
-    <input type="text" id="ali-name" class="tform-input" placeholder="z.B. Lounge-Möbel" style="font-family:inherit">
+    <label class="tform-lbl">Datum</label>
+    <input type="date" id="ali-date" class="tform-input" style="font-family:inherit">
     <label class="tform-lbl">Kommentar (optional)</label>
     <textarea id="ali-comment" class="tform-input" rows="2" placeholder="Zusatzinfo..." style="font-family:inherit;resize:vertical"></textarea>
     <label class="tform-lbl">Foto (optional)</label>
@@ -7047,8 +7120,6 @@ function saveInventoryItem(){
       <span id="ali-photo-name" style="font-size:12px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
     </div>
     <input type="file" id="ali-photo-input" accept="image/*" capture="environment" style="display:none" onchange="_aliPhotoSelected(this)">
-    <label class="tform-lbl">Datum (optional)</label>
-    <input type="date" id="ali-date" class="tform-input" style="font-family:inherit">
     <button class="mbtn" onclick="saveAddLgItem()">Hinzufügen</button>
     <button class="mbtn grey" onclick="closeModal('m-add-lg-item')">Abbrechen</button>
   </div>
