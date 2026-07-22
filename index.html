@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260703-133';
+      var V='20260703-134';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -2002,11 +2002,8 @@ let allArchived = {AS:{},EG:{},LS:{}};
 let inventoryItems = {};
 let inventoryPhotos = {};
 let inventoryStock = {AS:{},EG:{},LS:{}};
-let logistikFahrten = {};
-let archiveFahrtenData = {};
-let currentFahrtId = null;
-let _pendingRueckId = null;
-let logistikTab = 'fahrten';
+let logistikItems = {};
+let logistikTab = 'items';
 const INV_CATS = ['MÖBEL','GESCHIRR & GLÄSER','DEKORATION','TECHNIK & EQUIPMENT'];
 const LG_LOC = {AS:'amSee Leipzig',EG:'EVENTGIESSEREI',LS:'LAKESIDE'};
 let evChecked = {}, evHidden = {}, evExtraTasks = {}, evTaskOrder = {};
@@ -2114,16 +2111,10 @@ function subscribeGlobal() {
   db.ref('/inventoryItems').on('value', s => { inventoryItems=s.val()||{}; seedInventoryIfEmpty(); if(isLogistikVisible()&&logistikTab==='inventar')renderInventarTab(); });
   db.ref('/inventoryPhotos').on('value', s => { inventoryPhotos=s.val()||{}; if(isLogistikVisible()&&logistikTab==='inventar')renderInventarTab(); });
   let _rfTimeout=null;
-  db.ref('/logistikFahrten').on('value', s => {
-    logistikFahrten=s.val()||{};
-    checkAndArchiveCompletedFahrten();
-    if(isLogistikVisible()&&logistikTab==='fahrten')renderFahrten();
-    if(currentFahrtId&&isFahrtVisible()){
-      clearTimeout(_rfTimeout);
-      _rfTimeout=setTimeout(renderFahrtDetail,300);
-    }
+  db.ref('/logistikItems').on('value', s => {
+    logistikItems=s.val()||{};
+    if(isLogistikVisible()&&logistikTab==='items')renderLogistikItems();
   });
-  db.ref('/archiveFahrten').on('value', s => { archiveFahrtenData=s.val()||{}; if(isLogistikVisible()&&logistikTab==='fahrten')renderFahrten(); });
   ['AS','EG','LS'].forEach(l => {
     db.ref('/inventoryStock/'+l).on('value', s => { inventoryStock[l]=s.val()||{}; if(isLogistikVisible()&&logistikTab==='inventar')renderInventarTab(); });
   });
@@ -2187,7 +2178,7 @@ function subscribeEvent(l, eid) {
 let currentScreen = 'home-screen';
 function showScreen(name) {
   currentScreen = name;
-  ['setup','loc-picker','events-screen','app','order-screen','az-screen','ablauf-screen','vorlage-screen','feedback-screen','export-screen','home-screen','task-login-screen','my-tasks-screen','task-detail-screen','admin-tasks-screen','task-create-screen','admin-users-screen','logistik-screen','logistik-fahrt-screen','logistik-new-fahrt-screen','named-template-screen'].forEach(id => {
+  ['setup','loc-picker','events-screen','app','order-screen','az-screen','ablauf-screen','vorlage-screen','feedback-screen','export-screen','home-screen','task-login-screen','my-tasks-screen','task-detail-screen','admin-tasks-screen','task-create-screen','admin-users-screen','logistik-screen','named-template-screen'].forEach(id => {
     const el = document.getElementById(id); if(!el) return;
     el.style.display = (id===name) ? (['loc-picker','home-screen'].includes(id)?'flex':'block') : 'none';
     if(el) el.style.overflowY=(id===name&&!['loc-picker','home-screen'].includes(id))?'auto':''; // scroll fix
@@ -3094,7 +3085,6 @@ function setAdmin(on) {
   if(!on) toast('Admin-Modus deaktiviert');
   // Re-render current Logistik screen immediately
   if(isLogistikVisible()) renderLogistik();
-  if(isFahrtVisible()&&currentFahrtId) renderFahrtDetail();
 }
 function toggleAdminCorner() { setAdmin(!isAdmin); }
 
@@ -5967,33 +5957,8 @@ function renderMyTasks(){
     }
   }
 
-  // ── Logistik-Fahrten (wo dieser Nutzer Fahrer ist) ──
-  let lgHtml = '';
-  if(currentTaskUser && (currentTaskUser.roleLG || currentTaskUser.role==='logistik' || currentTaskUser.isAdmin)) {
-    const myName = currentTaskUser.name;
-    const myFahrten = Object.entries(logistikFahrten||{})
-      .filter(([,f])=>f.employee===myName)
-      .sort(([,a],[,b])=>(b.createdAt||0)-(a.createdAt||0));
-    if(myFahrten.length){
-      lgHtml='<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#999;margin:16px 0 8px">Meine Logistikfahrten</div>';
-      myFahrten.forEach(([fid,f])=>{
-        const items=Object.values(f.items||{});
-        const checked=items.filter(i=>i.checked).length;
-        const isDone=f.status==='abgeschlossen';
-        const noDate=!f.date;
-        const dateStr=f.date?new Date(f.date+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}):'Kein Datum';
-        lgHtml+=`<div style="background:#fff;border-radius:12px;padding:14px 16px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,.07);border-left:4px solid ${isDone?'#2e7d32':'#1e3a6e'}" onclick="showScreen('logistik-fahrt-screen');currentFahrtId='${fid}';renderFahrtDetail()">
-          <div style="font-weight:800;font-size:14px;color:#1c1c2e">Logistikfahrt</div>
-          <div style="font-size:12px;color:${noDate?'#ea4335':'#888'};margin-top:3px">${noDate?'Datum fehlt':dateStr}</div>
-          <div style="font-size:12px;color:${isDone?'#2e7d32':'#888'};margin-top:3px;font-weight:600">${isDone?'Abgeschlossen':`${checked} / ${items.length} abgehakt`}</div>
-        </div>`;
-      });
-      lgHtml+='<div style="margin-bottom:8px"></div>';
-    }
-  }
-
-  if(!tasks.length && !clHtml && !lgHtml){el.innerHTML='<div style="text-align:center;padding:50px 20px;color:var(--muted);font-size:14px">Keine Aufgaben in dieser Kategorie</div>';return;}
-  el.innerHTML = clHtml + lgHtml + tasks.map(t=>renderTaskCard(t,'my')).join('');
+  if(!tasks.length && !clHtml){el.innerHTML='<div style="text-align:center;padding:50px 20px;color:var(--muted);font-size:14px">Keine Aufgaben in dieser Kategorie</div>';return;}
+  el.innerHTML = clHtml + tasks.map(t=>renderTaskCard(t,'my')).join('');
 }
 
 function renderTaskCard(t,from){
@@ -6405,74 +6370,6 @@ function verifyEventLeaderPin() {
 
 // ── LOGISTIK FAHRT MINI-ADMIN PIN ─────────────────────────────────
 let _lgpBuffer = '';
-let logistikLeaderMode = false;
-function openLogistikLeaderPin() {
-  _lgpBuffer='';
-  for(let i=0;i<4;i++){const d=document.getElementById('lgp'+i);if(d){d.classList.remove('on');d.style.background='';}}
-  const err=document.getElementById('lgp-error'); if(err)err.textContent='';
-  openModal('m-logistik-leader-pin');
-}
-function lgpKey(k) {
-  if(k==='⌫'){_lgpBuffer=_lgpBuffer.slice(0,-1);}
-  else if(_lgpBuffer.length<4){_lgpBuffer+=k;}
-  for(let i=0;i<4;i++){const d=document.getElementById('lgp'+i);if(d)d.classList.toggle('on',i<_lgpBuffer.length);}
-  if(_lgpBuffer.length===4) verifyLogistikLeaderPin();
-}
-function verifyLogistikLeaderPin() {
-  if(!currentTaskUser){_lgpBuffer='';return;}
-  const storedUser = taskUsers[currentTaskUser.uid];
-  if(storedUser && String(storedUser.pin)===String(_lgpBuffer)) {
-    logistikLeaderMode=true;
-    closeModal('m-logistik-leader-pin');
-    toast('Modus aktiv — neue Fahrt kann erstellt werden');
-    openNewFahrt();
-  } else {
-    _lgpBuffer='';
-    for(let i=0;i<4;i++){const d=document.getElementById('lgp'+i);if(d){d.classList.remove('on');d.style.background='#ea4335';setTimeout(()=>{if(d)d.style.background='';},500);}}
-    const err=document.getElementById('lgp-error');if(err){err.textContent='Falscher Code';setTimeout(()=>{if(err)err.textContent='';},2000);}
-  }
-}
-function logistikFahrtAddBtn() {
-  if(!currentTaskUser){toast('Bitte zuerst einloggen');return;}
-  if(currentTaskUser.isAdmin||logistikLeaderMode){openNewFahrt();return;}
-  openLogistikLeaderPin();
-}
-
-function openNewLgAufgabe(){
-  if(!currentTaskUser){toast('Bitte zuerst einloggen');return;}
-  if(!currentTaskUser.isAdmin&&!logistikLeaderMode){toast('Nur Admins können Aufgaben anlegen');return;}
-  const dateEl=document.getElementById('lga-date');
-  if(dateEl)dateEl.value=new Date().toISOString().split('T')[0];
-  const nameEl=document.getElementById('lga-name');
-  if(nameEl)nameEl.value='';
-  const timeEl=document.getElementById('lga-time');
-  if(timeEl)timeEl.value='';
-  const commentEl=document.getElementById('lga-comment');
-  if(commentEl)commentEl.value='';
-  openModal('m-lg-aufgabe');
-  setTimeout(()=>nameEl&&nameEl.focus(),100);
-}
-function saveLgAufgabe(){
-  const name=(document.getElementById('lga-name').value||'').trim();
-  if(!name){toast('Bitte Beschreibung eingeben');return;}
-  const date=document.getElementById('lga-date').value||'';
-  const time=document.getElementById('lga-time').value||'';
-  const comment=(document.getElementById('lga-comment').value||'').trim();
-  const entry={type:'aufgabe',name,date,checked:false,createdAt:Date.now()};
-  if(time)entry.time=time;
-  if(comment)entry.comment=comment;
-  if(db)db.ref('/logistikFahrten').push(entry).then(()=>toast('Aufgabe angelegt'));
-  closeModal('m-lg-aufgabe');
-}
-function toggleLgAufgabe(id){
-  const f=logistikFahrten[id]; if(!f)return;
-  if(db)db.ref('/logistikFahrten/'+id+'/checked').set(!f.checked);
-}
-function deleteLgAufgabe(id){
-  if(!confirm('Aufgabe löschen?'))return;
-  if(db)db.ref('/logistikFahrten/'+id).remove();
-  toast('Aufgabe gelöscht');
-}
 
 function toggleUserAdmin(uid,makeAdmin){
   if(db) db.ref('/taskUsers/'+uid+'/isAdmin').set(makeAdmin||null);
@@ -6536,10 +6433,9 @@ function _locSelHtml(id,defVal='AS'){
 }
 
 function isLogistikVisible(){return(document.getElementById('logistik-screen')||{style:{}}).style.display==='block';}
-function isFahrtVisible(){return(document.getElementById('logistik-fahrt-screen')||{style:{}}).style.display==='block';}
 
 function openLogistik(){
-  logistikTab='fahrten';
+  logistikTab='items';
   showScreen('logistik-screen');
   _updateLgTabs();
   renderLogistik();
@@ -6552,1568 +6448,159 @@ function setLogistikTab(tab){
 }
 
 function _updateLgTabs(){
-  ['fahrten','inventar'].forEach(t=>{
+  ['items','inventar'].forEach(t=>{
     const btn=document.getElementById('lg-tab-'+t);
     if(!btn)return;
     btn.style.borderBottomColor=logistikTab===t?'#fff':'transparent';
     btn.style.opacity=logistikTab===t?'1':'.55';
   });
   const fab=document.getElementById('lg-fab');
-  // Show FAB for admins and for logistik employees (they PIN-verify on tap)
-  const isLgUser = currentTaskUser&&(currentTaskUser.roleLG||currentTaskUser.isAdmin);
-  if(fab)fab.style.display=(isLgUser&&logistikTab==='fahrten')?'flex':'none';
+  if(fab)fab.style.display=(currentTaskUser&&logistikTab==='items')?'flex':'none';
 }
 
 function renderLogistik(){
   _updateLgTabs();
-  if(logistikTab==='fahrten')renderFahrten();
+  if(logistikTab==='items')renderLogistikItems();
   else renderInventarTab();
 }
 
-// ── FAHRTEN ARCHIV ────────────────────────────────────────────────
-function archiveFahrt(fid){
-  const f=logistikFahrten[fid]; if(!f)return;
-  const archived=Object.assign({},f,{archivedAt:Date.now()});
-  if(db){
-    db.ref('/archiveFahrten/'+fid).set(archived);
-    db.ref('/logistikFahrten/'+fid).remove();
-  }
-}
-const _archivingFids=new Set();
-function checkAndArchiveCompletedFahrten(){
-  if(!db)return;
-  Object.entries(logistikFahrten).forEach(([fid,f])=>{
-    if(f.status==='abgeschlossen'&&!_archivingFids.has(fid)){
-      _archivingFids.add(fid);
-      archiveFahrt(fid);
-    }
-  });
-}
-
-// ── FAHRTEN ───────────────────────────────────────────────────────
-function getFahrtNr(fid){
-  const f=logistikFahrten[fid]; if(!f||f.type==='aufgabe'||f.isRueckfahrt)return null;
-  const date=f.date||'';
-  const sameDateFahrten=Object.entries(logistikFahrten)
-    .filter(([,ff])=>ff.type!=='aufgabe'&&!ff.isRueckfahrt&&ff.status!=='abgeschlossen'&&(ff.date||'')===date)
-    .sort((a,b)=>{
-      const at=a[1].startTime||'',bt=b[1].startTime||'';
-      if(at!==bt){if(!at&&bt)return 1;if(at&&!bt)return-1;return at.localeCompare(bt);}
-      return(a[1].createdAt||0)-(b[1].createdAt||0);
-    });
-  const idx=sameDateFahrten.findIndex(([id])=>id===fid);
-  return idx>=0?idx+1:null;
-}
-
-function renderFahrten(){
+// ── LOGISTIK ITEMS ────────────────────────────────────────────────
+function renderLogistikItems(){
   const content=document.getElementById('lg-content'); if(!content)return;
-  const MO=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
-  const WD=['So','Mo','Di','Mi','Do','Fr','Sa'];
-  const allEntries=Object.entries(logistikFahrten);
-  const active=allEntries.filter(([,f])=>f.type==='aufgabe'||(f.type!=='aufgabe'&&f.status!=='abgeschlossen'));
-
-  if(active.length===0){
+  const all=Object.entries(logistikItems||{});
+  const LOC_NAMES={AS:'amSee Leipzig',EG:'EVENTGIESSEREI',LS:'LAKESIDE'};
+  const LOC_COLORS={AS:'#2d7a4f',EG:'#c8a951',LS:'#1C949C'};
+  const customLocs=new Set();
+  all.forEach(([,it])=>{if(it.loc&&!LOC_COLORS[it.loc])customLocs.add(it.loc);});
+  const locs=['AS','EG','LS',...customLocs];
+  let hasAny=false;
+  locs.forEach(loc=>{if(all.some(([,it])=>it.loc===loc))hasAny=true;});
+  if(!hasAny){
     content.innerHTML=`<div style="text-align:center;padding:50px 20px;color:#bbb">
-      <div style="font-size:16px;font-weight:700;color:#666">Noch keine Fahrten oder Aufgaben</div>
-      ${isAdmin?'<div style="font-size:13px;margin-top:6px">Mit dem + Button neue Fahrt oder Aufgabe anlegen</div>':''}
+      <div style="font-size:16px;font-weight:700;color:#666">Noch keine Einträge</div>
+      <div style="font-size:13px;margin-top:6px">Mit dem + Button Eintrag hinzufügen</div>
     </div>`;
     return;
   }
-
-  // Sort all entries chronologically: date → time → createdAt
-  active.sort((a,b)=>{
-    const ad=a[1].date||'',bd=b[1].date||'';
-    if(ad!==bd){if(!ad&&bd)return-1;if(ad&&!bd)return 1;return ad.localeCompare(bd);}
-    const at=(a[1].type==='aufgabe'?a[1].time:a[1].startTime)||'';
-    const bt=(b[1].type==='aufgabe'?b[1].time:b[1].startTime)||'';
-    if(at!==bt){if(!at&&bt)return 1;if(at&&!bt)return-1;return at.localeCompare(bt);}
-    return(a[1].createdAt||0)-(b[1].createdAt||0);
-  });
-
-  const canAdmin=isAdmin||logistikLeaderMode;
-  let html='<div class="events-list" style="padding:14px">';
-
-  active.forEach(([eid,e])=>{
-    let day='—',mo='',wd='',yr='';
-    if(e.date){const d=new Date(e.date+'T12:00:00');day=d.getDate();mo=MO[d.getMonth()];yr=d.getFullYear();wd=WD[d.getDay()];}
-    if(e.type==='aufgabe'){
-      html+=`<div class="event-card${e.checked?' done':''}" style="border-left-color:#1e3a6e;${e.checked?'opacity:.55':''}">
-        <div class="event-date-col">
-          <div class="event-date-wd">${wd}</div>
-          <div class="event-date-day" style="color:#1e3a6e">${day}</div>
-          <div class="event-date-month">${mo}</div>
-          <div class="event-date-year">${yr}</div>
-        </div>
-        <div style="flex:1;min-width:0;display:flex;align-items:center;gap:10px">
-          <div class="chk${e.checked?' on':''}" onclick="toggleLgAufgabe('${eid}')"></div>
-          <div style="min-width:0;flex:1">
-            <div style="font-size:14px;font-weight:700;color:${e.checked?'#aaa':'#1c1c2e'}">${escHtml(e.name)}</div>
-            ${e.comment?`<div style="font-size:12px;color:#888;margin-top:2px">${escHtml(e.comment)}</div>`:''}
-            <div class="event-meta-row" style="margin-top:3px">
-              ${e.time?`<span style="font-size:11px;color:#1565c0;font-weight:700">${escHtml(e.time)} Uhr</span>`:''}
-              <span style="font-size:10px;background:#e8f0fe;color:#1565c0;border-radius:6px;padding:1px 6px;font-weight:700">Aufgabe</span>
+  let html='<div style="padding:14px">';
+  const TYPES=[
+    {key:'einladen',label:'Einladen',color:'#34a853',bg:'#eafaf1'},
+    {key:'ausladen',label:'Ausladen',color:'#ea4335',bg:'#ffeaea'},
+    {key:'todo',label:'To-Do',color:'#1565c0',bg:'#e8f0fe'}
+  ];
+  locs.forEach(loc=>{
+    const locItems=all.filter(([,it])=>it.loc===loc);
+    if(!locItems.length)return;
+    const color=LOC_COLORS[loc]||'#1e3a6e';
+    const name=LOC_NAMES[loc]||loc;
+    html+=`<div style="display:flex;align-items:center;gap:8px;margin:16px 0 10px">
+      <div style="flex:1;height:1.5px;background:#e8e8e8"></div>
+      <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:${color};background:${color}18;border-radius:20px;padding:4px 12px;white-space:nowrap">${escHtml(name)}</span>
+      <div style="flex:1;height:1.5px;background:#e8e8e8"></div>
+    </div>`;
+    TYPES.forEach(({key,label,color:tColor,bg})=>{
+      const typeItems=locItems.filter(([,it])=>it.type===key);
+      if(!typeItems.length)return;
+      html+=`<div style="margin-bottom:12px">
+        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:${tColor};margin-bottom:5px;display:flex;align-items:center;gap:5px">
+          <span style="width:7px;height:7px;border-radius:50%;background:${tColor};display:inline-block;flex-shrink:0"></span>${escHtml(label)}
+        </div>`;
+      typeItems.forEach(([id,it])=>{
+        const checked=!!it.checked;
+        html+=`<div class="event-card${checked?' done':''}" style="border-left-color:${tColor};${checked?'opacity:.5':''}">
+          <div style="flex:1;min-width:0;display:flex;align-items:center;gap:10px">
+            <div class="chk${checked?' on':''}" onclick="toggleLgItem('${id}')" style="flex-shrink:0"></div>
+            <div style="min-width:0;flex:1">
+              <div style="font-size:14px;font-weight:700;color:${checked?'#aaa':'#1c1c2e'}">${escHtml(it.name||'')}</div>
+              ${it.destLoc?`<div style="font-size:11px;color:#888;margin-top:2px">Wohin: ${escHtml(LG_LOC[it.destLoc]||it.destLoc)}</div>`:''}
+              ${it.comment?`<div style="font-size:12px;color:#888;margin-top:2px">${escHtml(it.comment)}</div>`:''}
+              ${it.date?`<div style="font-size:11px;color:#aaa;margin-top:2px">${new Date(it.date+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'})}</div>`:''}
             </div>
+            ${it.photo?`<img src="${it.photo}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;flex-shrink:0;cursor:pointer" onclick="event.stopPropagation();openPhotoViewer('${it.photo}')">`:''}
+            ${currentTaskUser?`<button onclick="event.stopPropagation();deleteLgItem('${id}')" style="background:none;border:none;color:#ddd;font-size:20px;cursor:pointer;padding:2px 6px;flex-shrink:0;line-height:1">×</button>`:''}
           </div>
-          ${canAdmin?`<button onclick="event.stopPropagation();deleteLgAufgabe('${eid}')" style="background:none;border:none;color:#ddd;font-size:20px;cursor:pointer;padding:2px 6px;line-height:1;flex-shrink:0">×</button>`:''}
-        </div>
-      </div>`;
-    } else {
-      const items=Object.values(e.items||{});
-      const checked=items.filter(i=>i.checked).length;
-      const isDone=e.status==='abgeschlossen';
-      const routePairs=new Set();
-      items.forEach(it=>{const fr=it.from||e.from;const to=it.to||e.to;if(fr&&to)routePairs.add(fr+'→'+to);});
-      const routeHtml=[...routePairs].map(rk=>{const[fr,to]=rk.split('→');return locRoute(fr,to);}).join('<span style="color:#ccc;margin:0 3px;font-size:11px">·</span>');
-      html+=`<div class="event-card" onclick="openFahrt('${eid}')" style="border-left-color:#1e3a6e;${isDone?'opacity:.6':''}">
-        <div class="event-date-col">
-          <div class="event-date-wd">${wd}</div>
-          <div class="event-date-day" style="color:#1e3a6e">${day}</div>
-          <div class="event-date-month">${mo}</div>
-          <div class="event-date-year">${yr}</div>
-        </div>
-        <div style="flex:1;min-width:0">
-          <div class="event-name" style="font-size:14px;font-weight:700;color:#1c1c2e">
-            ${e.isRueckfahrt?'Rückfahrt':'Logistikfahrt'}
-          </div>
-          ${e.employee?`<div style="font-size:12px;color:#888;margin-top:2px">${escHtml(e.employee)}</div>`:''}
-          <div style="font-size:11px;color:#aaa;margin-top:3px">${items.length} Artikel · ${isDone?'<span style="color:#2e7d32;font-weight:700">Abgeschlossen</span>':`${checked} abgehakt`}</div>
-        </div>
-        <div style="color:#ccc;font-size:18px;flex-shrink:0">›</div>
-      </div>`;
-    }
+        </div>`;
+      });
+      html+='</div>';
+    });
   });
   html+='</div>';
-
-  // Archive section — collapsible, faded
-  const archived=Object.entries(archiveFahrtenData).sort((a,b)=>{
-    const ad=a[1].date||'', bd=b[1].date||'';
-    return bd.localeCompare(ad); // newest first
-  });
-  if(archived.length>0){
-    html+=`<div style="padding:0 14px 6px">
-      <button onclick="var s=document.getElementById('archiv-body');var open=s.style.display!=='none';s.style.display=open?'none':'block';this.textContent=open?'Archiv anzeigen (${archived.length})':'Archiv ausblenden'" style="background:none;border:none;color:#bbb;font-size:12px;font-weight:700;cursor:pointer;padding:6px 0;font-family:inherit;text-align:left;width:100%;letter-spacing:.3px">Archiv anzeigen (${archived.length})</button>
-      <div id="archiv-body" style="display:none">`;
-    archived.forEach(([fid,f])=>{
-      const items=Object.values(f.items||{});
-      let day='?',mo='',wd='',yr='';
-      if(f.date){
-        const d=new Date(f.date+'T12:00:00');
-        day=d.getDate();
-        mo=d.toLocaleDateString('de-DE',{month:'short'}).toUpperCase();
-        wd=d.toLocaleDateString('de-DE',{weekday:'short'}).toUpperCase();
-        yr=d.getFullYear();
-      }
-      html+=`<div class="event-card" style="border-left-color:#bbb;opacity:.55;cursor:default;pointer-events:none">
-        <div class="event-date-col">
-          <div class="event-date-wd">${wd||'—'}</div>
-          <div class="event-date-day" style="color:#999">${day}</div>
-          <div class="event-date-month">${mo}</div>
-          <div class="event-date-year">${yr}</div>
-        </div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:700;color:#888;margin-bottom:2px">${f.isRueckfahrt?'Rückfahrt':'Logistikfahrt'}${f.employee?' · '+escHtml(f.employee):''}</div>
-          <div style="font-size:11px;color:#aaa">${items.length} Artikel · Archiviert</div>
-        </div>
-      </div>`;
-    });
-    html+='</div></div>';
-  }
-
   content.innerHTML=html;
 }
 
-function openFahrt(fid){
-  currentFahrtId=fid;
-  const f=logistikFahrten[fid]; if(!f)return;
-  const nr=getFahrtNr(fid);
-  const title=document.getElementById('lg-fahrt-title');
-  if(title)title.textContent=(f.isRueckfahrt?'Rückfahrt':'Logistikfahrt')+(f.employee?' · '+f.employee:'');
-  const delBtn=document.getElementById('lg-fahrt-del-btn');
-  if(delBtn){delBtn.style.display=isAdmin?'':'none';delBtn.onclick=()=>deleteFahrt(fid);}
-  showScreen('logistik-fahrt-screen');
-  renderFahrtDetail();
+function toggleLgItem(id){
+  const it=logistikItems[id]; if(!it)return;
+  if(db)db.ref('/logistikItems/'+id+'/checked').set(!it.checked);
+}
+function deleteLgItem(id){
+  if(db)db.ref('/logistikItems/'+id).remove();
+  toast('Gelöscht');
 }
 
-function goToFahrten(){
-  // Archive the fahrt if it's completed (user has had a chance to export PDF)
-  if(currentFahrtId){
-    const f=logistikFahrten[currentFahrtId];
-    if(f&&f.status==='abgeschlossen') archiveFahrt(currentFahrtId);
-  }
-  currentFahrtId=null;
-  _fahrtEditMode=false;
-  showScreen('logistik-screen');
-  _updateLgTabs();
-  renderFahrten();
-}
+let _lgItemType='einladen';
+let _aliPhotoData=null;
 
-function renderFahrtDetail(){
-  const fid=currentFahrtId; const f=logistikFahrten[fid]; if(!f)return;
-  const date=f.date?new Date(f.date+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}):'?';
-  const isDone=f.status==='abgeschlossen';
-
-  // Info bar — skip re-render for 2s after a time write to prevent disrupting active inputs
-  const info=document.getElementById('lg-fahrt-info');
-  const _skipInfo=info&&Date.now()<_fahrtInfoLock;
-  const noDate=!f.date;
-  const canEdit=isAdmin||_fahrtEditMode;
-  // Build driver options from Logistik users (roleLG=true)
-  const lgDrivers=Object.values(taskUsers).filter(u=>u.roleLG||u.role==='logistik').sort((a,b)=>(a.name||'').localeCompare(b.name||''));
-  if(f.employee&&!lgDrivers.find(u=>u.name===f.employee))lgDrivers.unshift({name:f.employee});
-  const driverOpts=lgDrivers.map(u=>`<option value="${escHtml(u.name||u.uid||'')}" ${(u.name||u.uid||'')===(f.employee||'')?'selected':''}>${escHtml(u.name||u.uid||'')}</option>`).join('');
-  const timeLabel = f.startTime ? (f.endTime?`${f.startTime} – ${f.endTime}`:`ab ${f.startTime} Uhr`) : 'Ganztägig';
-  const _valStyle='font-weight:700;font-size:13px;color:#555;margin-top:2px';
-  if(info&&!_skipInfo)info.innerHTML=`
-    <div style="flex:1;text-align:center;padding:4px 0">
-      <div style="font-size:10px;color:#aaa;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Datum</div>
-      ${canEdit?`<input type="date" value="${f.date||''}" onchange="updateFahrtDate('${fid}',this.value)" style="border:none;outline:none;${_valStyle};background:transparent;text-align:center;font-family:inherit;width:100%">`
-      :`<div style="${_valStyle};color:${noDate?'#ea4335':'#555'}">${noDate?'fehlt':date}</div>`}
-    </div>
-    <div style="width:1px;background:#e8e8e8;align-self:stretch;margin:4px 0"></div>
-    <div style="flex:1;text-align:center;padding:4px 0">
-      <div style="font-size:10px;color:#aaa;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Uhrzeit</div>
-      ${canEdit?`<div style="display:flex;flex-direction:column;align-items:center;gap:4px;margin-top:2px">
-        <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:10px;color:#888;font-weight:700">
-          <input type="checkbox" id="fhdr-allday-${fid}" ${f.allDay!==false&&!f.startTime?'checked':''} onchange="updateFahrtAllDay('${fid}',this.checked);document.getElementById('fhdr-times-${fid}').style.display=this.checked?'none':'flex'" style="width:13px;height:13px;accent-color:#1565c0">ganztägig
-        </label>
-        <div id="fhdr-times-${fid}" style="display:${f.allDay===false||f.startTime?'flex':'none'};align-items:center;gap:4px">
-          <input type="time" value="${f.startTime||''}" onchange="updateFahrtTime('${fid}',this.value)" style="border:1px solid #ddd;border-radius:6px;padding:2px 4px;font-size:11px;font-weight:700;color:#1c1c2e;font-family:inherit;width:72px">
-          <span style="color:#bbb;font-size:11px;font-weight:700">–</span>
-          <input type="time" value="${f.endTime||''}" onchange="updateFahrtEndTime('${fid}',this.value)" style="border:1px solid #ddd;border-radius:6px;padding:2px 4px;font-size:11px;font-weight:700;color:#1c1c2e;font-family:inherit;width:72px">
-        </div>
-      </div>`
-      :`<div style="${_valStyle}">${escHtml(timeLabel)}</div>`}
-    </div>
-    <div style="width:1px;background:#e8e8e8;align-self:stretch;margin:4px 0"></div>
-    <div style="flex:1;text-align:center;padding:4px 0">
-      <div style="font-size:10px;color:#aaa;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Fahrer</div>
-      ${canEdit?`<select onchange="updateFahrtEmployee('${fid}',this.value)" style="border:none;outline:none;${_valStyle};background:transparent;text-align:center;font-family:inherit;width:100%;margin-top:2px;cursor:pointer">
-        <option value="">— auswählen —</option>${driverOpts}
-        <option value="__custom__">Anderen eingeben…</option>
-      </select>`
-      :`<div style="${_valStyle};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(f.employee||'—')}</div>`}
-    </div>
-  `;
-
-  // Items grouped by route (sorted by route time); tasks shown inside their route group
-  const itemsEl=document.getElementById('lg-fahrt-items');
-  const _skipItems=Date.now()<_fahrtInfoLock; // skip items re-render during time-write lock (prevents iOS onchange loop)
-  const items=Object.entries(f.items||{});
-  const transportItems=items.filter(([,i])=>!i.isTask);
-  const taskItems=items.filter(([,i])=>i.isTask);
-  if(itemsEl&&!_skipItems){
-    let html='';
-    if(transportItems.length===0&&taskItems.length===0){
-      html='<div style="text-align:center;color:#ccc;font-size:13px;padding:24px">Noch keine Einträge — unten hinzufügen</div>';
-    } else {
-      // Build combined groups
-      const groups={};
-      const ensureGroup=(rk,from,to)=>{if(!groups[rk])groups[rk]={from,to,rk,tItems:[],tTasks:[]};};
-      // Create groups for explicit routes using their Firebase key (push ID or legacy rtKey)
-      Object.entries(f.routes||{}).forEach(([rid,r])=>{
-        if(r.from&&r.to)ensureGroup(rid,r.from,r.to);
-      });
-      // Add transport items — if item has routeGroupId, use that group; else fall back to from/to
-      transportItems.forEach(([ikey,item])=>{
-        if(item.routeGroupId&&groups[item.routeGroupId]){
-          groups[item.routeGroupId].tItems.push([ikey,item]);
-        } else {
-          const fr=item.from||f.from||'?';
-          const to=item.to||f.to||'?';
-          const rk=rtKey(fr,to);
-          ensureGroup(rk,fr,to);
-          groups[rk].tItems.push([ikey,item]);
-        }
-      });
-      const standaloneTaskList=[];
-      taskItems.forEach(([ikey,item])=>{
-        if(item.routeKey){
-          ensureGroup(item.routeKey,item.routeFrom||'?',item.routeTo||'?');
-          groups[item.routeKey].tTasks.push([ikey,item]);
-        } else {
-          standaloneTaskList.push([ikey,item]);
-        }
-      });
-      const rTimes=f.routeTimes||{};
-      const routeOrder=f.routeOrder||{};
-      const taskOrder=f.taskOrder||{};
-      const entryOrder=f.entryOrder||{};
-      const sortedGroups=Object.entries(groups).sort(([ka],[kb])=>{
-        const ea=entryOrder[ka]??routeOrder[ka],eb=entryOrder[kb]??routeOrder[kb];
-        if(ea!==undefined&&eb!==undefined)return ea-eb;
-        if(ea!==undefined)return -1; if(eb!==undefined)return 1;
-        const ta=rTimes[ka]||'',tb=rTimes[kb]||'';
-        if(!ta&&tb)return 1; if(ta&&!tb)return -1;
-        return ta.localeCompare(tb);
-      });
-      // Collect ALL einladen items across all route groups (for cross-Fahrt Ausladen selection)
-      const allEinItems=[];
-      sortedGroups.forEach(([rk2,grp])=>{
-        grp.tItems.filter(([,i])=>i.action!=='ausladen').forEach(e=>allEinItems.push(e));
-      });
-      // Collect ALL ausladen item names globally (so "Hinzugefügt" shows across all groups)
-      const allAusNames=new Set();
-      sortedGroups.forEach(([,grp])=>{
-        grp.tItems.filter(([,i])=>i.action==='ausladen').forEach(([,i])=>allAusNames.add(i.name));
-      });
-      // Build combined sorted entries: route groups + individual standalone tasks, sorted by time
-      const allEntries=[
-        ...sortedGroups.map(([rk,group])=>({type:'group',rk,group})),
-        ...standaloneTaskList.map(([ikey,item])=>({type:'task',ikey,item}))
-      ];
-      allEntries.sort((a,b)=>{
-        const getSortKey=e=>{
-          const k=e.type==='group'?e.rk:e.ikey;
-          const eo=entryOrder[k];
-          if(eo!==undefined)return{pri:0,sec:eo,key:k};
-          if(e.type==='group'){
-            const ro=routeOrder[e.rk];
-            if(ro!==undefined)return{pri:0,sec:ro,key:e.rk};
-            return{pri:1,sec:0,time:rTimes[e.rk]||''};
-          }
-          const t=e.item.time||'';
-          if(t)return{pri:1,sec:0,time:t,key:e.ikey};
-          const to_=taskOrder[e.ikey];
-          return{pri:2,sec:to_!==undefined?to_:9999,time:'',key:e.ikey};
-        };
-        const ka=getSortKey(a),kb=getSortKey(b);
-        if(ka.pri!==kb.pri)return ka.pri-kb.pri;
-        if(ka.pri===0){if(ka.sec!==kb.sec)return ka.sec-kb.sec;return ka.key<kb.key?-1:ka.key>kb.key?1:0;}
-        if(ka.pri===2){if(ka.sec!==kb.sec)return ka.sec-kb.sec;return ka.key<kb.key?-1:ka.key>kb.key?1:0;}
-        const ta=ka.time||'',tb=kb.time||'';
-        if(!ta&&tb)return 1; if(ta&&!tb)return -1;
-        return ta.localeCompare(tb);
-      });
-      let pfadNr=0;
-      allEntries.forEach(entry=>{
-        if(entry.type==='task'){
-          // Standalone task — renders like a category header with checkbox
-          const {ikey,item}=entry;
-          const tPrefix=item.time?`<span style="font-size:16px;font-weight:800;color:#1e3a6e">${escHtml(item.time)} Uhr &ndash; </span>`:'';
-          html+=`<div style="margin:8px 14px 0;border-radius:10px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow:hidden">
-            <div style="border-left:4px solid #1e3a6e;padding:12px 14px;display:flex;align-items:center;gap:10px">
-              <div class="chk${item.checked?' on':''}" onclick="toggleFahrtTask('${fid}','${ikey}')"></div>
-              <div style="flex:1;min-width:0">
-                <div style="${item.checked?'opacity:.45':''}">${tPrefix}<span style="font-size:16px;font-weight:800;color:#1e3a6e">${escHtml(item.name)}</span></div>
-                ${item.comment?`<div style="font-size:12px;color:#888;margin-top:4px">${escHtml(item.comment)}</div>`:''}
-              </div>
-              ${canEdit?`<div style="display:flex;flex-direction:column;gap:2px" onclick="event.stopPropagation()">
-                <button onclick="moveAnyEntry('${fid}','${ikey}','up')" style="background:none;border:none;color:#bbb;font-size:13px;cursor:pointer;padding:0 4px;line-height:1;font-family:inherit" title="Nach oben">↑</button>
-                <button onclick="moveAnyEntry('${fid}','${ikey}','down')" style="background:none;border:none;color:#bbb;font-size:13px;cursor:pointer;padding:0 4px;line-height:1;font-family:inherit" title="Nach unten">↓</button>
-              </div>`:''}
-              ${canEdit?`<button onclick="openTaskActions('${fid}','${ikey}')" style="background:none;border:none;color:#bbb;font-size:18px;cursor:pointer;padding:2px 4px;font-weight:700;line-height:1">···</button>`:''}
-            </div>
-          </div>`;
-          return;
-        }
-        const {rk,group}=entry;
-        // Route group
-        pfadNr++;
-        const groupTime=rTimes[rk]||'';
-        const grpChecked=[...group.tItems,...group.tTasks].filter(([,i])=>i.checked).length;
-        const grpTotal=group.tItems.length+group.tTasks.length;
-        const pfadTimePrefix=groupTime?`<span style="font-size:16px;font-weight:800;color:#1e3a6e">${escHtml(groupTime)} Uhr &ndash; </span>`:'';
-        const pfadNrLabel=`<span style="font-size:16px;font-weight:800;color:#1e3a6e">Fahrt ${pfadNr}</span>`;
-        html+=`<div class="cat" id="fcat_${escHtml(rk)}" style="margin:8px 14px 0;border-radius:10px">
-          <div class="cat-hdr" style="border-left-color:#1e3a6e;padding:10px 14px" onclick="this.closest('.cat').classList.toggle('open')">
-            <div class="cat-title" style="display:flex;flex-direction:column;gap:5px;line-height:1.2">
-              <div>${pfadTimePrefix}${pfadNrLabel}</div>
-              <div>${locRoute(group.from,group.to,true)}</div>
-            </div>
-            ${canEdit?`<div style="display:flex;flex-direction:column;gap:2px;margin-right:2px" onclick="event.stopPropagation()">
-              <button onclick="moveAnyEntry('${fid}','${escHtml(rk)}','up')" style="background:none;border:none;color:#bbb;font-size:13px;cursor:pointer;padding:0 4px;line-height:1;font-family:inherit" title="Nach oben">↑</button>
-              <button onclick="moveAnyEntry('${fid}','${escHtml(rk)}','down')" style="background:none;border:none;color:#bbb;font-size:13px;cursor:pointer;padding:0 4px;line-height:1;font-family:inherit" title="Nach unten">↓</button>
-            </div>`:''}
-            ${canEdit?`<button onclick="event.stopPropagation();deleteRouteGroup('${fid}','${escHtml(rk)}')" style="background:none;border:none;color:#ddd;font-size:18px;cursor:pointer;padding:0 4px;font-weight:700;line-height:1;margin-right:2px" title="Fahrt löschen">×</button>`:''}
-            <span class="cat-count">${grpChecked}/${grpTotal}</span>
-            <span class="cat-arrow">▾</span>
-          </div>
-          <div class="cat-body">
-          ${canEdit?`<div style="padding:8px 15px 6px;border-bottom:1px solid #f0f2f5;display:flex;align-items:center;gap:8px">
-            <span style="font-size:10px;color:#aaa;font-weight:700;white-space:nowrap;text-transform:uppercase;letter-spacing:.4px">Abfahrt:</span>
-            <input type="time" value="${escHtml(groupTime)}" onchange="updateRouteTime('${fid}','${escHtml(rk)}',this.value)" style="border:1px solid #ddd;border-radius:8px;padding:5px 8px;font-size:12px;color:#1565c0;font-weight:700;background:#f8fbff;font-family:inherit;flex:1;max-width:120px">
-            ${groupTime?`<button onclick="updateRouteTime('${fid}','${escHtml(rk)}','')" style="background:none;border:none;color:#bbb;font-size:16px;cursor:pointer;padding:0 4px;line-height:1">×</button>`:''}
-          </div>`:''}`;
-        // Transport items — split into Einladen / Ausladen
-        const _renderTItem=(ikey,item,bgColor='')=>{
-            const invPhoto=item.inventoryItemId?inventoryPhotos[item.inventoryItemId]:null;
-            const displayPhoto=item.photo||invPhoto;
-            const staffPhoto=item.staffPhoto||null;
-            html+=`<div class="task${item.checked?' done':''}" style="padding:10px 15px${bgColor?';background:'+bgColor:''}">
-              <div class="chk${item.checked?' on':''}" onclick="toggleFahrtItem('${fid}','${ikey}')"></div>
-              <div class="task-txt" style="display:flex;align-items:center;gap:8px;min-width:0">
-                <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
-                  ${displayPhoto?`<img src="${displayPhoto}" onclick="event.stopPropagation();openPhotoViewer('${displayPhoto}')" style="width:32px;height:32px;object-fit:cover;border-radius:6px;cursor:zoom-in" title="Artikelfoto">`:''}
-                  ${staffPhoto?`<img src="${staffPhoto}" onclick="event.stopPropagation();openPhotoViewer('${staffPhoto}')" style="width:32px;height:32px;object-fit:cover;border-radius:6px;cursor:zoom-in;border:2px solid #ea4335" title="Mitarbeiter-Foto">`:''}
-                </div>
-                <div style="flex:1;min-width:0">
-                  <div class="task-de">
-                    ${escHtml(item.name)}${item.menge&&item.menge>1?`<span style="color:#555;font-size:11px;font-weight:700;margin-left:6px">${item.menge}×</span>`:''}
-                  </div>
-                  ${item.itemTime?`<div style="font-size:10px;color:#1565c0;font-weight:700;margin-top:2px">${escHtml(item.itemTime)} Uhr</div>`:''}
-                  ${item.comment?`<div style="font-size:11px;color:#888;margin-top:2px;font-style:italic">${escHtml(item.comment)}</div>`:''}
-                  ${item.staffComment?`<div style="font-size:11px;color:#ea4335;font-weight:700;margin-top:2px">${escHtml(item.staffComment)}</div>`:''}
-                  ${canEdit
-                    ?`<label style="display:flex;align-items:center;gap:5px;margin-top:4px;cursor:pointer" onclick="event.stopPropagation()">
-                        <input type="checkbox" ${item.rueckfahrt?'checked':''} onchange="toggleRueckfahrt('${fid}','${ikey}',this.checked)" style="width:13px;height:13px;accent-color:#1565c0">
-                        <span style="font-size:11px;color:#555;font-weight:600">Rückfahrt nötig</span>
-                      </label>`
-                    :(item.rueckfahrt?`<div style="font-size:10px;color:#93bce3;font-weight:400;margin-top:2px">${item.rueckfahrtDate?(item.rueckfahrtDateType==='spaetestens'?'Rückf. spät. bis ':'Rückf. am ')+new Date(item.rueckfahrtDate+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}):'Rückfahrt'}</div>`:'')}
-                </div>
-              </div>
-              <div class="task-btns">
-                <button onclick="openItemActions('${fid}','${ikey}')" style="background:none;border:none;color:#bbb;font-size:18px;cursor:pointer;padding:2px 4px;font-weight:700;line-height:1">···</button>
-                ${canEdit?`<button onclick="deleteFahrtItem('${fid}','${ikey}')" style="background:none;border:none;color:#ea4335;font-size:16px;cursor:pointer;padding:2px 4px">×</button>`:''}
-              </div>
-            </div>`;
-        };
-        // Split into Einladen / Ausladen
-        const tEin=group.tItems.filter(([,i])=>i.action!=='ausladen');
-        const tAus=group.tItems.filter(([,i])=>i.action==='ausladen');
-        const _sectionAddBtns=(act)=>`<div style="padding:3px 15px 8px;display:flex;gap:6px">
-          <button onclick="openAddFahrtItem('${fid}','inventory','${act}','${escHtml(group.from)}','${escHtml(group.to)}','${escHtml(rk)}')" style="flex:1;background:#f8f9fa;border:1px dashed #ddd;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;color:#555;cursor:pointer;font-family:inherit">+ Inventar</button>
-          <button onclick="openAddFahrtItem('${fid}','custom','${act}','${escHtml(group.from)}','${escHtml(group.to)}','${escHtml(rk)}')" style="flex:1;background:#f8f9fa;border:1px dashed #ddd;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;color:#555;cursor:pointer;font-family:inherit">+ Artikel</button>
-        </div>`;
-        // Ausladen section (first — unload before loading)
-        if(tAus.length>0||(canEdit&&allEinItems.length>0)){
-          html+=`<div style="padding:8px 15px 7px;border-top:1px solid #f0f2f5;background:#fff5f5;display:flex;align-items:center;gap:7px">
-            <span style="font-size:12px;font-weight:900;color:#b71c1c;text-transform:uppercase;letter-spacing:.8px">Ausladen</span>
-            <span style="font-size:10px;font-weight:700;color:#ef9a9a">in</span>
-            ${locBadge(group.to)}
-          </div>`;
-          tAus.forEach(([ikey,item])=>_renderTItem(ikey,item,'#fff5f5'));
-          if(canEdit&&allEinItems.length>0){
-            const ausNames=allAusNames;
-            html+=`<div style="padding:4px 15px 8px">
-              <div style="font-size:9px;color:#bbb;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Aus Einladen auswählen</div>`;
-            allEinItems.forEach(([ikey,item])=>{
-              const done=ausNames.has(item.name);
-              html+=`<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;margin-bottom:3px;background:#fafafa;border-radius:7px;border:1px solid #f0f0f0">
-                <span style="flex:1;font-size:12px;color:#333;font-weight:600">${escHtml(item.name)}</span>
-                ${item.menge>1?`<span style="font-size:11px;color:#aaa">${item.menge}×</span>`:''}
-                ${done?
-                  `<span style="font-size:10px;color:#2e7d32;font-weight:700">Hinzugefügt</span>`:
-                  `<button onclick="addAusladenFromEinladen('${fid}','${ikey}','${escHtml(group.from)}','${escHtml(group.to)}','${escHtml(rk)}')" style="background:#c62828;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">+</button>`
-                }
-              </div>`;
-            });
-            html+=`</div>`;
-          }
-        }
-        // Einladen section (after ausladen)
-        if(tEin.length>0||canEdit){
-          html+=`<div style="padding:8px 15px 7px;border-top:1px solid #f0f2f5;background:#f0faf2;display:flex;align-items:center;gap:7px">
-            <span style="font-size:12px;font-weight:900;color:#1b5e20;text-transform:uppercase;letter-spacing:.8px">Einladen</span>
-            <span style="font-size:10px;font-weight:700;color:#4caf50">in</span>
-            ${locBadge(group.to)}
-          </div>`;
-          tEin.forEach(([ikey,item])=>_renderTItem(ikey,item,'#f0faf2'));
-          if(canEdit)html+=_sectionAddBtns('einladen');
-        }
-        // Tasks within this route group
-        if(group.tTasks.length>0){
-          html+=`<div style="padding:8px 15px 7px;border-top:1px solid #f0f2f5;background:#eef1fb;display:flex;align-items:center;gap:7px">
-            <span style="font-size:12px;font-weight:900;color:#1e3a6e;text-transform:uppercase;letter-spacing:.8px">Aufgaben vor Ort</span>
-            <span style="font-size:10px;font-weight:700;color:#7b9fd4">in</span>
-            ${locBadge(group.to)}
-          </div>`;
-          group.tTasks.forEach(([ikey,item])=>{
-            html+=`<div class="task${item.checked?' done':''}" style="padding:9px 15px;background:#eef1fb">
-              <div class="chk${item.checked?' on':''}" onclick="toggleFahrtTask('${fid}','${ikey}')"></div>
-              <div class="task-txt" style="min-width:0">
-                <div class="task-de">${escHtml(item.name)}</div>
-                ${item.time?`<div style="font-size:10px;color:#1565c0;font-weight:700;margin-top:2px">${escHtml(item.time)} Uhr</div>`:''}
-              </div>
-              <div class="task-btns">
-                <button onclick="openTaskActions('${fid}','${ikey}')" style="background:none;border:none;color:#bbb;font-size:18px;cursor:pointer;padding:2px 4px;font-weight:700;line-height:1">···</button>
-              </div>
-            </div>`;
-          });
-        }
-        if(canEdit){
-          html+=`<div style="padding:6px 15px 10px;border-top:1px solid #f0f2f5">
-            <button onclick="openAddFahrtTask('${fid}','${escHtml(rk)}','${escHtml(group.from)}','${escHtml(group.to)}')" style="background:#f0f6ff;border:1px dashed #b3cef0;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;color:#1565c0;cursor:pointer;font-family:inherit;width:100%;text-align:center">+ Aufgabe vor Ort</button>
-          </div>`;
-        }
-        html+=`</div></div>`;
-      });
-    }
-    const openGroupIds=new Set([...itemsEl.querySelectorAll('.cat.open')].map(el=>el.id));
-    itemsEl.innerHTML=html;
-    openGroupIds.forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('open');});
-    // Update progress bar (all items + tasks)
-    const allIt=Object.values(f.items||{});
-    const chkCnt=allIt.filter(i=>i.checked).length;
-    const totCnt=allIt.length;
-    const pct=totCnt>0?Math.round(chkCnt/totCnt*100):0;
-    const pb=document.getElementById('lg-fahrt-prog-bar');
-    const pt=document.getElementById('lg-fahrt-prog-text');
-    if(pb)pb.style.width=pct+'%';
-    if(pt)pt.textContent=chkCnt+' / '+totCnt+' erledigt'+(totCnt>0?' ('+pct+'%)':'');
-  }
-
-  // Add buttons — global (for empty fahrt or when no route exists yet)
-  const addBtns=document.getElementById('lg-fahrt-add-btns');
-  if(addBtns){
-    const _abtnS='flex:1;background:#f0f2f5;border:none;border-radius:10px;padding:10px 6px;font-size:12px;font-weight:700;color:#1e3a6e;cursor:pointer;font-family:inherit;text-align:center';
-    addBtns.innerHTML=canEdit?`
-      <div style="padding:0 14px 8px;display:flex;gap:6px">
-        <button onclick="openNewFahrtRoute('${fid}')" style="${_abtnS}">+ Fahrt</button>
-        <button onclick="openAddFahrtTask('${fid}')" style="${_abtnS}">+ Aufgabe</button>
-      </div>
-    `:'';
-  }
-
-  // Footer
-  const footer=document.getElementById('lg-fahrt-footer');
-  if(footer){
-    if(isDone){
-      footer.innerHTML=`<div style="display:flex;flex-direction:column;gap:8px">
-        <div style="text-align:center;color:#2e7d32;font-weight:800;font-size:15px;padding:4px">Fahrt abgeschlossen — Inventar aktualisiert</div>
-        <button onclick="exportFahrtPDF('${fid}')" style="width:100%;background:#1e3a6e;color:#fff;border:none;border-radius:12px;padding:13px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">Als PDF speichern</button>
-      </div>`;
-    } else {
-      const allChecked=items.length>0&&items.every(([,i])=>i.checked);
-      const hasItems=items.some(([,i])=>!i.isTask);
-      const hasTasks=items.some(([,i])=>i.isTask);
-      const label=allChecked?'Fahrt abschließen':(hasItems&&hasTasks?'Alle Artikel & Aufgaben abhaken':hasItems?'Alle Artikel abhaken':'Alle Aufgaben abhaken');
-      footer.innerHTML=`<button onclick="completeFahrt('${fid}')" ${allChecked?'':'disabled'} style="width:100%;background:${allChecked?'#2e7d32':'#ccc'};color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:800;cursor:${allChecked?'pointer':'default'};font-family:inherit">
-        ${label}
-      </button>`;
-    }
-  }
-}
-
-function toggleFahrtItem(fid,ikey){
-  const f=logistikFahrten[fid]; if(!f||f.status==='abgeschlossen')return;
-  const item=(f.items||{})[ikey]; if(!item)return;
-  if(db)db.ref('/logistikFahrten/'+fid+'/items/'+ikey+'/checked').set(!item.checked);
-}
-
-function completeFahrt(fid){
-  const f=logistikFahrten[fid]; if(!f)return;
-  const items=Object.values(f.items||{});
-  if(!items.every(i=>i.checked)){toast('Bitte alle Artikel und Aufgaben abhaken');return;}
-  if(!confirm('Fahrt abschließen? Der Inventarbestand wird automatisch angepasst.'))return;
-  const updates={};
-  items.forEach(item=>{
-    if(!item.isCustom&&item.inventoryItemId&&item.menge){
-      // Use per-item from/to, fall back to top-level for legacy data
-      const fr=item.from||f.from;
-      const to=item.to||f.to;
-      if(fr&&to){
-        const fromIst=(inventoryStock[fr]||{})[item.inventoryItemId]||{};
-        const toIst=(inventoryStock[to]||{})[item.inventoryItemId]||{};
-        updates['/inventoryStock/'+fr+'/'+item.inventoryItemId+'/ist']=Math.max(0,(parseInt(fromIst.ist)||0)-parseInt(item.menge));
-        updates['/inventoryStock/'+to+'/'+item.inventoryItemId+'/ist']=(parseInt(toIst.ist)||0)+parseInt(item.menge);
-      }
-    }
+function setLgItemType(type){
+  _lgItemType=type;
+  const defs={einladen:['#34a853','#eafaf1','#2e7d32'],ausladen:['#ea4335','#ffeaea','#c62828'],todo:['#1565c0','#e8f0fe','#1565c0']};
+  ['einladen','ausladen','todo'].forEach(t=>{
+    const btn=document.getElementById('ali-type-'+t);
+    if(!btn)return;
+    const [border,bg,col]=defs[t];
+    const on=t===type;
+    btn.style.borderColor=on?border:'#e0e0e0';
+    btn.style.background=on?bg:'#fff';
+    btn.style.color=on?col:'#888';
   });
-  updates['/logistikFahrten/'+fid+'/status']='abgeschlossen';
-  if(db)db.ref('/').update(updates).then(()=>{
-    const rueckItems=Object.values(f.items||{}).filter(it=>it.rueckfahrt);
-    if(rueckItems.length){
-      const rueck={date:'',status:'offen',items:{},createdAt:Date.now(),employee:'',isRueckfahrt:true,originalFahrtId:fid};
-      rueckItems.forEach((it,i)=>{
-        rueck.items['item'+Date.now()+i]={
-          name:it.name,menge:it.menge||1,
-          from:it.to||'LS',to:it.from||'AS',
-          isCustom:!!it.isCustom,inventoryItemId:it.inventoryItemId||null,
-          checked:false,rueckfahrt:false
-        };
-      });
-      db.ref('/logistikFahrten').push(rueck).then(ref=>{
-        _pendingRueckId=ref.key;
-        // populate modal
-        const lgDrivers=Object.values(taskUsers).filter(u=>u.roleLG||u.role==='logistik').sort((a,b)=>(a.name||'').localeCompare(b.name||''));
-        const sel=document.getElementById('rueck-driver');
-        if(sel){sel.innerHTML='<option value="">— Fahrer wählen —</option>'+lgDrivers.map(u=>`<option value="${escHtml(u.name||u.uid||'')}">${escHtml(u.name||u.uid||'')}</option>`).join('');}
-        const di=document.getElementById('rueck-date');
-        if(di)di.value='';
-        openModal('m-rueck-setup');
-      });
-    } else {
-      toast('Fahrt abgeschlossen & Inventar aktualisiert');
-    }
-  });
+  const destRow=document.getElementById('ali-dest-row');
+  if(destRow)destRow.style.display=(type==='todo')?'none':'block';
 }
 
-function confirmRueckSetup(){
-  if(!_pendingRueckId)return;
-  const date=document.getElementById('rueck-date').value;
-  const employee=document.getElementById('rueck-driver').value;
-  const updates={};
-  if(date)updates['/logistikFahrten/'+_pendingRueckId+'/date']=date;
-  if(employee)updates['/logistikFahrten/'+_pendingRueckId+'/employee']=employee;
-  if(db&&Object.keys(updates).length)db.ref('/').update(updates);
-  closeModal('m-rueck-setup');
-  openFahrt(_pendingRueckId);
-  _pendingRueckId=null;
+function openAddLgItem(){
+  if(!currentTaskUser){toast('Bitte zuerst einloggen');return;}
+  _lgItemType='einladen';
+  _aliPhotoData=null;
+  setLgItemType('einladen');
+  ['ali-name','ali-comment'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const d=document.getElementById('ali-date');if(d)d.value='';
+  const pn=document.getElementById('ali-photo-name');if(pn)pn.textContent='';
+  const locS=document.getElementById('ali-loc');if(locS)locS.value='AS';
+  const destS=document.getElementById('ali-dest');if(destS)destS.value='LS';
+  ['ali-loc-custom','ali-dest-custom'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+  openModal('m-add-lg-item');
+  setTimeout(()=>{const n=document.getElementById('ali-name');if(n)n.focus();},100);
 }
 
-function exportFahrtPDF(fid){
-  const f=logistikFahrten[fid]; if(!f)return;
-  if(typeof jspdf==='undefined'&&typeof window.jspdf==='undefined'){toast('PDF-Bibliothek nicht geladen');return;}
-  const {jsPDF}=window.jspdf||jspdf;
-  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-  const W=210, ml=15, mr=15, cw=W-ml-mr;
-  let y=20;
-
-  // Header
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(18);
-  doc.setTextColor(21,101,192);
-  doc.text('Fahrtprotokoll',ml,y); y+=8;
-  doc.setDrawColor(21,101,192);
-  doc.setLineWidth(0.5);
-  doc.line(ml,y,W-mr,y); y+=7;
-
-  // Meta
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(11);
-  doc.setTextColor(50,50,50);
-  const dateStr=f.date||'—';
-  const driver=f.employee||'—';
-  doc.setFont('helvetica','bold'); doc.text('Datum:',ml,y);
-  doc.setFont('helvetica','normal'); doc.text(dateStr,ml+22,y);
-  doc.setFont('helvetica','bold'); doc.text('Fahrer:',ml+70,y);
-  doc.setFont('helvetica','normal'); doc.text(driver,ml+92,y); y+=6;
-  doc.setFont('helvetica','bold'); doc.text('Status:',ml,y);
-  doc.setFont('helvetica','normal'); doc.text('Abgeschlossen',ml+22,y); y+=10;
-
-  // Group items by route
-  const items=Object.entries(f.items||{});
-  const groups={};
-  items.forEach(([k,it])=>{
-    const fr=it.from||f.from||'—'; const to=it.to||f.to||'—';
-    const rk=fr+'→'+to;
-    if(!groups[rk])groups[rk]={from:fr,to:to,items:[]};
-    groups[rk].items.push({key:k,...it});
-  });
-
-  const locNames={AS:'amSee Leipzig',EG:'EVENTGIESSEREI',LS:'LAKESIDE'};
-  const locCols={AS:[45,122,79],EG:[26,23,18],LS:[26,139,147]};
-
-  Object.values(groups).forEach(group=>{
-    if(y>260){doc.addPage();y=20;}
-    // Route header
-    const frLabel=locNames[group.from]||group.from;
-    const toLabel=locNames[group.to]||group.to;
-    const frCol=locCols[group.from]||[100,100,100];
-    const toCol=locCols[group.to]||[100,100,100];
-    doc.setFillColor(...frCol);
-    doc.roundedRect(ml,y-4,36,7,2,2,'F');
-    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(255,255,255);
-    doc.text(frLabel,ml+18,y,{align:'center'});
-    doc.setFontSize(11); doc.setTextColor(160,160,160);
-    doc.text('→',ml+40,y);
-    doc.setFillColor(...toCol);
-    doc.roundedRect(ml+45,y-4,36,7,2,2,'F');
-    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(255,255,255);
-    doc.text(toLabel,ml+63,y,{align:'center'});
-    y+=10;
-
-    // Items
-    group.items.forEach(it=>{
-      if(y>270){doc.addPage();y=20;}
-      // Checkbox
-      doc.setDrawColor(100,100,100); doc.setLineWidth(0.4);
-      doc.rect(ml,y-4,5,5);
-      if(it.checked){
-        doc.setDrawColor(46,125,50); doc.setLineWidth(0.7);
-        doc.line(ml+1,y-1.5,ml+2.5,y+0.5);
-        doc.line(ml+2.5,y+0.5,ml+4.5,y-3.5);
-      }
-      // Name + menge
-      doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(20,20,20);
-      const nameText=`${it.name||'?'}  ×${it.menge||1}`;
-      doc.text(nameText,ml+8,y);
-      y+=5;
-      // Creator comment
-      if(it.comment){
-        doc.setFont('helvetica','italic'); doc.setFontSize(9); doc.setTextColor(120,120,120);
-        const wrapped=doc.splitTextToSize(it.comment,cw-8);
-        doc.text(wrapped,ml+8,y); y+=wrapped.length*4;
-      }
-      // Staff comment (red + bold)
-      if(it.staffComment){
-        doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(220,50,40);
-        const wrapped=doc.splitTextToSize('Mitarbeiter: '+it.staffComment,cw-8);
-        doc.text(wrapped,ml+8,y); y+=wrapped.length*4;
-        doc.setTextColor(20,20,20);
-      }
-      y+=2;
-    });
-    y+=4;
-  });
-
-  // Footer
-  if(y>275){doc.addPage();y=20;}
-  doc.setDrawColor(200,200,200); doc.setLineWidth(0.3);
-  doc.line(ml,y,W-mr,y); y+=5;
-  doc.setFont('helvetica','italic'); doc.setFontSize(8); doc.setTextColor(160,160,160);
-  doc.text('Erstellt mit Event Management App — '+new Date().toLocaleDateString('de-DE'),ml,y);
-
-  const fname='Fahrt_'+f.date+'_'+driver.replace(/\s+/g,'_')+'.pdf';
-  doc.save(fname);
-  toast('PDF gespeichert');
-}
-
-// ── NEW FAHRT CREATION SCREEN ────────────────────────────────────
-let _newFahrtItems = []; // draft items before save
-let _nfItemCounter = 0;
-
-function openNewFahrt(){
-  _newFahrtItems = [];
-  _nfItemCounter = 0;
-  document.getElementById('nf-date').value = new Date().toISOString().split('T')[0];
-  // Populate driver select with Logistik users
-  const sel = document.getElementById('nf-driver');
-  if(sel){
-    const drivers = Object.values(taskUsers).filter(u=>u.roleLG).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
-    sel.innerHTML = drivers.map(u=>{
-      const isCurrent = currentTaskUser && currentTaskUser.uid===u.uid;
-      return `<option value="${escHtml(u.name||u.uid)}"${isCurrent?' selected':''}>${escHtml(u.name||u.uid)}</option>`;
-    }).join('');
-    if(!sel.options.length) sel.innerHTML='<option value="">Kein Logistik-Nutzer</option>';
-  }
-  renderNewFahrtItems();
-  showScreen('logistik-new-fahrt-screen');
-}
-
-function renderNewFahrtItems(){
-  const list = document.getElementById('nf-items-list');
-  if(!list) return;
-  if(!_newFahrtItems.length){
-    list.innerHTML='<div style="color:#bbb;font-size:13px;text-align:center;padding:20px 0">Noch keine Artikel — unten hinzufügen</div>';
-    return;
-  }
-  // Group: tasks by "Aufgabe@at", items by "from→to"
-  const groups={};
-  _newFahrtItems.forEach((it,idx)=>{
-    const key=it.isTask?('Aufgabe@'+(it.at||'?')):(it.from||'?')+'→'+(it.to||'?');
-    if(!groups[key])groups[key]={from:it.from,to:it.to,isTask:!!it.isTask,at:it.at,items:[]};
-    groups[key].items.push({...it,idx});
-  });
-  let html='';
-  Object.entries(groups).forEach(([rk,group])=>{
-    if(group.isTask){
-      html+=`<div style="display:flex;align-items:center;gap:8px;background:#e8f0fe;border-radius:10px;padding:8px 12px;margin:8px 0 4px">
-        <span style="font-size:11px;font-weight:800;color:#1565c0;text-transform:uppercase;letter-spacing:.5px">Aufgaben bei: ${escHtml(locDisplayName(group.at||'?'))}</span>
-      </div>`;
-    } else {
-      html+=`<div style="display:flex;align-items:center;gap:8px;background:#f8f9fa;border-radius:10px;padding:8px 12px;margin:8px 0 4px">
-        ${locRoute(group.from||'?',group.to||'?',true)}
-      </div>`;
-    }
-    group.items.forEach(it=>{
-      if(it.isTask){
-        html+=`<div style="background:#f0f7ff;border-radius:12px;padding:10px 12px;margin-bottom:6px;border-left:3px solid #1565c0">
-          <div style="display:flex;align-items:center;gap:10px">
-            <span style="font-size:16px;flex-shrink:0">✓</span>
-            <div style="flex:1;min-width:0">
-              <div style="font-weight:700;font-size:13px;color:#1565c0">${escHtml(it.name)}</div>
-              ${it.time?`<div style="font-size:11px;color:#888;margin-top:2px">ab ${escHtml(it.time)} Uhr</div>`:''}
-            </div>
-            <button onclick="_newFahrtItems.splice(${it.idx},1);renderNewFahrtItems()" style="background:none;border:none;color:#ea4335;font-size:18px;cursor:pointer;flex-shrink:0;padding:0 2px">×</button>
-          </div>
-        </div>`;
-        return;
-      }
-      const invPhoto=it.inventoryItemId?inventoryPhotos[it.inventoryItemId]:null;
-      const displayPhoto=it.photo||invPhoto;
-      html+=`<div style="background:#fff;border-radius:12px;padding:10px 12px;margin-bottom:6px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
-        <div style="display:flex;align-items:center;gap:10px">
-          ${displayPhoto?`<img src="${displayPhoto}" style="width:40px;height:40px;object-fit:cover;border-radius:8px;flex-shrink:0">`:''}
-          <div style="flex:1;min-width:0">
-            <div style="font-weight:700;font-size:13px">${escHtml(it.name)}</div>
-            <div style="display:flex;gap:6px;align-items:center;margin-top:2px">
-              ${it.menge>1?`<span style="font-size:11px;color:#aaa">${it.menge}×</span>`:''}
-              ${it.action==='ausladen'?`<span style="font-size:10px;background:#ffeaea;color:#c62828;border-radius:6px;padding:1px 6px;font-weight:700">Ausladen</span>`:`<span style="font-size:10px;background:#eafaf1;color:#2e7d32;border-radius:6px;padding:1px 6px;font-weight:700">Einladen</span>`}
-            </div>
-          </div>
-          <button onclick="_newFahrtItems.splice(${it.idx},1);renderNewFahrtItems()" style="background:none;border:none;color:#ea4335;font-size:18px;cursor:pointer;flex-shrink:0;padding:0 2px">×</button>
-        </div>
-        <label style="display:flex;align-items:center;gap:6px;margin-top:7px;cursor:pointer">
-          <input type="checkbox" ${it.rueckfahrt?'checked':''} onchange="_newFahrtItems[${it.idx}].rueckfahrt=this.checked" style="width:15px;height:15px;accent-color:#1565c0">
-          <span style="font-size:11px;color:#888;font-weight:600">Rückfahrt nötig</span>
-        </label>
-      </div>`;
-    });
-  });
-  list.innerHTML=html;
-}
-
-function attachPhotoToNewItem(idx, input){
-  const file = input.files[0]; if(!file) return;
-  const reader = new FileReader();
-  reader.onload = e => { _newFahrtItems[idx].photo = e.target.result; renderNewFahrtItems(); };
-  reader.readAsDataURL(file);
-}
-
-function _nfRouteSelects(idSuffix){
-  return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-    <select id="nf-${idSuffix}-from" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px 12px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
-      <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
-    </select>
-    <span style="color:#888;font-weight:700;font-size:16px">→</span>
-    <select id="nf-${idSuffix}-to" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px 12px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
-      <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS" selected>LAKESIDE</option>
-    </select>
-  </div>`;
-}
-
-function nfOpenInventoryPicker(){
-  const list = document.getElementById('nf-inv-picker-list'); if(!list) return;
-  let itemsHtml = '';
-  INV_CATS.forEach(cat=>{
-    const catItems = Object.entries(inventoryItems).filter(([,i])=>i.category===cat);
-    if(!catItems.length) return;
-    itemsHtml += `<div style="font-size:11px;font-weight:800;text-transform:uppercase;color:#aaa;padding:10px 0 4px">${escHtml(cat)}</div>`;
-    catItems.forEach(([iid,item])=>{
-      const photo=inventoryPhotos[iid];
-      itemsHtml += `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f5f5f5">
-        ${photo?`<img src="${photo}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;flex-shrink:0">`:''}
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:13px">${escHtml(item.name)}</div>
-        </div>
-        <input type="number" min="1" value="1" id="nfip-${iid}" style="width:52px;border:1px solid #ddd;border-radius:8px;padding:5px;font-size:13px;text-align:center;font-family:inherit">
-        <button onclick="nfAddInvItem('${iid}','${escAttr(item.name)}')" style="background:#1565c0;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:13px;font-weight:700;cursor:pointer">+</button>
-      </div>`;
-    });
-  });
-  list.innerHTML = itemsHtml || '<div style="color:#bbb;text-align:center;padding:20px">Kein Inventar vorhanden</div>';
-  openModal('m-nf-inv-picker');
-}
-
-function nfAddInvItem(iid, name){
-  const el = document.getElementById('nfip-'+iid);
-  const menge = el ? Math.max(1, parseInt(el.value)||1) : 1;
-  const from = getLocValue('nf-inv-from');
-  const to   = getLocValue('nf-inv-to');
-  if(from===to){toast('Von und Nach müssen verschieden sein');return;}
-  const nfInvAction=document.querySelector('input[name="nf-inv-action"]:checked')?.value||'einladen';
-  _newFahrtItems.push({name, menge, isCustom:false, inventoryItemId:iid, from, to, action:nfInvAction});
-  renderNewFahrtItems();
-  closeModal('m-nf-inv-picker');
-  toast(name+' hinzugefügt');
-}
-
-function nfAddCustomItem(){
-  const name = document.getElementById('nf-custom-name').value.trim();
-  const menge = Math.max(1, parseInt(document.getElementById('nf-custom-menge').value)||1);
-  const from = getLocValue('nf-custom-from');
-  const to   = getLocValue('nf-custom-to');
-  if(!name){toast('Bitte Bezeichnung eingeben');return;}
-  if(from===to){toast('Von und Nach müssen verschieden sein');return;}
-  const nfCustomAction=document.querySelector('input[name="nf-custom-action"]:checked')?.value||'einladen';
-  _newFahrtItems.push({name, menge, isCustom:true, from, to, action:nfCustomAction});
-  renderNewFahrtItems();
-  closeModal('m-nf-custom-item');
-  document.getElementById('nf-custom-name').value='';
-  document.getElementById('nf-custom-menge').value='1';
-  toast(name+' hinzugefügt');
-}
-
-function openNfCustomModal(){
-  document.getElementById('nf-custom-name').value='';
-  document.getElementById('nf-custom-menge').value='1';
-  openModal('m-nf-custom-item');
-  setTimeout(()=>document.getElementById('nf-custom-name').focus(),100);
-}
-function openNfTaskModal(){
-  document.getElementById('nf-task-text').value='';
-  document.getElementById('nf-task-time').value='';
-  const noteEl=document.getElementById('nf-task-note');
-  if(noteEl)noteEl.value='';
-  const sel=document.getElementById('nf-task-at');
-  if(sel){sel.value='AS';handleLocSelectChange('nf-task-at');}
-  openModal('m-nf-task');
-  setTimeout(()=>document.getElementById('nf-task-text').focus(),100);
-}
-function nfAddTask(){
-  const text=document.getElementById('nf-task-text').value.trim();
-  if(!text){toast('Bitte Aufgabe eingeben');return;}
-  const at=getLocValue('nf-task-at');
-  const time=(document.getElementById('nf-task-time').value||'').trim();
-  const note=((document.getElementById('nf-task-note')||{}).value||'').trim();
-  const item={isTask:true, name:text, at, time, from:at, to:at};
-  if(note)item.comment=note;
-  _newFahrtItems.push(item);
-  renderNewFahrtItems();
-  closeModal('m-nf-task');
-  toast(text+' hinzugefügt');
-}
-
-function saveNewFahrt(){
-  const date = document.getElementById('nf-date').value;
-  if(!date){toast('Bitte Datum wählen');return;}
-  const hasItems = _newFahrtItems.some(it=>!it.isTask);
-  const hasTasks = _newFahrtItems.some(it=>it.isTask);
-  if(!_newFahrtItems.length){toast('Bitte mindestens einen Artikel oder eine Aufgabe hinzufügen');return;}
-  const driverSel = document.getElementById('nf-driver');
-  const employee = (driverSel && driverSel.value) ? driverSel.value : (currentTaskUser ? currentTaskUser.name : '?');
-  const allDay = document.getElementById('nf-allday')?.checked ?? true;
-  const startTime = allDay ? '' : (document.getElementById('nf-starttime')?.value||'');
-  const endTime = allDay ? '' : (document.getElementById('nf-endtime')?.value||'');
-  const fahrt = {date, status:'offen', items:{}, createdAt:Date.now(), employee, allDay, ...(startTime?{startTime}:{}),...(endTime?{endTime}:{})};
-  _newFahrtItems.forEach((it,i)=>{
-    const key = 'item'+Date.now()+i;
-    if(it.isTask){
-      fahrt.items[key]={isTask:true, name:it.name, at:it.at||'AS', checked:false, ...(it.time?{time:it.time}:{})};
-    } else {
-      fahrt.items[key]={
-        name:it.name, menge:it.menge||1,
-        from:it.from||'AS', to:it.to||'LS',
-        isCustom:!!it.isCustom, inventoryItemId:it.inventoryItemId||null,
-        checked:false, rueckfahrt:!!it.rueckfahrt,
-        action:it.action||'einladen',
-        ...(it.photo?{photo:it.photo}:{})
-      };
-    }
-  });
-  if(db) db.ref('/logistikFahrten').push(fahrt).then(ref=>{
-    toast('Fahrt angelegt');
-    openFahrt(ref.key);
-  });
-}
-
-function createFahrt(){
-  // Legacy - redirects to new flow
-  saveNewFahrt();
-}
-
-function deleteFahrt(fid){
-  if(!confirm('Fahrt löschen?'))return;
-  if(db)db.ref('/logistikFahrten/'+fid).remove();
-  goToFahrten();
-  toast('Fahrt gelöscht');
-}
-
-let _addFahrtId=null,_addFahrtRouteKey=null,_addFahrtRouteFrom=null,_addFahrtRouteTo=null,_addFahrtAction='einladen',_addFahrtRouteGroupId=null;
-function openAddFahrtItem(fid,type,action,from,to,groupId){
-  _addFahrtId=fid;
-  _addFahrtAction=action||'einladen';
-  _addFahrtRouteFrom=from||null;
-  _addFahrtRouteTo=to||null;
-  _addFahrtRouteGroupId=groupId||null;
-  const actionLabel=_addFahrtAction==='ausladen'?'Ausladen':'Einladen';
-  const hasRoute=!!(from&&to);
-  const showAuch=hasRoute&&_addFahrtAction==='einladen';
-  // Smart default for ausladen destination: next logical location after 'to'
-  const _defAusDest=to==='AS'?'LS':to==='EG'?'LS':to==='LS'?'AS':'LS';
-  const _resetAuchAusladen=(sectionId,checkId,destId,toSelId)=>{
-    const sec=document.getElementById(sectionId);
-    const chk=document.getElementById(checkId);
-    const dest=document.getElementById(destId);
-    const toSel=document.getElementById(toSelId);
-    if(sec)sec.style.display=showAuch?'block':'none';
-    if(chk)chk.checked=false;
-    if(dest)dest.style.display='none';
-    if(toSel)toSel.value=_defAusDest;
-  };
-  if(type==='custom'){
-    document.getElementById('afi-name').value='';
-    document.getElementById('afi-menge').value='1';
-    const titleEl=document.querySelector('#m-add-fahrt-item-custom h2');
-    if(titleEl)titleEl.textContent='+ '+actionLabel+' (Eigener Artikel)';
-    const rs=document.getElementById('afi-route-section');
-    const ri=document.getElementById('afi-route-info');
-    if(rs)rs.style.display=hasRoute?'none':'block';
-    if(ri){ri.style.display=hasRoute?'flex':'none';if(hasRoute)ri.innerHTML=`<span style="font-size:11px;color:#888;font-weight:700">Route: </span><span style="margin-left:4px">${locRoute(from,to,false)}</span>`;}
-    if(!hasRoute&&from){const s=document.getElementById('afi-from');if(s){s.value=from;handleLocSelectChange('afi-from');}}
-    if(!hasRoute&&to){const s=document.getElementById('afi-to');if(s){s.value=to;handleLocSelectChange('afi-to');}}
-    _resetAuchAusladen('afi-auch-ausladen','afi-auch-aus-check','afi-auch-aus-dest','afi-auch-aus-to');
-    openModal('m-add-fahrt-item-custom');
-  } else {
-    const titleEl=document.querySelector('#m-add-fahrt-item-inv h2');
-    if(titleEl)titleEl.textContent='+ '+actionLabel+' (Inventar)';
-    const rs=document.getElementById('afi-inv-route-section');
-    const ri=document.getElementById('afi-inv-route-info');
-    if(rs)rs.style.display=hasRoute?'none':'block';
-    if(ri){ri.style.display=hasRoute?'flex':'none';if(hasRoute)ri.innerHTML=`<span style="font-size:11px;color:#888;font-weight:700">Route: </span><span style="margin-left:4px">${locRoute(from,to,false)}</span>`;}
-    if(!hasRoute&&from){const s=document.getElementById('afi-inv-from');if(s){s.value=from;handleLocSelectChange('afi-inv-from');}}
-    if(!hasRoute&&to){const s=document.getElementById('afi-inv-to');if(s){s.value=to;handleLocSelectChange('afi-inv-to');}}
-    _resetAuchAusladen('afi-inv-auch-ausladen','afi-inv-auch-aus-check','afi-inv-auch-aus-dest','afi-inv-auch-aus-to');
-    renderInventoryPicker(fid);
-    openModal('m-add-fahrt-item-inv');
-  }
-}
-
-function renderInventoryPicker(fid){
-  const list=document.getElementById('inv-picker-list'); if(!list)return;
-  let html='';
-  INV_CATS.forEach(cat=>{
-    const catItems=Object.entries(inventoryItems).filter(([,i])=>i.category===cat);
-    if(!catItems.length)return;
-    html+=`<div style="font-size:11px;font-weight:800;text-transform:uppercase;color:#aaa;padding:10px 0 4px">${escHtml(cat)}</div>`;
-    catItems.forEach(([iid,item])=>{
-      const photo=inventoryPhotos[iid];
-      html+=`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f5f5f5">
-        ${photo?`<img src="${photo}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;flex-shrink:0">`:''}
-        <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">${escHtml(item.name)}</div></div>
-        <input type="number" min="1" value="1" id="ip-${iid}" style="width:52px;border:1px solid #ddd;border-radius:8px;padding:5px;font-size:13px;text-align:center;font-family:inherit">
-        <button onclick="addFahrtInventoryItem('${fid}','${iid}')" style="background:#1565c0;color:#fff;border:none;border-radius:8px;padding:7px 13px;font-size:13px;font-weight:700;cursor:pointer">+</button>
-      </div>`;
-    });
-  });
-  if(!html)html='<div style="color:#ccc;font-size:13px;text-align:center;padding:24px">Noch kein Inventar angelegt.<br>Zuerst im Inventar-Tab Artikel anlegen.</div>';
-  list.innerHTML=html;
-}
-
-function addFahrtInventoryItem(fid,iid){
-  const menge=parseInt(document.getElementById('ip-'+iid).value)||1;
-  const item=inventoryItems[iid]; if(!item)return;
-  const from=_addFahrtRouteFrom||getLocValue('afi-inv-from');
-  const to=_addFahrtRouteTo||getLocValue('afi-inv-to');
-  const rueckfahrt=!!(document.getElementById('afi-inv-rueck')||{}).checked;
-  const comment=((document.getElementById('afi-inv-comment')||{}).value||'').trim();
-  const newItem={name:item.name,menge,from,to,checked:false,isCustom:false,inventoryItemId:iid,rueckfahrt,action:_addFahrtAction||'einladen'};
-  if(comment)newItem.comment=comment;
-  if(_addFahrtRouteGroupId)newItem.routeGroupId=_addFahrtRouteGroupId;
-  if(db)db.ref('/logistikFahrten/'+fid+'/items').push(newItem);
-  // "Direkt auch ausladen" option
-  const ausChk=document.getElementById('afi-inv-auch-aus-check');
-  if(ausChk&&ausChk.checked&&_addFahrtRouteTo){
-    const ausTo=(document.getElementById('afi-inv-auch-aus-to')||{}).value||'LS';
-    const ausItem={name:item.name,menge,from:_addFahrtRouteTo,to:ausTo,checked:false,isCustom:false,inventoryItemId:iid,action:'ausladen',createdAt:Date.now()};
-    if(comment)ausItem.comment=comment;
-    if(db)db.ref('/logistikFahrten/'+fid+'/items').push(ausItem);
-  }
-  const commentEl=document.getElementById('afi-inv-comment');
-  if(commentEl)commentEl.value='';
-  toast(escHtml(item.name)+' hinzugefügt ✓');
-}
-
-function moveFahrtGroup(fid,rk,dir){
-  const f=logistikFahrten[fid]; if(!f)return;
-  const rTimes=f.routeTimes||{};
-  const existingOrder=f.routeOrder||{};
-  // Collect all route keys (items + existing order keys + saved routes)
-  const rkSet=new Set();
-  Object.values(f.items||{}).forEach(i=>{
-    if(!i.isTask)rkSet.add(rtKey(i.from||f.from||'?',i.to||f.to||'?'));
-    else if(i.routeKey)rkSet.add(i.routeKey);
-  });
-  Object.keys(existingOrder).forEach(k=>rkSet.add(k));
-  Object.values(f.routes||{}).forEach(r=>rkSet.add(rtKey(r.from,r.to)));
-  // Sort using same logic as renderFahrtDetail
-  const sorted=[...rkSet].sort((ka,kb)=>{
-    const oa=existingOrder[ka],ob=existingOrder[kb];
-    if(oa!==undefined&&ob!==undefined)return oa-ob;
-    if(oa!==undefined)return -1; if(ob!==undefined)return 1;
-    const ta=rTimes[ka]||'',tb=rTimes[kb]||'';
-    if(!ta&&tb)return 1; if(ta&&!tb)return -1;
-    return ta.localeCompare(tb);
-  });
-  const idx=sorted.indexOf(rk); if(idx===-1)return;
-  const swapIdx=dir==='up'?idx-1:idx+1;
-  if(swapIdx<0||swapIdx>=sorted.length)return;
-  // Assign indices, then swap
-  const newOrder={};
-  sorted.forEach((k,i)=>newOrder[k]=i);
-  newOrder[rk]=swapIdx;
-  newOrder[sorted[swapIdx]]=idx;
-  if(db)db.ref('/logistikFahrten/'+fid+'/routeOrder').set(newOrder);
-}
-
-function moveStandaloneTask(fid,ikey,dir){
-  const f=logistikFahrten[fid]; if(!f)return;
-  const items=f.items||{};
-  const existingTaskOrder=f.taskOrder||{};
-  // All standalone tasks — stable sort: time first, then taskOrder, then key (stable tiebreaker)
-  const all=Object.entries(items)
-    .filter(([,i])=>i.isTask&&!i.routeKey)
-    .sort((a,b)=>{
-      const ta=a[1].time||'',tb=b[1].time||'';
-      if(ta||tb){
-        if(!ta&&tb)return 1; if(ta&&!tb)return -1;
-        if(ta!==tb)return ta.localeCompare(tb);
-      }
-      const oa=existingTaskOrder[a[0]],ob=existingTaskOrder[b[0]];
-      const ova=oa!==undefined?oa:9999,ovb=ob!==undefined?ob:9999;
-      if(ova!==ovb)return ova-ovb;
-      return a[0]<b[0]?-1:a[0]>b[0]?1:0; // stable key tiebreaker
-    });
-  if(all.length<2)return;
-  const idx=all.findIndex(([k])=>k===ikey); if(idx===-1)return;
-  const swapIdx=dir==='up'?idx-1:idx+1;
-  if(swapIdx<0||swapIdx>=all.length)return;
-  const newOrder={};
-  all.forEach(([k],i)=>newOrder[k]=i);
-  newOrder[ikey]=swapIdx;
-  newOrder[all[swapIdx][0]]=idx;
-  if(db)db.ref('/logistikFahrten/'+fid+'/taskOrder').set(newOrder);
-}
-
-function deleteRouteGroup(fid,rid){
-  if(!confirm('Fahrt löschen? Alle Artikel dieser Fahrt werden entfernt.'))return;
-  const f=logistikFahrten[fid]; if(!f)return;
-  const updates={};
-  updates['/logistikFahrten/'+fid+'/routes/'+rid]=null;
-  updates['/logistikFahrten/'+fid+'/routeTimes/'+rid]=null;
-  // Determine if legacy rtKey (contains '__') or push ID
-  const isRtKey=rid.indexOf('__')!==-1;
-  Object.entries(f.items||{}).forEach(([ikey,item])=>{
-    if(item.routeGroupId===rid){
-      updates['/logistikFahrten/'+fid+'/items/'+ikey]=null;
-    } else if(item.isTask&&item.routeKey===rid){
-      updates['/logistikFahrten/'+fid+'/items/'+ikey]=null;
-    } else if(isRtKey&&!item.routeGroupId&&!item.isTask){
-      const fr=item.from||f.from||'?',to=item.to||f.to||'?';
-      if(rtKey(fr,to)===rid)updates['/logistikFahrten/'+fid+'/items/'+ikey]=null;
-    }
-  });
-  // Clean up entryOrder
-  const eo={...(f.entryOrder||{})};
-  if(eo[rid]!==undefined){delete eo[rid];updates['/logistikFahrten/'+fid+'/entryOrder']=Object.keys(eo).length?eo:null;}
-  if(db)db.ref('/').update(updates);
-}
-
-function moveAnyEntry(fid,key,dir){
-  const f=logistikFahrten[fid]; if(!f)return;
-  // Build set of all route group keys
-  const rkSet=new Set();
-  const items=f.items||{};
-  Object.entries(items).forEach(([,i])=>{if(!i.isTask)rkSet.add(rtKey(i.from||f.from||'?',i.to||f.to||'?'));});
-  Object.values(f.routes||{}).forEach(r=>{if(r.from&&r.to)rkSet.add(rtKey(r.from,r.to));});
-  const rTimes=f.routeTimes||{};
-  const routeOrder=f.routeOrder||{};
-  const taskOrder=f.taskOrder||{};
-  const entryOrder=f.entryOrder||{};
-  // All moveable entries: groups + timeless standalone tasks
-  const timelessTasks=Object.entries(items).filter(([,i])=>i.isTask&&!i.routeKey);
-  const all=[
-    ...[...rkSet].map(rk=>({type:'group',rk})),
-    ...timelessTasks.map(([ikey,item])=>({type:'task',ikey,item}))
-  ];
-  // Sort same as renderFahrtDetail
-  all.sort((a,b)=>{
-    const sk=e=>{
-      const k=e.type==='group'?e.rk:e.ikey;
-      const eo=entryOrder[k];
-      if(eo!==undefined)return{pri:0,sec:eo,key:k};
-      if(e.type==='group'){const ro=routeOrder[e.rk];if(ro!==undefined)return{pri:0,sec:ro,key:e.rk};return{pri:1,sec:0,time:rTimes[e.rk]||''};}
-      const to_=taskOrder[e.ikey];return{pri:2,sec:to_!==undefined?to_:9999,key:e.ikey};
-    };
-    const ka=sk(a),kb=sk(b);
-    if(ka.pri!==kb.pri)return ka.pri-kb.pri;
-    if(ka.sec!==kb.sec)return ka.sec-kb.sec;
-    const ka_k=ka.key||'',kb_k=kb.key||'';return ka_k<kb_k?-1:ka_k>kb_k?1:0;
-  });
-  if(all.length<2)return;
-  const idx=all.findIndex(e=>(e.type==='group'?e.rk:e.ikey)===key);if(idx===-1)return;
-  const swapIdx=dir==='up'?idx-1:idx+1;
-  if(swapIdx<0||swapIdx>=all.length)return;
-  // Build unified entryOrder from current positions then swap
-  const newEO={};
-  all.forEach((e,i)=>{const k=e.type==='group'?e.rk:e.ikey;newEO[k]=i;});
-  newEO[key]=swapIdx;
-  newEO[all[swapIdx].type==='group'?all[swapIdx].rk:all[swapIdx].ikey]=idx;
-  if(db)db.ref('/logistikFahrten/'+fid+'/entryOrder').set(newEO);
-}
-
-function addAusladenFromEinladen(fid,einladenItemKey,fromLoc,toLoc,groupId){
-  const f=logistikFahrten[fid]; if(!f)return;
-  const src=f.items&&f.items[einladenItemKey]; if(!src)return;
-  const newItem={name:src.name,menge:src.menge||1,from:fromLoc||src.from||f.from||'AS',to:toLoc||src.to||f.to||'LS',checked:false,isCustom:!!src.isCustom,inventoryItemId:src.inventoryItemId||null,action:'ausladen',createdAt:Date.now()};
-  if(groupId)newItem.routeGroupId=groupId;
-  if(db)db.ref('/logistikFahrten/'+fid+'/items').push(newItem);
-}
-
-let _newRouteFid=null;
-function openNewFahrtRoute(fid){
-  _newRouteFid=fid;
-  const sf=document.getElementById('nfr-from');
-  const st=document.getElementById('nfr-to');
-  const ti=document.getElementById('nfr-time');
-  if(sf)sf.value='AS';
-  if(st)st.value='LS';
-  if(ti)ti.value='';
-  openModal('m-new-fahrt-route');
-}
-function saveNewFahrtRoute(){
-  if(!_newRouteFid)return;
-  const from=getLocValue('nfr-from');
-  const to=getLocValue('nfr-to');
-  if(!from||!to||from===to){toast('Bitte zwei verschiedene Standorte wählen');return;}
-  const timeVal=((document.getElementById('nfr-time')||{}).value||'').trim();
-  const routeData={from,to,createdAt:Date.now()};
-  if(db){
-    const newRef=db.ref('/logistikFahrten/'+_newRouteFid+'/routes').push(routeData);
-    const rid=newRef.key;
-    if(timeVal)db.ref('/logistikFahrten/'+_newRouteFid+'/routeTimes/'+rid).set(timeVal);
-  }
-  closeModal('m-new-fahrt-route');
-  toast('Fahrt erstellt');
-}
-
-function addFahrtCustomItem(){
-  const name=document.getElementById('afi-name').value.trim();
-  const menge=parseInt(document.getElementById('afi-menge').value)||1;
-  const from=_addFahrtRouteFrom||getLocValue('afi-from');
-  const to=_addFahrtRouteTo||getLocValue('afi-to');
-  const rueckfahrt=!!(document.getElementById('afi-rueck')||{}).checked;
-  const comment=((document.getElementById('afi-comment')||{}).value||'').trim();
-  if(!name){toast('Bitte Bezeichnung eingeben');return;}
-  const newItem={name,menge,from,to,checked:false,isCustom:true,rueckfahrt,action:_addFahrtAction||'einladen'};
-  if(comment)newItem.comment=comment;
-  if(_afiPhotoData)newItem.photo=_afiPhotoData;
-  if(_addFahrtRouteGroupId)newItem.routeGroupId=_addFahrtRouteGroupId;
-  if(db)db.ref('/logistikFahrten/'+_addFahrtId+'/items').push(newItem);
-  // "Direkt auch ausladen" option
-  const ausChk2=document.getElementById('afi-auch-aus-check');
-  if(ausChk2&&ausChk2.checked&&_addFahrtRouteTo){
-    const ausTo2=(document.getElementById('afi-auch-aus-to')||{}).value||'LS';
-    const ausItem2={name,menge,from:_addFahrtRouteTo,to:ausTo2,checked:false,isCustom:true,action:'ausladen',createdAt:Date.now()};
-    if(comment)ausItem2.comment=comment;
-    if(db)db.ref('/logistikFahrten/'+_addFahrtId+'/items').push(ausItem2);
-  }
-  _afiPhotoData=null;
-  closeModal('m-add-fahrt-item-custom');
-  toast(escHtml(name)+' hinzugefügt ✓');
-}
-
-function deleteFahrtItem(fid,ikey){
-  if(db)db.ref('/logistikFahrten/'+fid+'/items/'+ikey).remove();
-}
-
-function uploadFahrtItemPhoto(fid,ikey,input){
-  const file=input.files[0]; if(!file)return;
-  const reader=new FileReader();
-  reader.onload=e=>{if(db)db.ref('/logistikFahrten/'+fid+'/items/'+ikey+'/photo').set(e.target.result);};
-  reader.readAsDataURL(file);
-}
-
-let _fahrtEditMode = false;
-
-const _pencilSvg=`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>`;
-function toggleFahrtEditMode(){
-  _fahrtEditMode = !_fahrtEditMode;
-  const btn = document.getElementById('lg-fahrt-edit-btn');
-  if(btn){
-    if(_fahrtEditMode){
-      btn.textContent='Fertig';
-      btn.style.cssText='background:#e65100;border:none;color:#fff;font-size:12px;font-weight:800;cursor:pointer;padding:5px 12px;border-radius:8px;font-family:inherit';
-    } else {
-      btn.innerHTML=_pencilSvg;
-      btn.style.cssText='background:rgba(255,255,255,.15);border:none;color:#fff;cursor:pointer;padding:6px 8px;border-radius:8px;line-height:0;display:flex;align-items:center;justify-content:center';
-    }
-  }
-  if(currentFahrtId) renderFahrtDetail();
-}
-
-function updateFahrtEmployee(fid,val){
-  if(!val)return;
-  if(val==='__custom__'){
-    const name=prompt('Name des Fahrers:');
-    if(!name||!name.trim())return;
-    val=name.trim();
-  }
-  if(db)db.ref('/logistikFahrten/'+fid+'/employee').set(val);
-  toast('Fahrer aktualisiert');
-}
-function updateFahrtAllDay(fid,isAllDay){
-  if(db){
-    db.ref('/logistikFahrten/'+fid+'/allDay').set(isAllDay);
-    if(isAllDay){db.ref('/logistikFahrten/'+fid+'/startTime').remove();db.ref('/logistikFahrten/'+fid+'/endTime').remove();}
-  }
-}
-let _fahrtInfoLock=0; // timestamp — suppress info re-render for 2s after a time write
-function updateFahrtTime(fid,time){
-  _fahrtInfoLock=Date.now()+2000;
-  if(db){db.ref('/logistikFahrten/'+fid+'/startTime').set(time);db.ref('/logistikFahrten/'+fid+'/allDay').set(false);}
-}
-function updateFahrtEndTime(fid,time){
-  _fahrtInfoLock=Date.now()+2000;
-  if(!db)return;
-  if(time)db.ref('/logistikFahrten/'+fid+'/endTime').set(time);
-  else db.ref('/logistikFahrten/'+fid+'/endTime').remove();
-}
-function saveFahrtTimes(fid){
-  const s=(document.getElementById('fhdr-start-'+fid)||{}).value||'';
-  const e=(document.getElementById('fhdr-end-'+fid)||{}).value||'';
-  if(!s){toast('Bitte mindestens eine Startzeit eingeben');return;}
-  updateFahrtTime(fid,s);
-  updateFahrtEndTime(fid,e);
-  toast('Uhrzeit gespeichert ✓');
-}
-function saveRouteTimeFn(fid,rk,inputId){
-  const val=(document.getElementById(inputId)||{}).value||'';
-  updateRouteTime(fid,rk,val);
-  toast(val?val+' Uhr gespeichert ✓':'Uhrzeit entfernt');
-}
-function rtKey(from,to){
-  return (from||'?').replace(/[^a-zA-Z0-9]/g,'_')+'__'+(to||'?').replace(/[^a-zA-Z0-9]/g,'_');
-}
-function updateRouteTime(fid,rk,time){
-  _fahrtInfoLock=Date.now()+2000;
-  if(!db)return;
-  const ref=db.ref('/logistikFahrten/'+fid+'/routeTimes/'+rk);
-  if(time)ref.set(time);else ref.remove();
-}
-function toggleFahrtTask(fid,ikey){
-  const f=logistikFahrten[fid]; if(!f||f.status==='abgeschlossen')return;
-  const item=(f.items||{})[ikey]; if(!item)return;
-  if(db)db.ref('/logistikFahrten/'+fid+'/items/'+ikey+'/checked').set(!item.checked);
-}
-function openAddFahrtTask(fid,rk,routeFrom,routeTo){
-  _addFahrtId=fid;
-  _addFahrtRouteKey=rk||null;
-  _addFahrtRouteFrom=routeFrom||null;
-  _addFahrtRouteTo=routeTo||null;
-  document.getElementById('afi-task-text').value='';
-  document.getElementById('afi-task-time').value='';
-  document.getElementById('afi-task-note').value='';
-  const routeInfoEl=document.getElementById('afi-task-route-info');
-  const atSectionEl=document.getElementById('afi-task-at-section');
-  if(rk&&routeFrom&&routeTo){
-    const frN=locDisplayName(routeFrom);
-    const toN=locDisplayName(routeTo);
-    if(routeInfoEl)routeInfoEl.innerHTML=`<div style="background:#f0f4ff;border-radius:8px;padding:8px 12px;margin-bottom:14px">
-      <span style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px">Aufgabe für Route</span>
-      ${locRoute(routeFrom,routeTo)}
-    </div>`;
-    if(routeInfoEl)routeInfoEl.style.display='block';
-    if(atSectionEl)atSectionEl.style.display='none';
-  } else {
-    if(routeInfoEl)routeInfoEl.style.display='none';
-    if(atSectionEl)atSectionEl.style.display='block';
-    const sel=document.getElementById('afi-task-at');
-    if(sel){sel.value='AS';handleLocSelectChange('afi-task-at');}
-  }
-  openModal('m-afi-task');
-  setTimeout(()=>document.getElementById('afi-task-text').focus(),100);
-}
-function saveAddFahrtTask(){
-  const text=document.getElementById('afi-task-text').value.trim();
-  if(!text){toast('Bitte Aufgabe eingeben');return;}
-  const time=(document.getElementById('afi-task-time').value||'').trim();
-  const note=((document.getElementById('afi-task-note')||{}).value||'').trim();
-  let newItem;
-  if(_addFahrtRouteKey){
-    newItem={isTask:true,name:text,checked:false,routeKey:_addFahrtRouteKey,routeFrom:_addFahrtRouteFrom||'?',routeTo:_addFahrtRouteTo||'?',...(time?{time}:{}),...(note?{comment:note}:{})};
-  } else {
-    const at=getLocValue('afi-task-at');
-    newItem={isTask:true,name:text,at,checked:false,...(time?{time}:{}),...(note?{comment:note}:{})};
-  }
-  if(db)db.ref('/logistikFahrten/'+_addFahrtId+'/items').push(newItem);
-  closeModal('m-afi-task');
-  toast(text+' hinzugefügt ✓');
-}
-
-let _rueckFid=null,_rueckIkey=null;
-function toggleRueckfahrt(fid,ikey,val){
-  if(val){
-    _rueckFid=fid; _rueckIkey=ikey;
-    document.getElementById('rueck-item-date').value='';
-    document.getElementById('rueck-item-starttime').value='';
-    document.getElementById('rueck-item-endtime').value='';
-    const alldayChk=document.getElementById('rueck-item-allday');
-    if(alldayChk){alldayChk.checked=true;document.getElementById('rueck-item-times').style.display='none';}
-    const amRad=document.getElementById('rueck-type-am');
-    if(amRad)amRad.checked=true;
-    openModal('m-rueck-item-date');
-  } else {
-    if(db){
-      db.ref('/logistikFahrten/'+fid+'/items/'+ikey+'/rueckfahrt').set(false);
-      db.ref('/logistikFahrten/'+fid+'/items/'+ikey+'/rueckfahrtDate').remove();
-      db.ref('/logistikFahrten/'+fid+'/items/'+ikey+'/rueckfahrtDateType').remove();
-    }
-  }
-}
-function confirmRueckItemDate(){
-  const date=document.getElementById('rueck-item-date').value;
-  if(!date){toast('Bitte Datum wählen');return;}
-  const typeEl=document.querySelector('input[name="rueck-item-type"]:checked');
-  const type=typeEl?typeEl.value:'am';
-  const fid=_rueckFid, ikey=_rueckIkey;
-  const f=logistikFahrten[fid]; if(!f||!db)return;
-  const item=(f.items||{})[ikey]; if(!item)return;
-  // Save flags on item
-  db.ref('/logistikFahrten/'+fid+'/items/'+ikey).update({rueckfahrt:true,rueckfahrtDate:date,rueckfahrtDateType:type});
-  // Find existing return Fahrt for same date+type
-  const existing=Object.entries(logistikFahrten).find(([rfid,rf])=>
-    rf.isRueckfahrt&&rf.date===date&&rf.rueckfahrtDateType===type
-  );
-  const reversedItem={
-    name:item.name, menge:item.menge||1,
-    from:item.to||'AS', to:item.from||'EG',
-    isCustom:!!item.isCustom, inventoryItemId:item.inventoryItemId||null,
-    checked:false, rueckfahrt:false
-  };
-  const allDay=document.getElementById('rueck-item-allday')?.checked!==false;
-  const startTime=document.getElementById('rueck-item-starttime')?.value||'';
-  const endTime=document.getElementById('rueck-item-endtime')?.value||'';
-  if(existing){
-    db.ref('/logistikFahrten/'+existing[0]+'/items').push(reversedItem);
-    toast('Zu bestehender Rückfahrt hinzugefügt');
-  } else {
-    const newF={date,status:'offen',items:{},createdAt:Date.now(),
-      employee:f.employee||'',isRueckfahrt:true,rueckfahrtDateType:type,originalFahrtId:fid,
-      allDay:allDay?true:false};
-    if(!allDay&&startTime) newF.startTime=startTime;
-    if(!allDay&&endTime) newF.endTime=endTime;
-    newF.items['item'+Date.now()]=reversedItem;
-    db.ref('/logistikFahrten').push(newF);
-    toast('Rückfahrt angelegt');
-  }
-  closeModal('m-rueck-item-date');
-}
-
-function updateFahrtDate(fid,val){
-  if(!val)return;
-  if(db)db.ref('/logistikFahrten/'+fid+'/date').set(val);
-  toast('Datum aktualisiert');
-}
-
-function createRueckfahrt(fid){
-  const f=logistikFahrten[fid]; if(!f)return;
-  const items=Object.values(f.items||{}).filter(it=>it.rueckfahrt);
-  if(!items.length){toast('Kein Artikel mit Rückfahrt markiert');return;}
-  const fahrt={date:'',status:'offen',items:{},createdAt:Date.now(),
-    employee:f.employee||'?',isRueckfahrt:true,originalFahrtId:fid};
-  items.forEach((it,i)=>{
-    const key='item'+Date.now()+i;
-    fahrt.items[key]={
-      name:it.name, menge:it.menge||1,
-      from:it.to||'LS',  // reversed
-      to:it.from||'AS',  // reversed
-      isCustom:!!it.isCustom,
-      inventoryItemId:it.inventoryItemId||null,
-      checked:false, rueckfahrt:false
-    };
-  });
-  if(db)db.ref('/logistikFahrten').push(fahrt).then(ref=>{
-    toast('Rückfahrt angelegt — Datum bitte noch setzen');
-    openFahrt(ref.key);
-  });
-}
-
-// ── ITEM ACTIONS (···) ────────────────────────────────────────────
-let _iakFid=null, _iakKey=null;
-
-function openItemActions(fid,ikey){
-  _iakFid=fid; _iakKey=ikey;
-  openModal('m-item-actions');
-}
-
-// Task actions (···)
-let _takFid=null, _takKey=null;
-function openTaskActions(fid,ikey){
-  _takFid=fid; _takKey=ikey;
-  openModal('m-task-actions');
-}
-function taskActionDelete(){
-  closeModal('m-task-actions');
-  if(db)db.ref('/logistikFahrten/'+_takFid+'/items/'+_takKey).remove();
-  toast('Aufgabe gelöscht');
-}
-function taskActionEdit(){
-  closeModal('m-task-actions');
-  const f=logistikFahrten[_takFid]; if(!f)return;
-  const item=(f.items||{})[_takKey]; if(!item)return;
-  document.getElementById('etak-text').value=item.name||'';
-  document.getElementById('etak-time').value=item.time||'';
-  openModal('m-edit-fahrt-task');
-}
-function saveEditFahrtTask(){
-  const name=document.getElementById('etak-text').value.trim();
-  if(!name){toast('Bitte Aufgabe eingeben');return;}
-  const time=(document.getElementById('etak-time').value||'').trim();
-  const updates={[`/logistikFahrten/${_takFid}/items/${_takKey}/name`]:name};
-  if(time) updates[`/logistikFahrten/${_takFid}/items/${_takKey}/time`]=time;
-  else updates[`/logistikFahrten/${_takFid}/items/${_takKey}/time`]=null;
-  if(db)db.ref('/').update(updates);
-  closeModal('m-edit-fahrt-task');
-  toast('Aufgabe gespeichert');
-}
-
-function itemActionEdit(){
-  closeModal('m-item-actions');
-  const f=logistikFahrten[_iakFid]; if(!f)return;
-  const item=(f.items||{})[_iakKey]; if(!item)return;
-  // Populate edit modal
-  document.getElementById('efi-name').value=item.name||'';
-  document.getElementById('efi-menge').value=item.menge||1;
-  document.getElementById('efi-time').value=item.itemTime||'';
-  document.getElementById('efi-rueck').checked=!!item.rueckfahrt;
-  document.getElementById('efi-comment').value=item.comment||'';
-  // Route from
-  const fromSel=document.getElementById('efi-from');
-  const fromCustom=document.getElementById('efi-from-custom');
-  const knownFrom=['AS','EG','LS'].includes(item.from||'');
-  fromSel.value=knownFrom?(item.from||'AS'):'__custom__';
-  fromCustom.style.display=knownFrom?'none':'block';
-  fromCustom.value=knownFrom?'':(item.from||'');
-  // Route to
-  const toSel=document.getElementById('efi-to');
-  const toCustom=document.getElementById('efi-to-custom');
-  const knownTo=['AS','EG','LS'].includes(item.to||'');
-  toSel.value=knownTo?(item.to||'LS'):'__custom__';
-  toCustom.style.display=knownTo?'none':'block';
-  toCustom.value=knownTo?'':(item.to||'');
-  openModal('m-edit-fahrt-item');
-}
-function saveEditFahrtItem(){
-  const f=logistikFahrten[_iakFid]; if(!f)return;
-  const item=(f.items||{})[_iakKey]; if(!item)return;
-  const name=document.getElementById('efi-name').value.trim();
-  if(!name){toast('Bezeichnung eingeben');return;}
-  const menge=Math.max(1,parseInt(document.getElementById('efi-menge').value)||1);
-  const from=getLocValue('efi-from');
-  const to=getLocValue('efi-to');
-  if(from===to){toast('Von und Nach müssen verschieden sein');return;}
-  const time=(document.getElementById('efi-time').value||'').trim();
-  const rueckfahrt=document.getElementById('efi-rueck').checked;
-  const comment=document.getElementById('efi-comment').value.trim();
-  const updates={
-    [`/logistikFahrten/${_iakFid}/items/${_iakKey}/name`]:name,
-    [`/logistikFahrten/${_iakFid}/items/${_iakKey}/menge`]:menge,
-    [`/logistikFahrten/${_iakFid}/items/${_iakKey}/from`]:from,
-    [`/logistikFahrten/${_iakFid}/items/${_iakKey}/to`]:to,
-    [`/logistikFahrten/${_iakFid}/items/${_iakKey}/rueckfahrt`]:rueckfahrt,
-  };
-  if(time) updates[`/logistikFahrten/${_iakFid}/items/${_iakKey}/itemTime`]=time;
-  else if(item.itemTime) updates[`/logistikFahrten/${_iakFid}/items/${_iakKey}/itemTime`]=null;
-  if(comment) updates[`/logistikFahrten/${_iakFid}/items/${_iakKey}/comment`]=comment;
-  else if(item.comment) updates[`/logistikFahrten/${_iakFid}/items/${_iakKey}/comment`]=null;
-  if(db) db.ref('/').update(updates);
-  closeModal('m-edit-fahrt-item');
-  toast('Gespeichert ✓');
-}
-function itemActionComment(){
-  closeModal('m-item-actions');
-  const f=logistikFahrten[_iakFid]; if(!f)return;
-  const existing=(f.items&&f.items[_iakKey]&&f.items[_iakKey].staffComment)||'';
-  document.getElementById('iak-comment-text').value=existing;
-  openModal('m-item-comment');
-  setTimeout(()=>document.getElementById('iak-comment-text').focus(),100);
-}
-
-function saveItemComment(){
-  const text=document.getElementById('iak-comment-text').value.trim();
-  if(db)db.ref('/logistikFahrten/'+_iakFid+'/items/'+_iakKey+'/staffComment').set(text||null);
-  closeModal('m-item-comment');
-  toast('Kommentar gespeichert');
-}
-
-function itemActionPhoto(){
-  closeModal('m-item-actions');
-  document.getElementById('iak-photo-input').click();
-}
-
-function _iakPhotoSelected(input){
+function _aliPhotoSelected(input){
   const file=input.files[0]; if(!file)return;
   const reader=new FileReader();
   reader.onload=e=>{
-    if(db)db.ref('/logistikFahrten/'+_iakFid+'/items/'+_iakKey+'/staffPhoto').set(e.target.result);
-    toast('Mitarbeiter-Foto gespeichert');
+    _aliPhotoData=e.target.result;
+    const nm=document.getElementById('ali-photo-name');
+    if(nm)nm.textContent=file.name;
   };
   reader.readAsDataURL(file);
 }
 
-// Photo viewer
+function saveAddLgItem(){
+  const name=(document.getElementById('ali-name').value||'').trim();
+  if(!name){toast('Bitte Beschreibung eingeben');return;}
+  const loc=getLocValue('ali-loc');
+  const entry={type:_lgItemType,loc,name,checked:false,createdAt:Date.now()};
+  if(_lgItemType!=='todo'){
+    entry.destLoc=getLocValue('ali-dest');
+  }
+  const comment=(document.getElementById('ali-comment').value||'').trim();
+  if(comment)entry.comment=comment;
+  const date=(document.getElementById('ali-date').value||'');
+  if(date)entry.date=date;
+  if(_aliPhotoData)entry.photo=_aliPhotoData;
+  closeModal('m-add-lg-item');
+  if(db)db.ref('/logistikItems').push(entry).then(()=>toast('Eintrag gespeichert'));
+  _aliPhotoData=null;
+}
+
+
 function openPhotoViewer(src){
   const pv=document.getElementById('photo-viewer');
   const pi=document.getElementById('photo-viewer-img');
@@ -8125,18 +6612,6 @@ function closePhotoViewer(){
 }
 
 // Creation photo helpers
-let _afiPhotoData=null;
-function _afiPhotoSelected(input){
-  const file=input.files[0]; if(!file)return;
-  const reader=new FileReader();
-  reader.onload=e=>{
-    _afiPhotoData=e.target.result;
-    const nm=document.getElementById('afi-photo-name');
-    if(nm)nm.textContent=file.name;
-  };
-  reader.readAsDataURL(file);
-}
-
 // ── INVENTAR SEED ─────────────────────────────────────────────────
 const _SEED_ITEMS = {
   'moebel_barhocker':          {name:'Barhocker', category:'MÖBEL'},
@@ -8520,549 +6995,62 @@ function saveInventoryItem(){
       <div class="order-hdr-title">Logistik</div>
     </div>
     <div style="display:flex;border-top:1px solid rgba(255,255,255,.15)">
-      <button id="lg-tab-fahrten" onclick="setLogistikTab('fahrten')" style="flex:1;background:none;border:none;border-bottom:2px solid #fff;color:#fff;padding:10px;font-size:13px;font-weight:700;cursor:pointer">Logistikfahrten</button>
+      <button id="lg-tab-items" onclick="setLogistikTab('items')" style="flex:1;background:none;border:none;border-bottom:2px solid #fff;color:#fff;padding:10px;font-size:13px;font-weight:700;cursor:pointer">Logistik</button>
       <button id="lg-tab-inventar" onclick="setLogistikTab('inventar')" style="flex:1;background:none;border:none;border-bottom:2px solid transparent;color:#fff;padding:10px;font-size:13px;font-weight:700;opacity:.55;cursor:pointer">Inventar</button>
     </div>
   </div>
   <div class="main" id="lg-content" style="padding-bottom:80px"></div>
-  <div id="lg-fab" style="display:none;position:fixed;bottom:24px;right:20px;z-index:200;display:flex;flex-direction:column;align-items:flex-end;gap:8px">
-    <button onclick="openNewLgAufgabe()" style="background:#fff;color:#1e3a6e;border:1.5px solid #1e3a6e;border-radius:20px;padding:8px 16px;font-size:12px;font-weight:800;box-shadow:0 2px 8px rgba(0,0,0,.15);cursor:pointer;font-family:inherit;white-space:nowrap">+ Aufgabe</button>
-    <button onclick="logistikFahrtAddBtn()" style="background:#1e3a6e;color:#fff;border:none;border-radius:50%;width:56px;height:56px;font-size:26px;box-shadow:0 4px 16px rgba(0,0,0,.3);cursor:pointer;line-height:1">+</button>
+  <div id="lg-fab" style="display:none;position:fixed;bottom:24px;right:20px;z-index:200">
+    <button onclick="openAddLgItem()" style="background:#1e3a6e;color:#fff;border:none;border-radius:50%;width:56px;height:56px;font-size:26px;box-shadow:0 4px 16px rgba(0,0,0,.3);cursor:pointer;line-height:1">+</button>
   </div>
 </div>
-<!-- LOGISTIK FAHRT PIN MODAL -->
-<div class="overlay" id="m-logistik-leader-pin">
-  <div class="modal">
-    <h2>Neue Fahrt erstellen</h2>
-    <p style="font-size:13px;color:#666;margin-bottom:16px">Gib deinen persönlichen Code ein, um eine Fahrt hinzuzufügen.</p>
-    <div class="pin-row" id="lgp-dots" style="justify-content:center;margin-bottom:8px">
-      <div class="pin-dot" id="lgp0"></div><div class="pin-dot" id="lgp1"></div>
-      <div class="pin-dot" id="lgp2"></div><div class="pin-dot" id="lgp3"></div>
-    </div>
-    <div id="lgp-error" style="color:#ea4335;text-align:center;font-size:13px;min-height:18px;margin-bottom:8px"></div>
-    <div class="pin-grid">
-      <button class="pin-btn" onclick="lgpKey('1')">1</button><button class="pin-btn" onclick="lgpKey('2')">2</button><button class="pin-btn" onclick="lgpKey('3')">3</button>
-      <button class="pin-btn" onclick="lgpKey('4')">4</button><button class="pin-btn" onclick="lgpKey('5')">5</button><button class="pin-btn" onclick="lgpKey('6')">6</button>
-      <button class="pin-btn" onclick="lgpKey('7')">7</button><button class="pin-btn" onclick="lgpKey('8')">8</button><button class="pin-btn" onclick="lgpKey('9')">9</button>
-      <button class="pin-btn" style="visibility:hidden"></button><button class="pin-btn" onclick="lgpKey('0')">0</button><button class="pin-btn" onclick="lgpKey('⌫')">⌫</button>
-    </div>
-    <button class="mbtn grey" onclick="closeModal('m-logistik-leader-pin')" style="margin-top:10px">Abbrechen</button>
-  </div>
-</div>
-
-<!-- LOGISTIK FAHRT DETAIL SCREEN -->
-<div id="logistik-fahrt-screen">
-  <div class="order-hdr" style="background:#1e3a6e">
-    <div class="order-hdr-top">
-      <button class="back-btn" onclick="goToFahrten()">← Fahrten</button>
-      <div class="order-hdr-title" id="lg-fahrt-title">Fahrt</div>
-      <button id="lg-fahrt-edit-btn" onclick="toggleFahrtEditMode()" style="background:rgba(255,255,255,.15);border:none;color:#fff;cursor:pointer;padding:6px 8px;border-radius:8px;line-height:0;display:flex;align-items:center;justify-content:center"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>
-      <button id="lg-fahrt-del-btn" onclick="" style="display:none;background:none;border:none;color:rgba(255,255,255,.7);font-size:20px;cursor:pointer;padding:0 4px">×</button>
-    </div>
-    <div style="background:rgba(255,255,255,.18);height:3px;margin:2px 16px 0;border-radius:2px"><div id="lg-fahrt-prog-bar" style="height:3px;background:#fff;border-radius:2px;transition:width .4s;width:0%"></div></div>
-    <div style="padding:4px 16px 6px;display:flex;justify-content:space-between;align-items:center">
-      <span id="lg-fahrt-prog-text" style="font-size:11px;font-weight:700;color:rgba(255,255,255,.75)">0 / 0 erledigt</span>
-    </div>
-  </div>
-  <div class="main" style="padding-bottom:80px">
-    <div id="lg-fahrt-info" style="background:#f8f9fa;padding:12px 16px 8px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:0;position:relative"></div>
-    <div id="lg-fahrt-items"></div>
-    <div id="lg-fahrt-add-btns" style="padding:0 14px 14px;display:flex;flex-direction:column;gap:8px"></div>
-  </div>
-  <div id="lg-fahrt-footer" style="position:sticky;bottom:0;background:#fff;border-top:1px solid #eee;padding:12px 14px"></div>
-</div>
-
-<!-- NEW FAHRT SCREEN -->
-<div id="logistik-new-fahrt-screen">
-  <div class="order-hdr" style="background:#1e3a6e">
-    <div class="order-hdr-top">
-      <button class="back-btn" onclick="showScreen('logistik-screen');_updateLgTabs();renderFahrten()">← Zurück</button>
-      <div class="order-hdr-title">Neue Fahrt</div>
-      <button onclick="saveNewFahrt()" style="background:none;border:none;color:#fff;font-size:13px;font-weight:800;cursor:pointer;padding:4px 8px;font-family:inherit">Anlegen</button>
-    </div>
-  </div>
-  <div class="main" style="padding:16px;padding-bottom:120px">
-    <!-- Date prominent at top -->
-    <div style="margin-bottom:20px">
-      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:6px">Datum</div>
-      <input type="date" id="nf-date" style="width:100%;border:1.5px solid #e0e0e0;border-radius:12px;padding:13px 14px;font-size:16px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
-    </div>
-    <!-- Time -->
-    <div style="margin-bottom:20px">
-      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:8px">Uhrzeit</div>
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
-          <input type="checkbox" id="nf-allday" checked onchange="var r=document.getElementById('nf-time-row');r.style.display=this.checked?'none':'flex'" style="width:16px;height:16px;accent-color:#1565c0">
-          <span style="font-size:13px;font-weight:700;color:#555">Ganztägig</span>
-        </label>
-        <div id="nf-time-row" style="display:none;align-items:center;gap:8px">
-          <input type="time" id="nf-starttime" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px 12px;font-size:14px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
-          <span style="color:#bbb;font-size:14px;font-weight:700">–</span>
-          <input type="time" id="nf-endtime" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px 12px;font-size:14px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
-        </div>
-        <div style="font-size:11px;color:#bbb;margin-top:-4px">Von – Bis (Ende optional)</div>
-      </div>
-    </div>
-    <div style="margin-bottom:14px">
-      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:6px">Fahrer</div>
-      <select id="nf-driver" style="width:100%;border:1.5px solid #e0e0e0;border-radius:12px;padding:13px 14px;font-size:15px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit"></select>
-    </div>
-    <!-- Items grouped by route -->
-    <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:8px">Artikel &amp; Aufgaben</div>
-    <div id="nf-items-list"></div>
-    <!-- Add buttons -->
-    <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
-      <button onclick="nfOpenInventoryPicker()" style="background:#e8f0fe;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;color:#1565c0;cursor:pointer;width:100%;font-family:inherit">+ Aus Inventar wählen</button>
-      <button onclick="openNfCustomModal()" style="background:#f8f9fa;border:1.5px dashed #ddd;border-radius:12px;padding:13px;font-size:14px;font-weight:700;color:#555;cursor:pointer;width:100%;font-family:inherit">+ Eigener Artikel</button>
-      <button onclick="openNfTaskModal()" style="background:#e8f0fe;border:1.5px solid #1565c0;border-radius:12px;padding:13px;font-size:14px;font-weight:700;color:#1565c0;cursor:pointer;width:100%;font-family:inherit">+ Aufgabe hinzufügen</button>
-    </div>
-  </div>
-  <div style="position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #eee;padding:12px 16px;max-width:480px;margin:0 auto">
-    <button onclick="saveNewFahrt()" style="width:100%;background:#1565c0;color:#fff;border:none;border-radius:12px;padding:15px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit">Fahrt anlegen</button>
-  </div>
-</div>
-
-<!-- STANDALONE LG AUFGABE MODAL -->
-<div class="overlay" id="m-lg-aufgabe">
-  <div class="modal">
-    <h2>Neue Aufgabe</h2>
-    <label class="tform-lbl">Beschreibung</label>
-    <input type="text" class="tform-input" id="lga-name" placeholder="z.B. Auto abholen" style="font-family:inherit">
-    <label class="tform-lbl">Datum</label>
-    <input type="date" class="tform-input" id="lga-date" style="font-family:inherit">
-    <label class="tform-lbl">Uhrzeit (optional)</label>
-    <input type="time" class="tform-input" id="lga-time" style="font-family:inherit">
-    <label class="tform-lbl">Kommentar (optional)</label>
-    <textarea class="tform-input" id="lga-comment" rows="3" placeholder="Zusätzliche Infos..." style="font-family:inherit;resize:vertical"></textarea>
-    <button class="mbtn" onclick="saveLgAufgabe()">Speichern</button>
-    <button class="mbtn grey" onclick="closeModal('m-lg-aufgabe')">Abbrechen</button>
-  </div>
-</div>
-
-<!-- NF INVENTORY PICKER MODAL -->
-<div class="overlay" id="m-nf-inv-picker">
-  <div class="modal" style="max-height:85vh;display:flex;flex-direction:column">
-    <h2>Inventarartikel hinzufügen</h2>
-    <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:#888;margin-bottom:6px">Route</div>
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-      <div style="flex:1;display:flex;flex-direction:column">
-        <select id="nf-inv-from" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit" onchange="handleLocSelectChange('nf-inv-from')">
-          <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
-          <option value="__custom__">Eigene Adresse…</option>
-        </select>
-        <input type="text" id="nf-inv-from-custom" placeholder="Name oder Adresse" style="display:none;margin-top:6px;border:1.5px solid #1565c0;border-radius:10px;padding:8px 10px;font-size:12px;font-family:inherit;box-sizing:border-box">
-      </div>
-      <span style="color:#888;font-weight:700;flex-shrink:0">→</span>
-      <div style="flex:1;display:flex;flex-direction:column">
-        <select id="nf-inv-to" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit" onchange="handleLocSelectChange('nf-inv-to')">
-          <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS" selected>LAKESIDE</option>
-          <option value="__custom__">Eigene Adresse…</option>
-        </select>
-        <input type="text" id="nf-inv-to-custom" placeholder="Name oder Adresse" style="display:none;margin-top:6px;border:1.5px solid #1565c0;border-radius:10px;padding:8px 10px;font-size:12px;font-family:inherit;box-sizing:border-box">
-      </div>
-    </div>
-    <div style="margin-bottom:8px">
-      <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:#888;margin-bottom:6px">Aktion</div>
-      <div style="display:flex;gap:8px">
-        <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:9px;border:1.5px solid #e0e0e0;border-radius:10px;cursor:pointer">
-          <input type="radio" name="nf-inv-action" value="einladen" checked style="accent-color:#2e7d32">
-          <span style="font-size:13px;font-weight:700;color:#2e7d32">Einladen</span>
-        </label>
-        <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:9px;border:1.5px solid #e0e0e0;border-radius:10px;cursor:pointer">
-          <input type="radio" name="nf-inv-action" value="ausladen" style="accent-color:#c62828">
-          <span style="font-size:13px;font-weight:700;color:#c62828">Ausladen</span>
-        </label>
-      </div>
-    </div>
-    <div id="nf-inv-picker-list" style="overflow-y:auto;flex:1;margin-bottom:10px"></div>
-    <button class="mbtn grey" onclick="closeModal('m-nf-inv-picker')">Schließen</button>
-  </div>
-</div>
-
-<!-- NF CUSTOM ITEM MODAL -->
-<div class="overlay" id="m-nf-custom-item">
-  <div class="modal">
-    <h2>Eigener Artikel</h2>
-    <label class="tform-lbl">Bezeichnung</label>
-    <input type="text" class="tform-input" id="nf-custom-name" placeholder="z.B. Kabeltrommel" style="font-family:inherit">
-    <label class="tform-lbl">Menge</label>
-    <input type="number" class="tform-input" id="nf-custom-menge" value="1" min="1" style="font-family:inherit">
-    <label class="tform-lbl">Route</label>
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-      <div style="flex:1;display:flex;flex-direction:column">
-        <select id="nf-custom-from" style="border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit" onchange="handleLocSelectChange('nf-custom-from')">
-          <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
-          <option value="__custom__">Eigene Adresse…</option>
-        </select>
-        <input type="text" id="nf-custom-from-custom" placeholder="Name oder Adresse" style="display:none;margin-top:6px;border:1.5px solid #1565c0;border-radius:10px;padding:8px 10px;font-size:12px;font-family:inherit;box-sizing:border-box">
-      </div>
-      <span style="color:#888;font-weight:700;flex-shrink:0">→</span>
-      <div style="flex:1;display:flex;flex-direction:column">
-        <select id="nf-custom-to" style="border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit" onchange="handleLocSelectChange('nf-custom-to')">
-          <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS" selected>LAKESIDE</option>
-          <option value="__custom__">Eigene Adresse…</option>
-        </select>
-        <input type="text" id="nf-custom-to-custom" placeholder="Name oder Adresse" style="display:none;margin-top:6px;border:1.5px solid #1565c0;border-radius:10px;padding:8px 10px;font-size:12px;font-family:inherit;box-sizing:border-box">
-      </div>
-    </div>
-    <div style="margin-bottom:12px">
-      <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:#888;margin-bottom:6px">Aktion</div>
-      <div style="display:flex;gap:8px">
-        <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:9px;border:1.5px solid #e0e0e0;border-radius:10px;cursor:pointer">
-          <input type="radio" name="nf-custom-action" value="einladen" checked style="accent-color:#2e7d32">
-          <span style="font-size:13px;font-weight:700;color:#2e7d32">Einladen</span>
-        </label>
-        <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:9px;border:1.5px solid #e0e0e0;border-radius:10px;cursor:pointer">
-          <input type="radio" name="nf-custom-action" value="ausladen" style="accent-color:#c62828">
-          <span style="font-size:13px;font-weight:700;color:#c62828">Ausladen</span>
-        </label>
-      </div>
-    </div>
-    <button class="mbtn" onclick="nfAddCustomItem()">Hinzufügen</button>
-    <button class="mbtn grey" onclick="closeModal('m-nf-custom-item')">Abbrechen</button>
-  </div>
-</div>
-
-<!-- NF TASK MODAL -->
-<div class="overlay" id="m-nf-task">
-  <div class="modal">
-    <h2>Aufgabe hinzufügen</h2>
-    <label class="tform-lbl">Aufgabe</label>
-    <input type="text" class="tform-input" id="nf-task-text" placeholder="z.B. Bühne aufbauen" style="font-family:inherit">
-    <label class="tform-lbl">Am Standort</label>
-    <div style="display:flex;flex-direction:column;margin-bottom:14px">
-      <select id="nf-task-at" style="border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit" onchange="handleLocSelectChange('nf-task-at')">
-        <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
-        <option value="__custom__">Eigene Adresse…</option>
-      </select>
-      <input type="text" id="nf-task-at-custom" placeholder="Name oder Adresse" style="display:none;margin-top:6px;border:1.5px solid #1565c0;border-radius:10px;padding:8px 10px;font-size:12px;font-family:inherit;box-sizing:border-box">
-    </div>
-    <label class="tform-lbl">Früheste Uhrzeit (optional)</label>
-    <input type="time" id="nf-task-time" class="tform-input" style="font-family:inherit">
-    <label class="tform-lbl">Notiz (optional)</label>
-    <textarea class="tform-input" id="nf-task-note" rows="2" placeholder="Zusätzliche Infos..." style="font-family:inherit;resize:vertical"></textarea>
-    <button class="mbtn" onclick="nfAddTask()">Hinzufügen</button>
-    <button class="mbtn grey" onclick="closeModal('m-nf-task')">Abbrechen</button>
-  </div>
-</div>
-
-<!-- ADD INVENTORY ITEM TO FAHRT MODAL -->
-<div class="overlay" id="m-add-fahrt-item-inv">
-  <div class="modal" style="max-height:85vh;display:flex;flex-direction:column">
-    <h2>Inventarartikel hinzufügen</h2>
-    <div id="afi-inv-route-info" style="display:none;align-items:center;gap:6px;margin-bottom:10px;padding:7px 10px;background:#f5f7fa;border-radius:8px"></div>
-    <div id="afi-inv-route-section">
-      <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:#888;margin-bottom:6px">Route</div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-        <div style="flex:1;display:flex;flex-direction:column">
-          <select id="afi-inv-from" style="border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit" onchange="handleLocSelectChange('afi-inv-from')">
-            <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
-            <option value="__custom__">Eigene Adresse…</option>
-          </select>
-          <input type="text" id="afi-inv-from-custom" placeholder="Name oder Adresse" style="display:none;margin-top:6px;border:1.5px solid #1565c0;border-radius:10px;padding:8px 10px;font-size:12px;font-family:inherit;box-sizing:border-box">
-        </div>
-        <span style="color:#888;font-weight:700;flex-shrink:0">→</span>
-        <div style="flex:1;display:flex;flex-direction:column">
-          <select id="afi-inv-to" style="border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit" onchange="handleLocSelectChange('afi-inv-to')">
-            <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS" selected>LAKESIDE</option>
-            <option value="__custom__">Eigene Adresse…</option>
-          </select>
-          <input type="text" id="afi-inv-to-custom" placeholder="Name oder Adresse" style="display:none;margin-top:6px;border:1.5px solid #1565c0;border-radius:10px;padding:8px 10px;font-size:12px;font-family:inherit;box-sizing:border-box">
-        </div>
-      </div>
-    </div>
-    <div style="margin-bottom:8px"></div>
-    <div id="inv-picker-list" style="overflow-y:auto;flex:1;margin-bottom:10px"></div>
-    <label style="display:flex;align-items:center;gap:8px;margin:10px 0 10px;cursor:pointer">
-      <input type="checkbox" id="afi-inv-rueck" style="width:16px;height:16px;accent-color:#1565c0">
-      <span style="font-size:13px;font-weight:700;color:#555">Rückfahrt nötig</span>
-    </label>
-    <label class="tform-lbl">Kommentar (optional, für nächsten Artikel)</label>
-    <textarea id="afi-inv-comment" class="tform-input" placeholder="Hinweis, Lagerort, Zustand…" style="min-height:50px;resize:vertical;font-family:inherit;margin-bottom:10px"></textarea>
-    <div id="afi-inv-auch-ausladen" style="display:none;border-top:1px solid #f0f2f5;padding-top:10px;margin-bottom:10px">
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:6px">
-        <input type="checkbox" id="afi-inv-auch-aus-check" style="width:16px;height:16px;accent-color:#c62828" onchange="document.getElementById('afi-inv-auch-aus-dest').style.display=this.checked?'block':'none'">
-        <span style="font-size:13px;font-weight:700;color:#b71c1c">Direkt auch ausladen</span>
-      </label>
-      <div id="afi-inv-auch-aus-dest" style="display:none;margin-top:4px">
-        <div style="font-size:11px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">Ausladen bei</div>
-        <select id="afi-inv-auch-aus-to" style="width:100%;border:1.5px solid #fbbcbc;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff8f8;outline:none;font-family:inherit">
-          <option value="AS">amSee Leipzig</option>
-          <option value="EG">EVENTGIESSEREI</option>
-          <option value="LS">LAKESIDE</option>
-        </select>
-      </div>
-    </div>
-    <button class="mbtn grey" onclick="closeModal('m-add-fahrt-item-inv')">Schließen</button>
-  </div>
-</div>
-
-<!-- ADD CUSTOM ITEM TO FAHRT MODAL -->
-<div class="overlay" id="m-add-fahrt-item-custom">
-  <div class="modal">
-    <h2>+ Eigener Artikel</h2>
-    <label class="tform-lbl">Bezeichnung</label>
-    <input type="text" class="tform-input" id="afi-name" placeholder="z.B. Kabeltrommel" style="font-family:inherit">
-    <label class="tform-lbl">Menge</label>
-    <input type="number" class="tform-input" id="afi-menge" value="1" min="1" style="font-family:inherit">
-    <div id="afi-route-info" style="display:none;align-items:center;gap:6px;margin-bottom:10px;padding:7px 10px;background:#f5f7fa;border-radius:8px"></div>
-    <div id="afi-route-section">
-      <label class="tform-lbl">Route</label>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-        <div style="flex:1;display:flex;flex-direction:column">
-          <select id="afi-from" style="border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit" onchange="handleLocSelectChange('afi-from')">
-            <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
-            <option value="__custom__">Eigene Adresse…</option>
-          </select>
-          <input type="text" id="afi-from-custom" placeholder="Name oder Adresse" style="display:none;margin-top:6px;border:1.5px solid #1565c0;border-radius:10px;padding:8px 10px;font-size:12px;font-family:inherit;box-sizing:border-box">
-        </div>
-        <span style="color:#888;font-weight:700;flex-shrink:0">→</span>
-        <div style="flex:1;display:flex;flex-direction:column">
-          <select id="afi-to" style="border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit" onchange="handleLocSelectChange('afi-to')">
-            <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS" selected>LAKESIDE</option>
-            <option value="__custom__">Eigene Adresse…</option>
-          </select>
-          <input type="text" id="afi-to-custom" placeholder="Name oder Adresse" style="display:none;margin-top:6px;border:1.5px solid #1565c0;border-radius:10px;padding:8px 10px;font-size:12px;font-family:inherit;box-sizing:border-box">
-        </div>
-      </div>
-    </div>
-    <div style="margin-bottom:14px"></div>
-    <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;cursor:pointer">
-      <input type="checkbox" id="afi-rueck" style="width:16px;height:16px;accent-color:#1565c0">
-      <span style="font-size:13px;font-weight:700;color:#555">Rückfahrt nötig</span>
-    </label>
-    <label class="tform-lbl">Kommentar (optional)</label>
-    <textarea id="afi-comment" class="tform-input" placeholder="Hinweis, Lagerort, Zustand…" style="min-height:60px;resize:vertical;font-family:inherit;margin-bottom:10px"></textarea>
-    <div style="margin-bottom:16px">
-      <input type="file" id="afi-photo-input" accept="image/*" style="display:none" onchange="_afiPhotoSelected(this)">
-      <button type="button" onclick="document.getElementById('afi-photo-input').click()" style="background:#f8f9fa;border:1.5px dashed #ddd;border-radius:8px;padding:8px 14px;font-size:12px;color:#666;cursor:pointer;font-family:inherit">+ Foto hinzufügen</button>
-      <span id="afi-photo-name" style="font-size:11px;color:#888;margin-left:8px"></span>
-    </div>
-    <div id="afi-auch-ausladen" style="display:none;border-top:1px solid #f0f2f5;padding-top:10px;margin-bottom:10px">
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:6px">
-        <input type="checkbox" id="afi-auch-aus-check" style="width:16px;height:16px;accent-color:#c62828" onchange="document.getElementById('afi-auch-aus-dest').style.display=this.checked?'block':'none'">
-        <span style="font-size:13px;font-weight:700;color:#b71c1c">Direkt auch ausladen</span>
-      </label>
-      <div id="afi-auch-aus-dest" style="display:none;margin-top:4px">
-        <div style="font-size:11px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">Ausladen bei</div>
-        <select id="afi-auch-aus-to" style="width:100%;border:1.5px solid #fbbcbc;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff8f8;outline:none;font-family:inherit">
-          <option value="AS">amSee Leipzig</option>
-          <option value="EG">EVENTGIESSEREI</option>
-          <option value="LS">LAKESIDE</option>
-        </select>
-      </div>
-    </div>
-    <button class="mbtn" onclick="addFahrtCustomItem()">Hinzufügen ✓</button>
-    <button class="mbtn grey" onclick="closeModal('m-add-fahrt-item-custom')">Abbrechen</button>
-  </div>
-</div>
-
-<!-- NEW FAHRT ROUTE MODAL -->
-<div class="overlay" id="m-new-fahrt-route">
-  <div class="modal">
-    <h2>+ Neue Fahrt</h2>
-    <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:#888;margin-bottom:8px">Von / Nach</div>
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
-      <div style="flex:1;display:flex;flex-direction:column">
-        <select id="nfr-from" style="border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit" onchange="handleLocSelectChange('nfr-from')">
-          <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
-          <option value="__custom__">Eigene Adresse…</option>
-        </select>
-        <input type="text" id="nfr-from-custom" placeholder="Name oder Adresse" style="display:none;margin-top:6px;border:1.5px solid #1565c0;border-radius:10px;padding:8px 10px;font-size:12px;font-family:inherit;box-sizing:border-box">
-      </div>
-      <span style="color:#888;font-weight:700;flex-shrink:0">→</span>
-      <div style="flex:1;display:flex;flex-direction:column">
-        <select id="nfr-to" style="border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit" onchange="handleLocSelectChange('nfr-to')">
-          <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS" selected>LAKESIDE</option>
-          <option value="__custom__">Eigene Adresse…</option>
-        </select>
-        <input type="text" id="nfr-to-custom" placeholder="Name oder Adresse" style="display:none;margin-top:6px;border:1.5px solid #1565c0;border-radius:10px;padding:8px 10px;font-size:12px;font-family:inherit;box-sizing:border-box">
-      </div>
-    </div>
-    <label class="tform-lbl">Abfahrtszeit (optional)</label>
-    <input type="time" id="nfr-time" class="tform-input" style="font-family:inherit;margin-bottom:16px">
-    <button class="mbtn" onclick="saveNewFahrtRoute()">Fahrt erstellen</button>
-    <button class="mbtn grey" onclick="closeModal('m-new-fahrt-route')">Abbrechen</button>
-  </div>
-</div>
-
-<!-- ADD TASK TO FAHRT MODAL -->
-<div class="overlay" id="m-afi-task">
-  <div class="modal">
-    <h2>+ Aufgabe hinzufügen</h2>
-    <div id="afi-task-route-info" style="display:none"></div>
-    <label class="tform-lbl">Aufgabe</label>
-    <input type="text" class="tform-input" id="afi-task-text" placeholder="z.B. Bühne aufbauen" style="font-family:inherit">
-    <div id="afi-task-at-section">
-      <label class="tform-lbl">Am Standort</label>
-      <div style="display:flex;flex-direction:column;margin-bottom:14px">
-        <select id="afi-task-at" style="border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit" onchange="handleLocSelectChange('afi-task-at')">
-          <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
-          <option value="__custom__">Eigene Adresse…</option>
-        </select>
-        <input type="text" id="afi-task-at-custom" placeholder="Name oder Adresse" style="display:none;margin-top:6px;border:1.5px solid #1565c0;border-radius:10px;padding:8px 10px;font-size:12px;font-family:inherit;box-sizing:border-box">
-      </div>
-    </div>
-    <label class="tform-lbl">Uhrzeit (optional)</label>
-    <input type="time" id="afi-task-time" class="tform-input" style="font-family:inherit">
-    <label class="tform-lbl">Notiz (optional)</label>
-    <textarea class="tform-input" id="afi-task-note" rows="2" placeholder="Zusätzliche Infos..." style="font-family:inherit;resize:vertical"></textarea>
-    <button class="mbtn" onclick="saveAddFahrtTask()">Hinzufügen ✓</button>
-    <button class="mbtn grey" onclick="closeModal('m-afi-task')">Abbrechen</button>
-  </div>
-</div>
-
-<!-- NAMED TEMPLATE: ADD/EDIT TASK -->
-<div class="overlay" id="m-nt-task">
-  <div class="modal">
-    <h2 id="nt-task-modal-title">Aufgabe hinzufügen</h2>
-    <input type="text" id="nt-task-text" placeholder="Aufgabe (z. B. Tische eindecken)">
-    <input type="text" id="nt-task-cat" placeholder="Kategorie (z. B. Vorbereitung)">
-    <button class="mbtn" onclick="saveNTTask()">Speichern ✓</button>
-    <button class="mbtn grey" onclick="closeModal('m-nt-task')">Abbrechen</button>
-  </div>
-</div>
-
-<!-- RÜCKFAHRT SETUP MODAL -->
-<div class="overlay" id="m-rueck-setup">
-  <div class="modal">
-    <h2>Neue Rückfahrt</h2>
-    <p style="font-size:13px;color:#888;margin-bottom:16px">Bitte Datum und Fahrer für die automatisch angelegte Rückfahrt ergänzen.</p>
-    <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:6px">Datum</label>
-    <input type="date" id="rueck-date" style="width:100%;border:1.5px solid #e0e0e0;border-radius:12px;padding:13px 14px;font-size:16px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit;box-sizing:border-box;margin-bottom:14px">
-    <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:6px">Fahrer</label>
-    <select id="rueck-driver" style="width:100%;border:1.5px solid #e0e0e0;border-radius:12px;padding:13px 14px;font-size:15px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit;box-sizing:border-box;margin-bottom:18px"></select>
-    <button class="mbtn" onclick="confirmRueckSetup()">Rückfahrt öffnen ✓</button>
-    <button class="mbtn grey" onclick="closeModal('m-rueck-setup');openFahrt(_pendingRueckId)">Später ergänzen</button>
-  </div>
-</div>
-
-<!-- RÜCKFAHRT DATUM MODAL -->
-<div class="overlay" id="m-rueck-item-date">
-  <div class="modal">
-    <h2>Rückfahrt einplanen</h2>
-    <p style="font-size:13px;color:#888;margin-bottom:16px">Wann wird dieser Artikel zurückgefahren?</p>
-    <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:6px">Datum</label>
-    <input type="date" id="rueck-item-date" style="width:100%;border:1.5px solid #e0e0e0;border-radius:12px;padding:13px 14px;font-size:16px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit;box-sizing:border-box;margin-bottom:14px">
-    <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:8px">Uhrzeit (optional)</label>
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
-      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#888;font-weight:600">
-        <input type="checkbox" id="rueck-item-allday" checked onchange="document.getElementById('rueck-item-times').style.display=this.checked?'none':'flex'" style="width:14px;height:14px;accent-color:#1565c0">
-        ganztägig
-      </label>
-      <div id="rueck-item-times" style="display:none;align-items:center;gap:6px;flex:1">
-        <input type="time" id="rueck-item-starttime" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:8px 10px;font-size:14px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
-        <span style="color:#bbb;font-size:12px;font-weight:700">–</span>
-        <input type="time" id="rueck-item-endtime" style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:8px 10px;font-size:14px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit">
-      </div>
-    </div>
-    <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:10px">Art der Rückfahrt</label>
-    <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1.5px solid #e0e0e0;border-radius:10px;cursor:pointer;margin-bottom:8px;font-size:13px;font-weight:700;color:#1c1c2e">
-      <input type="radio" name="rueck-item-type" id="rueck-type-am" value="am" checked style="width:16px;height:16px;accent-color:#1565c0">
-      <div>
-        <div>Fahrt genau an diesem Tag</div>
-        <div style="font-size:11px;font-weight:400;color:#888;margin-top:2px">Fester Termin</div>
-      </div>
-    </label>
-    <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1.5px solid #e0e0e0;border-radius:10px;cursor:pointer;margin-bottom:18px;font-size:13px;font-weight:700;color:#1c1c2e">
-      <input type="radio" name="rueck-item-type" id="rueck-type-spaet" value="spaetestens" style="width:16px;height:16px;accent-color:#1565c0">
-      <div>
-        <div>Spätestens bis zu diesem Datum</div>
-        <div style="font-size:11px;font-weight:400;color:#888;margin-top:2px">Flexibler Termin mit Deadline</div>
-      </div>
-    </label>
-    <button class="mbtn" onclick="confirmRueckItemDate()">Rückfahrt einplanen</button>
-    <button class="mbtn grey" onclick="closeModal('m-rueck-item-date')">Abbrechen</button>
-  </div>
-</div>
-
 <!-- PHOTO VIEWER OVERLAY -->
 <div id="photo-viewer" onclick="closePhotoViewer()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;align-items:center;justify-content:center;cursor:pointer">
   <img id="photo-viewer-img" src="" style="max-width:92vw;max-height:88vh;border-radius:10px;object-fit:contain;box-shadow:0 8px 40px rgba(0,0,0,.5)">
   <div style="position:absolute;top:16px;right:20px;color:#fff;font-size:26px;font-weight:300;line-height:1">×</div>
 </div>
 
-<!-- ITEM ACTIONS MODAL (···) -->
-<div class="overlay" id="m-item-actions">
+<!-- ADD LOGISTIK ITEM MODAL -->
+<div class="overlay" id="m-add-lg-item">
   <div class="modal">
-    <h2>Artikel bearbeiten</h2>
-    <button class="mbtn" onclick="itemActionEdit()">Bearbeiten</button>
-    <button class="mbtn" onclick="itemActionComment()">Mitarbeiter-Kommentar</button>
-    <button class="mbtn" onclick="itemActionPhoto()">Mitarbeiter-Foto</button>
-    <button class="mbtn grey" onclick="closeModal('m-item-actions')">Schließen</button>
-  </div>
-</div>
-
-<!-- TASK ACTIONS MODAL (···) -->
-<div class="overlay" id="m-task-actions">
-  <div class="modal">
-    <h2>Aufgabe</h2>
-    <button class="mbtn" onclick="taskActionEdit()">Bearbeiten</button>
-    <button class="mbtn" style="background:#ea4335" onclick="taskActionDelete()">Aufgabe löschen</button>
-    <button class="mbtn grey" onclick="closeModal('m-task-actions')">Schließen</button>
-  </div>
-</div>
-
-<!-- EDIT FAHRT TASK MODAL -->
-<div class="overlay" id="m-edit-fahrt-task">
-  <div class="modal">
-    <h2>Aufgabe bearbeiten</h2>
-    <label class="tform-lbl">Aufgabe</label>
-    <input type="text" id="etak-text" class="tform-input" placeholder="Aufgabe beschreiben" style="font-family:inherit">
-    <label class="tform-lbl">Uhrzeit (optional)</label>
-    <input type="time" id="etak-time" class="tform-input" style="font-family:inherit">
-    <button class="mbtn" onclick="saveEditFahrtTask()">Speichern</button>
-    <button class="mbtn grey" onclick="closeModal('m-edit-fahrt-task')">Abbrechen</button>
-  </div>
-</div>
-
-<!-- EDIT FAHRT ITEM MODAL -->
-<div class="overlay" id="m-edit-fahrt-item">
-  <div class="modal">
-    <h2>Artikel bearbeiten</h2>
-    <label class="tform-lbl">Bezeichnung</label>
-    <input type="text" class="tform-input" id="efi-name" style="font-family:inherit">
-    <label class="tform-lbl">Menge</label>
-    <input type="number" class="tform-input" id="efi-menge" min="1" style="font-family:inherit">
-    <label class="tform-lbl">Route</label>
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-      <div style="flex:1;display:flex;flex-direction:column">
-        <select id="efi-from" style="border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit" onchange="handleLocSelectChange('efi-from')">
-          <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS">LAKESIDE</option>
-          <option value="__custom__">Eigene Adresse…</option>
-        </select>
-        <input type="text" id="efi-from-custom" placeholder="Name oder Adresse" style="display:none;margin-top:6px;border:1.5px solid #1565c0;border-radius:10px;padding:8px 10px;font-size:12px;font-family:inherit;box-sizing:border-box">
-      </div>
-      <span style="color:#888;font-weight:700;flex-shrink:0">→</span>
-      <div style="flex:1;display:flex;flex-direction:column">
-        <select id="efi-to" style="border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#1c1c2e;background:#fff;outline:none;font-family:inherit" onchange="handleLocSelectChange('efi-to')">
-          <option value="AS">amSee Leipzig</option><option value="EG">EVENTGIESSEREI</option><option value="LS" selected>LAKESIDE</option>
-          <option value="__custom__">Eigene Adresse…</option>
-        </select>
-        <input type="text" id="efi-to-custom" placeholder="Name oder Adresse" style="display:none;margin-top:6px;border:1.5px solid #1565c0;border-radius:10px;padding:8px 10px;font-size:12px;font-family:inherit;box-sizing:border-box">
-      </div>
+    <h2>Neuer Eintrag</h2>
+    <div style="display:flex;gap:6px;margin-bottom:16px">
+      <button id="ali-type-einladen" onclick="setLgItemType('einladen')" style="flex:1;padding:9px 4px;border:1.5px solid #34a853;border-radius:10px;background:#eafaf1;color:#2e7d32;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit">Einladen</button>
+      <button id="ali-type-ausladen" onclick="setLgItemType('ausladen')" style="flex:1;padding:9px 4px;border:1.5px solid #e0e0e0;border-radius:10px;background:#fff;color:#888;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit">Ausladen</button>
+      <button id="ali-type-todo" onclick="setLgItemType('todo')" style="flex:1;padding:9px 4px;border:1.5px solid #e0e0e0;border-radius:10px;background:#fff;color:#888;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit">To-Do</button>
     </div>
-    <label class="tform-lbl" style="margin-top:8px">Früheste Uhrzeit (optional)</label>
-    <input type="time" id="efi-time" class="tform-input" style="font-family:inherit">
-    <label style="display:flex;align-items:center;gap:8px;margin:10px 0 14px;cursor:pointer">
-      <input type="checkbox" id="efi-rueck" style="width:16px;height:16px;accent-color:#1565c0">
-      <span style="font-size:13px;font-weight:700;color:#555">Rückfahrt nötig</span>
-    </label>
-    <label class="tform-lbl">Admin-Kommentar (für Logistiker)</label>
-    <textarea id="efi-comment" class="tform-input" placeholder="z.B. Steht im Lager hinten links…" style="min-height:60px;resize:vertical;font-family:inherit;margin-bottom:10px"></textarea>
-    <button class="mbtn" onclick="saveEditFahrtItem()">Speichern ✓</button>
-    <button class="mbtn grey" onclick="closeModal('m-edit-fahrt-item')">Abbrechen</button>
-  </div>
-</div>
-<input type="file" id="iak-photo-input" accept="image/*" capture="environment" style="display:none" onchange="_iakPhotoSelected(this)">
-
-<!-- ITEM COMMENT MODAL -->
-<div class="overlay" id="m-item-comment">
-  <div class="modal">
-    <h2>Mitarbeiter-Kommentar</h2>
-    <textarea id="iak-comment-text" style="width:100%;min-height:100px;border:1px solid #ddd;border-radius:10px;padding:10px;font-family:inherit;font-size:14px;resize:vertical;box-sizing:border-box" placeholder="z.B. Steht im Lager hinten links…"></textarea>
-    <button class="mbtn" style="margin-top:12px" onclick="saveItemComment()">Speichern ✓</button>
-    <button class="mbtn grey" onclick="closeModal('m-item-comment')">Abbrechen</button>
+    <label class="tform-lbl">Location</label>
+    <select id="ali-loc" class="tform-input" style="font-family:inherit" onchange="handleLocSelectChange('ali-loc')">
+      <option value="AS">amSee Leipzig</option>
+      <option value="EG">EVENTGIESSEREI</option>
+      <option value="LS">LAKESIDE</option>
+      <option value="__custom__">Eigene Adresse…</option>
+    </select>
+    <input type="text" id="ali-loc-custom" placeholder="Name oder Adresse" class="tform-input" style="display:none;font-family:inherit;border-color:#1565c0;background:#e8f0fe;margin-top:6px">
+    <div id="ali-dest-row">
+      <label class="tform-lbl">Wohin ausgeladen</label>
+      <select id="ali-dest" class="tform-input" style="font-family:inherit" onchange="handleLocSelectChange('ali-dest')">
+        <option value="AS">amSee Leipzig</option>
+        <option value="EG">EVENTGIESSEREI</option>
+        <option value="LS" selected>LAKESIDE</option>
+        <option value="__custom__">Eigene Adresse…</option>
+      </select>
+      <input type="text" id="ali-dest-custom" placeholder="Name oder Adresse" class="tform-input" style="display:none;font-family:inherit;border-color:#1565c0;background:#e8f0fe;margin-top:6px">
+    </div>
+    <label class="tform-lbl">Beschreibung</label>
+    <input type="text" id="ali-name" class="tform-input" placeholder="z.B. Lounge-Möbel" style="font-family:inherit">
+    <label class="tform-lbl">Kommentar (optional)</label>
+    <textarea id="ali-comment" class="tform-input" rows="2" placeholder="Zusatzinfo..." style="font-family:inherit;resize:vertical"></textarea>
+    <label class="tform-lbl">Foto (optional)</label>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <button onclick="document.getElementById('ali-photo-input').click()" style="background:#f0f7ff;border:1.5px solid #1565c0;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:700;color:#1565c0;cursor:pointer;font-family:inherit;flex-shrink:0">Foto wählen</button>
+      <span id="ali-photo-name" style="font-size:12px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+    </div>
+    <input type="file" id="ali-photo-input" accept="image/*" capture="environment" style="display:none" onchange="_aliPhotoSelected(this)">
+    <label class="tform-lbl">Datum (optional)</label>
+    <input type="date" id="ali-date" class="tform-input" style="font-family:inherit">
+    <button class="mbtn" onclick="saveAddLgItem()">Hinzufügen</button>
+    <button class="mbtn grey" onclick="closeModal('m-add-lg-item')">Abbrechen</button>
   </div>
 </div>
 
