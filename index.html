@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260703-135';
+      var V='20260703-136';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -6542,34 +6542,45 @@ function renderLogistikItems(){
     const orderedLocs=['AS','EG','LS',...Object.keys(LOC_COLORS).filter(l=>!['AS','EG','LS'].includes(l))].filter(l=>allLocs.has(l));
     // Custom Locs ergänzen
     allLocs.forEach(l=>{ if(!orderedLocs.includes(l))orderedLocs.push(l); });
+    const TYPES=[
+      {key:'einladen',label:'Einladen',color:'#2e7d32',bg:'#eafaf1',border:'#c8e6c9'},
+      {key:'ausladen',label:'Ausladen',color:'#c62828',bg:'#ffeaea',border:'#ffcdd2'},
+      {key:'todo',   label:'To-Do',   color:'#1565c0',bg:'#e8f0fe',border:'#bbdefb'}
+    ];
     orderedLocs.forEach(loc=>{
       const locItems=items.filter(([,it])=>it.loc===loc);
       if(!locItems.length)return;
       const color=LOC_COLORS[loc]||'#1e3a6e';
       const name=LOC_NAMES[loc]||loc;
-      html+=`<div style="display:flex;align-items:center;gap:8px;margin:10px 0 7px">
-        <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:${color};background:${color}18;border-radius:20px;padding:3px 11px;white-space:nowrap;border:1px solid ${color}30">${escHtml(name)}</span>
-        <div style="flex:1;height:1px;background:#f0f0f0"></div>
+      html+=`<div style="display:flex;align-items:center;gap:8px;margin:14px 0 8px">
+        <div style="flex:1;height:1.5px;background:#e8e8e8"></div>
+        <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:${color};background:${color}18;border-radius:20px;padding:4px 12px;white-space:nowrap">${escHtml(name)}</span>
+        <div style="flex:1;height:1.5px;background:#e8e8e8"></div>
       </div>`;
-      locItems.forEach(([id,it])=>{
-        const checked=!!it.checked;
-        const td=TYPE_DEF[it.type||'todo'];
-        const destName=it.destLoc?(LOC_NAMES[it.destLoc]||it.destLoc):null;
-        html+=`<div class="event-card${checked?' done':''}" style="border-left-color:${td.color};${checked?'opacity:.5':''}">
-          <div style="flex:1;min-width:0;display:flex;align-items:center;gap:10px">
-            <div class="chk${checked?' on':''}" onclick="toggleLgItem('${id}')" style="flex-shrink:0"></div>
-            <div style="min-width:0;flex:1">
-              <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:3px">
-                <span style="font-size:10px;font-weight:800;background:${td.bg};color:${td.color};border-radius:8px;padding:1px 7px;text-transform:uppercase;letter-spacing:.5px;flex-shrink:0">${escHtml(td.label)}</span>
-                ${destName?`<span style="font-size:10px;color:#bbb">&#8594; ${escHtml(destName)}</span>`:''}
+      TYPES.forEach(({key,label,color:tColor,bg,border})=>{
+        const typeItems=locItems.filter(([,it])=>it.type===key);
+        if(!typeItems.length)return;
+        html+=`<div style="margin-bottom:10px">
+          <div style="background:${bg};border:1px solid ${border};border-radius:8px;padding:5px 12px;margin-bottom:5px">
+            <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:${tColor}">${escHtml(label)}</span>
+          </div>`;
+        typeItems.forEach(([id,it])=>{
+          const checked=!!it.checked;
+          const destName=it.destLoc?(LOC_NAMES[it.destLoc]||it.destLoc):null;
+          html+=`<div class="event-card${checked?' done':''}" style="border-left-color:${tColor};${checked?'opacity:.5':''}">
+            <div style="flex:1;min-width:0;display:flex;align-items:center;gap:10px">
+              <div class="chk${checked?' on':''}" onclick="toggleLgItem('${id}')" style="flex-shrink:0"></div>
+              <div style="min-width:0;flex:1">
+                <div style="font-size:14px;font-weight:700;color:${checked?'#aaa':'#1c1c2e'}">${escHtml(it.name||'')}</div>
+                ${destName?`<div style="font-size:11px;color:#999;margin-top:2px">nach: ${escHtml(destName)}</div>`:''}
+                ${it.comment?`<div style="font-size:12px;color:#888;margin-top:2px">${escHtml(it.comment)}</div>`:''}
               </div>
-              <div style="font-size:14px;font-weight:700;color:${checked?'#aaa':'#1c1c2e'}">${escHtml(it.name||'')}</div>
-              ${it.comment?`<div style="font-size:12px;color:#888;margin-top:2px">${escHtml(it.comment)}</div>`:''}
+              ${it.photo?`<img src="${it.photo}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;flex-shrink:0;cursor:pointer" onclick="event.stopPropagation();openPhotoViewer('${it.photo}')">`:''}
+              ${currentTaskUser?`<button onclick="event.stopPropagation();deleteLgItem('${id}')" style="background:none;border:none;color:#ddd;font-size:20px;cursor:pointer;padding:2px 6px;flex-shrink:0;line-height:1">×</button>`:''}
             </div>
-            ${it.photo?`<img src="${it.photo}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;flex-shrink:0;cursor:pointer" onclick="event.stopPropagation();openPhotoViewer('${it.photo}')">`:''}
-            ${currentTaskUser?`<button onclick="event.stopPropagation();deleteLgItem('${id}')" style="background:none;border:none;color:#ddd;font-size:20px;cursor:pointer;padding:2px 6px;flex-shrink:0;line-height:1">×</button>`:''}
-          </div>
-        </div>`;
+          </div>`;
+        });
+        html+='</div>';
       });
     });
     // Items ohne Location
