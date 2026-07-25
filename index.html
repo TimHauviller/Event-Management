@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260703-141';
+      var V='20260703-142';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -3902,6 +3902,36 @@ function skipSetup(){
   loadLocal(); showScreen('loc-picker');
   toast('Läuft lokal (kein Sync)');
 }
+
+// ── AUTO-UPDATE ─────────────────────────────────────────────────────
+(function(){
+  var _currentV=typeof APP_VERSION!=='undefined'?APP_VERSION:(document.querySelector('meta[name="app-version"]')||{content:''}).content;
+  // Extract version from page source
+  var _vMatch=(document.documentElement.innerHTML||'').match(/var V='([^']+)'/);
+  if(_vMatch)_currentV=_vMatch[1];
+  if(!_currentV)return;
+  function checkUpdate(){
+    fetch(location.pathname+'?_vc='+Date.now(),{cache:'no-store',method:'HEAD'})
+      .then(function(r){
+        // Use ETag or Last-Modified if available, otherwise fetch full
+        return fetch(location.pathname+'?_vc='+Date.now(),{cache:'no-store'});
+      })
+      .then(function(r){return r.text();})
+      .then(function(html){
+        var m=html.match(/var V='([^']+)'/);
+        if(m&&m[1]&&m[1]!==_currentV){
+          // New version detected — reload without query params to trigger fresh redirect
+          window.location.replace(location.pathname);
+        }
+      })
+      .catch(function(){});
+  }
+  // Check after 30s (give page time to settle), then every 2 minutes
+  setTimeout(function(){
+    checkUpdate();
+    setInterval(checkUpdate, 2*60*1000);
+  }, 30000);
+})();
 
 // ── BOOT ────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function boot(){
