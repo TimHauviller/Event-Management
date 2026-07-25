@@ -9,7 +9,7 @@
   <title>Event Checklisten</title>
   <script>
     (function(){
-      var V='20260703-142';
+      var V='20260703-143';
       var u=new URL(window.location.href);
       // If ?v is already set (any value), stop — we've already done one redirect, avoid loops
       if(u.searchParams.has('v')) return;
@@ -28,6 +28,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     :root{--accent:#3a8fd4;--bg:#f1f3f4;--card:#fff;--text:#202124;--muted:#5f6368;--border:#e0e0e0;--green:#34a853;--red:#ea4335;--r:12px}
@@ -2068,9 +2069,27 @@ function initFirebase(cfg) {
     if (!firebase.apps.length) firebase.initializeApp(cfg);
     db = firebase.database();
     fbEnabled = true;
-    subscribeGlobal();
-    db.ref('.info/connected').on('value', s => document.body.classList.toggle('offline', !s.val()));
-  subscribeTaskSystem();
+    // Sign in anonymously so security rules (auth != null) are satisfied
+    firebase.auth().signInAnonymously().catch(function(e){
+      console.warn('Anon auth failed, continuing without auth:', e.message);
+    });
+    firebase.auth().onAuthStateChanged(function(user){
+      if(user && !window._fbSubscribed){
+        window._fbSubscribed = true;
+        subscribeGlobal();
+        db.ref('.info/connected').on('value', s => document.body.classList.toggle('offline', !s.val()));
+        subscribeTaskSystem();
+      }
+    });
+    // Fallback: if auth takes >3s, connect anyway (handles case where auth not yet enabled)
+    setTimeout(function(){
+      if(!window._fbSubscribed){
+        window._fbSubscribed = true;
+        subscribeGlobal();
+        db.ref('.info/connected').on('value', s => document.body.classList.toggle('offline', !s.val()));
+        subscribeTaskSystem();
+      }
+    }, 3000);
   } catch(e) { console.error(e); toast('Firebase Fehler – App läuft lokal.'); }
 }
 
